@@ -68,8 +68,8 @@ use App\Http\Controllers\RaffleController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportSettingsController;
 use App\Http\Controllers\SamRockController;
-use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SepaController;
+use App\Http\Controllers\StatsController;
 use App\Http\Controllers\StoreApiKeyController;
 use App\Http\Controllers\StoreChecklistController;
 use App\Http\Controllers\StoreController;
@@ -848,7 +848,8 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
     // (core free feature for the Slovak cashless mandate): no guest.restrict,
     // no plan middleware, only store ownership.
     Route::prefix('stores/{store}/sepa')->middleware([EnsureStoreOwnership::class])->group(function () {
-        Route::get('/status', [SepaController::class, 'status']);
+        Route::get('/status', [SepaController::class, 'status'])
+            ->middleware('throttle:10,1');
         Route::get('/settings', [SepaController::class, 'getSettings']);
         Route::put('/settings', [SepaController::class, 'updateSettings'])
             ->middleware(AuditLog::class.':sepa.settings_updated');
@@ -856,9 +857,11 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             ->middleware(AuditLog::class.':sepa.certificate_uploaded');
         Route::delete('/certificate', [SepaController::class, 'deleteCertificate'])
             ->middleware(AuditLog::class.':sepa.certificate_deleted');
-        Route::post('/test', [SepaController::class, 'testBackend']);
+        Route::post('/test', [SepaController::class, 'testBackend'])
+            ->middleware('throttle:10,1');
         Route::get('/payment-requests', [SepaController::class, 'paymentRequests']);
         Route::post('/payment-requests/{reference}/confirm', [SepaController::class, 'confirmPaymentRequest'])
+            ->where('reference', '[a-zA-Z0-9_-]+')
             ->middleware(AuditLog::class.':sepa.payment_confirmed');
     });
 

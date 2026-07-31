@@ -175,6 +175,20 @@
               </p>
             </div>
 
+            <div>
+              <label for="sepa-env" class="block text-sm font-medium text-gray-300 mb-1">
+                {{ t("sepa.nop_environment") }}
+              </label>
+              <select
+                id="sepa-env"
+                v-model="certForm.nop_environment"
+                class="block w-full px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              >
+                <option value="INT">{{ t("sepa.env_int") }}</option>
+                <option value="PROD">{{ t("sepa.env_prod") }}</option>
+              </select>
+            </div>
+
             <div class="flex justify-end">
               <button
                 type="submit"
@@ -210,20 +224,6 @@
               </button>
             </div>
             <p v-else class="text-sm text-gray-400">{{ t("sepa.certificate_hint") }}</p>
-
-            <div>
-              <label for="sepa-env" class="block text-sm font-medium text-gray-300 mb-1">
-                {{ t("sepa.nop_environment") }}
-              </label>
-              <select
-                id="sepa-env"
-                v-model="certForm.nop_environment"
-                class="block w-full px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-              >
-                <option value="INT">{{ t("sepa.env_int") }}</option>
-                <option value="PROD">{{ t("sepa.env_prod") }}</option>
-              </select>
-            </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -439,7 +439,7 @@ interface SepaPaymentRequest {
   reviewReason: string | null;
 }
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const flashStore = useFlashStore();
 const appsStore = useAppsStore();
 const { storeId, store, error, loadStore, goSettings, goSection } = useStorePageShell();
@@ -590,6 +590,7 @@ async function uploadCertificate() {
 }
 
 async function clearCertificate() {
+  if (!window.confirm(t("sepa.certificate_clear_confirm"))) return;
   certWorking.value = true;
   try {
     const res = await api.delete(`/stores/${storeId.value}/sepa/certificate`);
@@ -631,11 +632,14 @@ async function confirmRequest(reference: string) {
 }
 
 function formatAmount(value: number): string {
-  return Number(value).toFixed(2);
+  return new Intl.NumberFormat(locale.value, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value));
 }
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString(locale.value);
 }
 
 void reload();

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Store;
+use App\Models\User;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\SepaService;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,7 @@ class SepaController extends Controller
     public function status(Request $request, Store $store): JsonResponse
     {
         $userApiKey = $this->ownerApiKey($store);
-        $cacheKey = "btcpay:sepa_probe:{$store->id}:".md5($userApiKey);
+        $cacheKey = "btcpay:sepa_probe:{$store->id}:".hash('sha256', $userApiKey);
 
         if ($request->boolean('refresh')) {
             Cache::forget($cacheKey);
@@ -205,7 +206,7 @@ class SepaController extends Controller
 
     private function ownerApiKey(Store $store): string
     {
-        /** @var \App\Models\User $owner */
+        /** @var User $owner */
         $owner = $store->user;
 
         return $owner->getBtcPayApiKeyOrFail();

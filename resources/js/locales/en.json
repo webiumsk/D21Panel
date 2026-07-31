@@ -4120,6 +4120,7 @@
     "certificate_hint": "The same certificate your cash register uses for eKasa (authentication package from the eKasa zone of the Financial Administration portal). Upload either the PEM pair or a PKCS#12 (.p12/.pfx) file. Stored encrypted on the BTCPay server; never displayed again.",
     "certificate_uploaded": "Certificate uploaded - identity",
     "certificate_clear": "Remove the stored certificate",
+    "certificate_clear_confirm": "Remove the stored eKasa certificate? NOP backends will fall back to manual confirmation.",
     "certificate_pfx": "PKCS#12 file (.p12/.pfx)",
     "certificate_pfx_password": "PKCS#12 password",
     "certificate_pem": "... or PEM certificate",

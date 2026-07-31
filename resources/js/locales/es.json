@@ -4120,6 +4120,7 @@
     "certificate_hint": "El mismo certificado que usa tu caja registradora para eKasa (paquete de autenticación de la zona eKasa del portal de la Administración Financiera). Sube el par PEM o un archivo PKCS#12 (.p12/.pfx). Se guarda cifrado en el servidor BTCPay; nunca se vuelve a mostrar.",
     "certificate_uploaded": "Certificado subido - identidad",
     "certificate_clear": "Eliminar el certificado guardado",
+    "certificate_clear_confirm": "¿Eliminar el certificado eKasa guardado? Los backends NOP volverán a la confirmación manual.",
     "certificate_pfx": "Archivo PKCS#12 (.p12/.pfx)",
     "certificate_pfx_password": "Contraseña PKCS#12",
     "certificate_pem": "... o certificado PEM",

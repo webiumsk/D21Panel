@@ -4120,6 +4120,7 @@
     "certificate_hint": "Stejný certifikát, jaký používá vaše pokladna pro eKasu (autentizační balíček z eKasa zóny portálu Finanční správy SR). Nahrajte PEM pár nebo PKCS#12 (.p12/.pfx) soubor. Uložen šifrovaně na BTCPay serveru; už se nikdy nezobrazí.",
     "certificate_uploaded": "Certifikát nahrán - identita",
     "certificate_clear": "Odstranit uložený certifikát",
+    "certificate_clear_confirm": "Odstranit uložený eKasa certifikát? NOP backendy se vrátí na ruční potvrzování.",
     "certificate_pfx": "PKCS#12 soubor (.p12/.pfx)",
     "certificate_pfx_password": "PKCS#12 heslo",
     "certificate_pem": "... nebo PEM certifikát",

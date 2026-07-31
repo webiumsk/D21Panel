@@ -4120,6 +4120,7 @@
     "certificate_hint": "Dasselbe Zertifikat, das Ihre Registrierkasse für eKasa verwendet (Authentifizierungspaket aus der eKasa-Zone des Portals der Finanzverwaltung SR). Laden Sie das PEM-Paar oder eine PKCS#12-Datei (.p12/.pfx) hoch. Verschlüsselt auf dem BTCPay-Server gespeichert; wird nie wieder angezeigt.",
     "certificate_uploaded": "Zertifikat hochgeladen - Identität",
     "certificate_clear": "Gespeichertes Zertifikat entfernen",
+    "certificate_clear_confirm": "Gespeichertes eKasa-Zertifikat entfernen? NOP-Backends fallen auf manuelle Bestätigung zurück.",
     "certificate_pfx": "PKCS#12-Datei (.p12/.pfx)",
     "certificate_pfx_password": "PKCS#12-Passwort",
     "certificate_pem": "... oder PEM-Zertifikat",

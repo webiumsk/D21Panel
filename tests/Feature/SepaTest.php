@@ -235,6 +235,33 @@ class SepaTest extends TestCase
         $response->assertJsonPath('data.available', false);
     }
 
+    public function test_status_propagates_upstream_server_errors(): void
+    {
+        Http::fake([
+            $this->pluginBase().'/settings' => Http::response(['message' => 'boom'], 500),
+        ]);
+
+        $response = $this->getJson("/api/stores/{$this->store->id}/sepa/status?refresh=1");
+
+        $response->assertStatus(500);
+    }
+
+    public function test_status_reuses_the_cached_probe(): void
+    {
+        Http::fake([
+            $this->pluginBase().'/settings' => Http::response($this->settingsBody()),
+        ]);
+
+        $this->getJson("/api/stores/{$this->store->id}/sepa/status")
+            ->assertOk()
+            ->assertJsonPath('data.available', true);
+        $this->getJson("/api/stores/{$this->store->id}/sepa/status")
+            ->assertOk()
+            ->assertJsonPath('data.available', true);
+
+        Http::assertSentCount(1);
+    }
+
     public function test_guest_accounts_have_full_access(): void
     {
         $guest = User::factory()->guest()->create();
