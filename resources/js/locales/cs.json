@@ -4092,7 +4092,7 @@
     "plugin_unavailable": "Plugin SEPA Instant QR není na BTCPay serveru nainstalován. Požádejte operátora o instalaci a zkuste to znovu.",
     "loading_failed": "Nepodařilo se načíst SEPA nastavení",
     "settings_title": "Nastavení",
-    "enabled_label": "Zapnout SEPA Instant QR na tomto store (jen EUR faktury)",
+    "enabled_label": "Zapnout SEPA Instant QR na tomto store (EUR faktury; CZ profil i CZK)",
     "country_profile": "Profil země",
     "country_profile_help": "Určuje formát QR kódu a styl platební reference.",
     "profile_sk": "Slovensko - PayMe / PAY by square",
