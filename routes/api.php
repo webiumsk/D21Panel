@@ -69,6 +69,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportSettingsController;
 use App\Http\Controllers\SamRockController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\SepaController;
 use App\Http\Controllers\StoreApiKeyController;
 use App\Http\Controllers\StoreChecklistController;
 use App\Http\Controllers\StoreController;
@@ -841,6 +842,24 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
         Route::post('/stores/{store}/stripe/test', [StripeController::class, 'testConnection']);
         Route::post('/stores/{store}/stripe/webhook/register', [StripeController::class, 'registerWebhook']);
         Route::get('/stores/{store}/stripe/webhook/status', [StripeController::class, 'getWebhookStatus']);
+    });
+
+    // SEPA Instant QR - deliberately available to ALL roles incl. guests
+    // (core free feature for the Slovak cashless mandate): no guest.restrict,
+    // no plan middleware, only store ownership.
+    Route::prefix('stores/{store}/sepa')->middleware([EnsureStoreOwnership::class])->group(function () {
+        Route::get('/status', [SepaController::class, 'status']);
+        Route::get('/settings', [SepaController::class, 'getSettings']);
+        Route::put('/settings', [SepaController::class, 'updateSettings'])
+            ->middleware(AuditLog::class.':sepa.settings_updated');
+        Route::post('/certificate', [SepaController::class, 'uploadCertificate'])
+            ->middleware(AuditLog::class.':sepa.certificate_uploaded');
+        Route::delete('/certificate', [SepaController::class, 'deleteCertificate'])
+            ->middleware(AuditLog::class.':sepa.certificate_deleted');
+        Route::post('/test', [SepaController::class, 'testBackend']);
+        Route::get('/payment-requests', [SepaController::class, 'paymentRequests']);
+        Route::post('/payment-requests/{reference}/confirm', [SepaController::class, 'confirmPaymentRequest'])
+            ->middleware(AuditLog::class.':sepa.payment_confirmed');
     });
 
     // Store API Keys

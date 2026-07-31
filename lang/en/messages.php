@@ -149,4 +149,7 @@ return [
     // Business invoicing
     'business_invoicing_available_in_pro' => 'Business invoicing is available on the PRO plan. Please upgrade to create invoices.',
     'company_limit_reached' => 'You have reached the maximum number of companies (:max) for your plan.',
+
+    // SEPA Instant QR
+    'sepa_certificate_files_required' => 'Upload either a PKCS#12 (.p12/.pfx) file or the PEM certificate together with its private key.',
 ];
