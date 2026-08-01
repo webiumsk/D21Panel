@@ -7,12 +7,33 @@
     @show-settings="goSettings"
     @show-section="goSection"
   >
-    <div class="flex-1 min-h-0 overflow-y-auto">
-      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div>
-          <h1 class="text-2xl font-bold text-white">{{ t("sepa.title") }}</h1>
-          <p class="mt-1 text-sm text-gray-400">{{ t("sepa.subtitle") }}</p>
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div class="sticky top-0 z-20 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold text-white mb-1">{{ t("sepa.title") }}</h1>
+              <p class="text-sm text-gray-400">
+                {{ t("sepa.settings_for") }}
+                <span class="text-indigo-400">{{ store?.name || "" }}</span>
+              </p>
+            </div>
+            <span
+              v-if="!pageLoading && !pluginUnavailable"
+              class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+              :class="savedBackend === 'manual'
+                ? 'bg-gray-700 text-gray-300'
+                : 'bg-green-500/15 text-green-300 border border-green-500/30'"
+            >
+              {{ t("sepa.active_backend_label") }}: {{ backendLabel(savedBackend) }}
+            </span>
+          </div>
         </div>
+      </div>
+
+      <AppScrollPane>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <p class="text-sm text-gray-400 max-w-3xl">{{ t("sepa.subtitle") }}</p>
 
         <div v-if="pageLoading" class="text-center py-12">
           <p class="text-gray-400">{{ t("common.loading") }}</p>
@@ -38,19 +59,9 @@
             class="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-5"
             @submit.prevent="saveSettings"
           >
-            <div class="flex items-center justify-between gap-3 flex-wrap">
-              <h2 class="text-lg font-semibold text-white">
-                {{ t("sepa.settings_title") }}
-              </h2>
-              <span
-                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-                :class="savedBackend === 'manual'
-                  ? 'bg-gray-700 text-gray-300'
-                  : 'bg-green-500/15 text-green-300 border border-green-500/30'"
-              >
-                {{ t("sepa.active_backend_label") }}: {{ backendLabel(savedBackend) }}
-              </span>
-            </div>
+            <h2 class="text-lg font-semibold text-white">
+              {{ t("sepa.settings_title") }}
+            </h2>
 
             <label class="flex items-center gap-3 text-sm text-gray-300">
               <input
@@ -477,7 +488,8 @@
             </table>
           </div>
         </template>
-      </div>
+        </div>
+      </AppScrollPane>
     </div>
   </RafflesPageLayout>
 </template>
@@ -486,6 +498,7 @@
 import { computed, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import RafflesPageLayout from "../../components/stores/RafflesPageLayout.vue";
+import AppScrollPane from "../../components/layout/AppScrollPane.vue";
 import { useStorePageShell } from "../../composables/useStorePageShell";
 import { useAppsStore } from "../../store/apps";
 import { useFlashStore } from "../../store/flash";
@@ -638,31 +651,38 @@ function settingsPayload(backendOverride?: string) {
 async function saveSettings() {
   Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k]);
 
-  // One Save does the whole Fio flow: the merchant picked the Fio backend,
-  // so a filled token field is stored first (creating the settings row for
-  // a brand-new store when needed) and the settings follow - no separate
-  // "save token" step to forget.
-  const wantsFio = form.confirmation_backend === "fio";
+  // Capture the selection before any request - intermediate responses must
+  // not be allowed to mutate what this Save was asked to persist.
+  const chosenBackend = form.confirmation_backend;
+  const wantsFio = chosenBackend === "fio";
   const tokenInput = fioToken.value.trim();
+
   if (wantsFio && !settings.value?.fioTokenSet && !tokenInput) {
     fieldErrors.fio_token = t("sepa.fio_token_required");
     flashStore.error(t("sepa.fio_token_required"));
     return;
   }
+  if (chosenBackend.startsWith("nop-") && !settings.value?.nopCertSet) {
+    fieldErrors.confirmation_backend = t("sepa.nop_cert_required_hint");
+    flashStore.error(t("sepa.nop_cert_required_hint"));
+    return;
+  }
 
   saving.value = true;
   try {
-    if (tokenInput) {
+    // One Save does the whole Fio flow: a filled token is stored first
+    // (creating the settings row for a brand-new store when needed) and the
+    // settings follow - no separate "save token" step to forget. Only the
+    // final PUT below is authoritative for local state.
+    if (wantsFio && tokenInput) {
       if (!settings.value?.configured) {
-        const created = await api.put(`/stores/${storeId.value}/sepa/settings`, settingsPayload("manual"));
-        applySettings(created.data?.data ?? created.data);
+        await api.put(`/stores/${storeId.value}/sepa/settings`, settingsPayload("manual"));
       }
-      const withToken = await api.post(`/stores/${storeId.value}/sepa/fio-token`, { token: tokenInput });
-      applySettings(withToken.data?.data ?? withToken.data);
+      await api.post(`/stores/${storeId.value}/sepa/fio-token`, { token: tokenInput });
       fioToken.value = "";
     }
 
-    const res = await api.put(`/stores/${storeId.value}/sepa/settings`, settingsPayload());
+    const res = await api.put(`/stores/${storeId.value}/sepa/settings`, settingsPayload(chosenBackend));
     applySettings(res.data?.data ?? res.data);
     flashStore.success(t("sepa.settings_saved"));
   } catch (err: unknown) {

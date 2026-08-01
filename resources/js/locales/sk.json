@@ -4096,6 +4096,7 @@
     "plugin_unavailable": "Plugin SEPA Instant QR nie je na BTCPay serveri nainštalovaný. Požiadajte operátora o inštaláciu a skúste znova.",
     "loading_failed": "Nepodarilo sa načítať SEPA nastavenia",
     "settings_title": "Nastavenia",
+    "settings_for": "Nastavenia pre",
     "enabled_label": "Zapnúť SEPA Instant QR na tomto store (EUR faktúry; CZ profil aj CZK)",
     "country_profile": "Profil krajiny",
     "country_profile_help": "Určuje formát QR kódu a štýl platobnej referencie.",
