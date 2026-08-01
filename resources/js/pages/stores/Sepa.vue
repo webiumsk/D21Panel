@@ -38,9 +38,19 @@
             class="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-5"
             @submit.prevent="saveSettings"
           >
-            <h2 class="text-lg font-semibold text-white">
-              {{ t("sepa.settings_title") }}
-            </h2>
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <h2 class="text-lg font-semibold text-white">
+                {{ t("sepa.settings_title") }}
+              </h2>
+              <span
+                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+                :class="savedBackend === 'manual'
+                  ? 'bg-gray-700 text-gray-300'
+                  : 'bg-green-500/15 text-green-300 border border-green-500/30'"
+              >
+                {{ t("sepa.active_backend_label") }}: {{ backendLabel(savedBackend) }}
+              </span>
+            </div>
 
             <label class="flex items-center gap-3 text-sm text-gray-300">
               <input
@@ -189,20 +199,162 @@
               <p v-if="fieldErrors.confirmation_backend" class="mt-1 text-sm text-red-400">
                 {{ fieldErrors.confirmation_backend }}
               </p>
+              <p v-if="backendDirty" class="mt-1.5 text-xs text-amber-400">
+                {{ t("sepa.unsaved_backend_hint") }}
+              </p>
             </div>
 
-            <div>
-              <label for="sepa-env" class="block text-sm font-medium text-gray-300 mb-1">
-                {{ t("sepa.nop_environment") }}
-              </label>
-              <select
-                id="sepa-env"
-                v-model="certForm.nop_environment"
-                class="block w-full px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+            <!-- Fio section - only when the Fio backend is selected -->
+            <div
+              v-if="form.confirmation_backend === 'fio'"
+              class="rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4 space-y-3"
+            >
+              <h3 class="text-sm font-semibold text-white">{{ t("sepa.fio_title") }}</h3>
+              <div
+                v-if="settings?.fioTokenSet"
+                class="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-sm text-green-300"
               >
-                <option value="INT">{{ t("sepa.env_int") }}</option>
-                <option value="PROD">{{ t("sepa.env_prod") }}</option>
-              </select>
+                <p>{{ t("sepa.fio_token_stored") }}</p>
+                <button
+                  type="button"
+                  :disabled="fioWorking"
+                  class="mt-1 text-red-400 hover:text-red-300 disabled:opacity-60"
+                  @click="clearFioToken"
+                >
+                  {{ t("sepa.fio_token_clear") }}
+                </button>
+              </div>
+              <p v-else class="text-xs text-gray-400">{{ t("sepa.fio_hint") }}</p>
+              <div>
+                <label for="sepa-fio-token" class="sr-only">{{ t("sepa.fio_title") }}</label>
+                <input
+                  id="sepa-fio-token"
+                  v-model="fioToken"
+                  type="password"
+                  autocomplete="new-password"
+                  :placeholder="settings?.fioTokenSet ? t('sepa.fio_token_replace_placeholder') : t('sepa.fio_token_placeholder')"
+                  class="block w-full px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                />
+                <p v-if="fieldErrors.fio_token" class="mt-1 text-sm text-red-400">{{ fieldErrors.fio_token }}</p>
+                <p class="mt-1.5 text-xs text-gray-500">{{ t("sepa.fio_token_saved_with_settings") }}</p>
+              </div>
+            </div>
+
+            <!-- NOP section - only when a NOP backend is selected -->
+            <div
+              v-if="isNopBackend"
+              class="rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4 space-y-4"
+            >
+              <h3 class="text-sm font-semibold text-white">{{ t("sepa.certificate_title") }}</h3>
+
+              <div
+                v-if="settings?.nopCertSet"
+                class="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-sm text-green-300"
+              >
+                <p>
+                  {{ t("sepa.certificate_uploaded") }}
+                  <span class="font-mono">{{ settings?.nopVatsk }}</span>
+                  /
+                  <span class="font-mono">POKLADNICA-{{ settings?.nopPokladnica }}</span>
+                </p>
+                <button
+                  type="button"
+                  :disabled="certWorking"
+                  class="mt-1 text-red-400 hover:text-red-300 disabled:opacity-60"
+                  @click="clearCertificate"
+                >
+                  {{ t("sepa.certificate_clear") }}
+                </button>
+              </div>
+              <div v-else class="space-y-1">
+                <p class="text-xs text-amber-400">{{ t("sepa.nop_cert_required_hint") }}</p>
+                <p class="text-xs text-gray-400">{{ t("sepa.certificate_hint") }}</p>
+              </div>
+
+              <div>
+                <label for="sepa-env" class="block text-sm font-medium text-gray-300 mb-1">
+                  {{ t("sepa.nop_environment") }}
+                </label>
+                <select
+                  id="sepa-env"
+                  v-model="certForm.nop_environment"
+                  class="block w-full px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                >
+                  <option value="INT">{{ t("sepa.env_int") }}</option>
+                  <option value="PROD">{{ t("sepa.env_prod") }}</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="sepa-pfx" class="block text-sm font-medium text-gray-300 mb-1">
+                    {{ t("sepa.certificate_pfx") }}
+                  </label>
+                  <input
+                    id="sepa-pfx"
+                    ref="pfxInput"
+                    type="file"
+                    accept=".p12,.pfx"
+                    class="block w-full text-sm text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-700 file:px-3 file:py-2 file:text-sm file:text-gray-200"
+                    @change="onFileChange('pfx', $event)"
+                  />
+                </div>
+                <div>
+                  <label for="sepa-pfx-password" class="block text-sm font-medium text-gray-300 mb-1">
+                    {{ t("sepa.certificate_pfx_password") }}
+                  </label>
+                  <input
+                    id="sepa-pfx-password"
+                    v-model="certForm.pfx_password"
+                    type="password"
+                    autocomplete="new-password"
+                    class="block w-full px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="sepa-cert-pem" class="block text-sm font-medium text-gray-300 mb-1">
+                    {{ t("sepa.certificate_pem") }}
+                  </label>
+                  <input
+                    id="sepa-cert-pem"
+                    ref="certPemInput"
+                    type="file"
+                    accept=".pem,.crt"
+                    class="block w-full text-sm text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-700 file:px-3 file:py-2 file:text-sm file:text-gray-200"
+                    @change="onFileChange('cert', $event)"
+                  />
+                </div>
+                <div>
+                  <label for="sepa-key-pem" class="block text-sm font-medium text-gray-300 mb-1">
+                    {{ t("sepa.certificate_pem_key") }}
+                  </label>
+                  <input
+                    id="sepa-key-pem"
+                    ref="keyPemInput"
+                    type="file"
+                    accept=".pem,.key"
+                    class="block w-full text-sm text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-700 file:px-3 file:py-2 file:text-sm file:text-gray-200"
+                    @change="onFileChange('key', $event)"
+                  />
+                </div>
+              </div>
+
+              <div class="flex justify-end">
+                <button
+                  type="button"
+                  :disabled="certWorking || !settings?.configured || (!certFiles.pfx && !(certFiles.cert && certFiles.key))"
+                  class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                  @click="uploadCertificate"
+                >
+                  {{ certWorking ? t("common.saving") : t("sepa.certificate_upload") }}
+                </button>
+              </div>
+              <p v-if="!settings?.configured" class="text-xs text-gray-500 text-right">
+                {{ t("sepa.certificate_needs_saved_settings") }}
+              </p>
             </div>
 
             <div class="flex justify-end">
@@ -216,143 +368,16 @@
             </div>
           </form>
 
-          <!-- Fio token -->
-          <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-white">{{ t("sepa.fio_title") }}</h2>
-            <div
-              v-if="settings?.fioTokenSet"
-              class="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-sm text-green-300"
-            >
-              <p>{{ t("sepa.fio_token_stored") }}</p>
-              <button
-                type="button"
-                :disabled="fioWorking"
-                class="mt-2 text-red-400 hover:text-red-300 disabled:opacity-60"
-                @click="clearFioToken"
-              >
-                {{ t("sepa.fio_token_clear") }}
-              </button>
-            </div>
-            <p v-else class="text-sm text-gray-400">{{ t("sepa.fio_hint") }}</p>
-            <div class="flex gap-3">
-              <label for="sepa-fio-token" class="sr-only">{{ t("sepa.fio_title") }}</label>
-              <input
-                id="sepa-fio-token"
-                v-model="fioToken"
-                type="password"
-                autocomplete="new-password"
-                :placeholder="t('sepa.fio_token_placeholder')"
-                class="block flex-1 px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
-              />
-              <button
-                type="button"
-                :disabled="fioWorking || !fioToken.trim()"
-                class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                @click="saveFioToken"
-              >
-                {{ fioWorking ? t("common.saving") : t("sepa.fio_token_save") }}
-              </button>
-            </div>
-          </div>
-
-          <!-- NOP certificate -->
-          <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-5">
-            <h2 class="text-lg font-semibold text-white">{{ t("sepa.certificate_title") }}</h2>
-
-            <div
-              v-if="settings?.nopCertSet"
-              class="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-sm text-green-300"
-            >
-              <p>
-                {{ t("sepa.certificate_uploaded") }}
-                <span class="font-mono">{{ settings?.nopVatsk }}</span>
-                /
-                <span class="font-mono">POKLADNICA-{{ settings?.nopPokladnica }}</span>
-              </p>
-              <button
-                type="button"
-                :disabled="certWorking"
-                class="mt-2 text-red-400 hover:text-red-300 disabled:opacity-60"
-                @click="clearCertificate"
-              >
-                {{ t("sepa.certificate_clear") }}
-              </button>
-            </div>
-            <p v-else class="text-sm text-gray-400">{{ t("sepa.certificate_hint") }}</p>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label for="sepa-pfx" class="block text-sm font-medium text-gray-300 mb-1">
-                  {{ t("sepa.certificate_pfx") }}
-                </label>
-                <input
-                  id="sepa-pfx"
-                  ref="pfxInput"
-                  type="file"
-                  accept=".p12,.pfx"
-                  class="block w-full text-sm text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-700 file:px-3 file:py-2 file:text-sm file:text-gray-200"
-                  @change="onFileChange('pfx', $event)"
-                />
-              </div>
-              <div>
-                <label for="sepa-pfx-password" class="block text-sm font-medium text-gray-300 mb-1">
-                  {{ t("sepa.certificate_pfx_password") }}
-                </label>
-                <input
-                  id="sepa-pfx-password"
-                  v-model="certForm.pfx_password"
-                  type="password"
-                  autocomplete="new-password"
-                  class="block w-full px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label for="sepa-cert-pem" class="block text-sm font-medium text-gray-300 mb-1">
-                  {{ t("sepa.certificate_pem") }}
-                </label>
-                <input
-                  id="sepa-cert-pem"
-                  ref="certPemInput"
-                  type="file"
-                  accept=".pem,.crt"
-                  class="block w-full text-sm text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-700 file:px-3 file:py-2 file:text-sm file:text-gray-200"
-                  @change="onFileChange('cert', $event)"
-                />
-              </div>
-              <div>
-                <label for="sepa-key-pem" class="block text-sm font-medium text-gray-300 mb-1">
-                  {{ t("sepa.certificate_pem_key") }}
-                </label>
-                <input
-                  id="sepa-key-pem"
-                  ref="keyPemInput"
-                  type="file"
-                  accept=".pem,.key"
-                  class="block w-full text-sm text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-700 file:px-3 file:py-2 file:text-sm file:text-gray-200"
-                  @change="onFileChange('key', $event)"
-                />
-              </div>
-            </div>
-
-            <div class="flex justify-end">
-              <button
-                type="button"
-                :disabled="certWorking || (!certFiles.pfx && !(certFiles.cert && certFiles.key))"
-                class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                @click="uploadCertificate"
-              >
-                {{ certWorking ? t("common.saving") : t("sepa.certificate_upload") }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Backend test -->
-          <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-white">{{ t("sepa.test_title") }}</h2>
+          <!-- Backend test - only meaningful for a saved automated backend -->
+          <div
+            v-if="savedBackend !== 'manual'"
+            class="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-4"
+          >
+            <h2 class="text-lg font-semibold text-white">
+              {{ t("sepa.test_title") }} - {{ backendLabel(savedBackend) }}
+            </h2>
             <p class="text-sm text-gray-400">{{ t("sepa.test_help") }}</p>
+            <p v-if="backendDirty" class="text-xs text-amber-400">{{ t("sepa.test_saved_state_hint") }}</p>
             <div class="flex items-center gap-4">
               <button
                 type="button"
@@ -538,6 +563,21 @@ const pfxInput = ref<HTMLInputElement | null>(null);
 const certPemInput = ref<HTMLInputElement | null>(null);
 const keyPemInput = ref<HTMLInputElement | null>(null);
 
+const savedBackend = computed(() => (settings.value?.configured ? settings.value.confirmationBackend : "manual"));
+const backendDirty = computed(
+  () => !!settings.value?.configured && form.confirmation_backend !== settings.value.confirmationBackend,
+);
+const isNopBackend = computed(() => form.confirmation_backend.startsWith("nop-"));
+
+function backendLabel(backend: string): string {
+  const key =
+    backend === "fio" ? "sepa.backend_fio_short"
+    : backend === "nop-mqtt" ? "sepa.backend_nop_mqtt_short"
+    : backend === "nop-rest" ? "sepa.backend_nop_rest_short"
+    : "sepa.backend_manual_short";
+  return t(key);
+}
+
 const pendingRequests = computed(() => requests.value.filter((r) => r.state === "PENDING"));
 const reviewRequests = computed(() => requests.value.filter((r) => r.state === "MANUAL_REVIEW"));
 
@@ -579,24 +619,50 @@ async function reload(refreshProbe = false) {
   }
 }
 
+function settingsPayload(backendOverride?: string) {
+  return {
+    enabled: form.enabled,
+    country_profile: form.country_profile,
+    sk_qr_variant: form.sk_qr_variant,
+    iban: form.iban,
+    beneficiary: form.beneficiary,
+    bic: form.bic || null,
+    message: form.message || null,
+    confirmation_backend: backendOverride ?? form.confirmation_backend,
+    checkout_confirm_enabled: form.checkout_confirm_enabled,
+    amount_tolerance: form.amount_tolerance || 0,
+    nop_environment: certForm.nop_environment,
+  };
+}
+
 async function saveSettings() {
-  saving.value = true;
   Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k]);
+
+  // One Save does the whole Fio flow: the merchant picked the Fio backend,
+  // so a filled token field is stored first (creating the settings row for
+  // a brand-new store when needed) and the settings follow - no separate
+  // "save token" step to forget.
+  const wantsFio = form.confirmation_backend === "fio";
+  const tokenInput = fioToken.value.trim();
+  if (wantsFio && !settings.value?.fioTokenSet && !tokenInput) {
+    fieldErrors.fio_token = t("sepa.fio_token_required");
+    flashStore.error(t("sepa.fio_token_required"));
+    return;
+  }
+
+  saving.value = true;
   try {
-    const payload = {
-      enabled: form.enabled,
-      country_profile: form.country_profile,
-      sk_qr_variant: form.sk_qr_variant,
-      iban: form.iban,
-      beneficiary: form.beneficiary,
-      bic: form.bic || null,
-      message: form.message || null,
-      confirmation_backend: form.confirmation_backend,
-      checkout_confirm_enabled: form.checkout_confirm_enabled,
-      amount_tolerance: form.amount_tolerance || 0,
-      nop_environment: certForm.nop_environment,
-    };
-    const res = await api.put(`/stores/${storeId.value}/sepa/settings`, payload);
+    if (tokenInput) {
+      if (!settings.value?.configured) {
+        const created = await api.put(`/stores/${storeId.value}/sepa/settings`, settingsPayload("manual"));
+        applySettings(created.data?.data ?? created.data);
+      }
+      const withToken = await api.post(`/stores/${storeId.value}/sepa/fio-token`, { token: tokenInput });
+      applySettings(withToken.data?.data ?? withToken.data);
+      fioToken.value = "";
+    }
+
+    const res = await api.put(`/stores/${storeId.value}/sepa/settings`, settingsPayload());
     applySettings(res.data?.data ?? res.data);
     flashStore.success(t("sepa.settings_saved"));
   } catch (err: unknown) {
@@ -648,21 +714,6 @@ async function uploadCertificate() {
     flashStore.error(getApiErrorMessage(err, t("sepa.certificate_upload_failed")));
   } finally {
     certWorking.value = false;
-  }
-}
-
-async function saveFioToken() {
-  if (!fioToken.value.trim()) return;
-  fioWorking.value = true;
-  try {
-    const res = await api.post(`/stores/${storeId.value}/sepa/fio-token`, { token: fioToken.value.trim() });
-    applySettings(res.data?.data ?? res.data);
-    fioToken.value = "";
-    flashStore.success(t("sepa.fio_token_saved"));
-  } catch (err: unknown) {
-    flashStore.error(getApiErrorMessage(err, t("sepa.fio_token_save_failed")));
-  } finally {
-    fioWorking.value = false;
   }
 }
 
