@@ -41,6 +41,8 @@ const settings = {
     amountTolerance: 0,
     nopEnvironment: "INT",
     nopCertSet: true,
+    fioTokenSet: false,
+    checkoutConfirmEnabled: true,
     nopVatsk: "VATSK-1234567890",
     nopPokladnica: "88812345678900001",
 };
@@ -101,6 +103,11 @@ describe("Sepa store page", () => {
         const variant = wrapper.find<HTMLSelectElement>("#sepa-variant");
         expect(variant.element.value).toBe("bysquare");
         expect(wrapper.text()).toContain("VATSK-1234567890");
+        const checkoutToggle = wrapper.find<HTMLInputElement>("#sepa-checkout-confirm");
+        expect(checkoutToggle.exists()).toBe(true);
+        expect(checkoutToggle.element.checked).toBe(true);
+        expect(wrapper.text()).toContain("sepa.checkout_confirm_label");
+        expect(wrapper.text()).toContain("sepa.fio_title");
         expect(wrapper.text()).toContain("POKLADNICA-88812345678900001");
     });
 

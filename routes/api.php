@@ -857,6 +857,10 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             ->middleware(AuditLog::class.':sepa.certificate_uploaded');
         Route::delete('/certificate', [SepaController::class, 'deleteCertificate'])
             ->middleware(AuditLog::class.':sepa.certificate_deleted');
+        Route::post('/fio-token', [SepaController::class, 'setFioToken'])
+            ->middleware(AuditLog::class.':sepa.fio_token_set');
+        Route::delete('/fio-token', [SepaController::class, 'clearFioToken'])
+            ->middleware(AuditLog::class.':sepa.fio_token_cleared');
         Route::post('/test', [SepaController::class, 'testBackend'])
             ->middleware('throttle:10,1');
         Route::get('/payment-requests', [SepaController::class, 'paymentRequests']);

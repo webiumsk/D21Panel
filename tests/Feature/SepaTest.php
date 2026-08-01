@@ -54,6 +54,8 @@ class SepaTest extends TestCase
             'amountTolerance' => 0,
             'nopEnvironment' => 'INT',
             'nopCertSet' => false,
+            'fioTokenSet' => false,
+            'checkoutConfirmEnabled' => false,
             'nopVatsk' => null,
             'nopPokladnica' => null,
         ], $overrides);
@@ -87,6 +89,7 @@ class SepaTest extends TestCase
             'message' => 'Kiosk 1',
             'confirmation_backend' => 'manual',
             'sk_qr_variant' => 'bysquare',
+            'checkout_confirm_enabled' => true,
             'amount_tolerance' => 0.05,
             'nop_environment' => 'PROD',
         ]);
@@ -100,6 +103,7 @@ class SepaTest extends TestCase
                 && $request->data()['skQrVariant'] === 'bysquare'
                 && $request->data()['amountTolerance'] === 0.05
                 && $request->data()['nopEnvironment'] === 'PROD'
+                && $request->data()['checkoutConfirmEnabled'] === true
                 && $request->data()['message'] === 'Kiosk 1';
         });
     }
@@ -260,6 +264,79 @@ class SepaTest extends TestCase
             ->assertJsonPath('data.available', true);
 
         Http::assertSentCount(1);
+    }
+
+    public function test_fio_token_set_relays_trimmed_token(): void
+    {
+        Http::fake([
+            $this->pluginBase().'/fio-token' => Http::response($this->settingsBody(['fioTokenSet' => true])),
+        ]);
+
+        $token = str_repeat('a', 64);
+        $response = $this->postJson("/api/stores/{$this->store->id}/sepa/fio-token", [
+            'token' => "  {$token}  ",
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.fioTokenSet', true);
+        Http::assertSent(function (Request $request) use ($token) {
+            return $request->method() === 'POST'
+                && str_ends_with((string) $request->url(), '/plugins/sepa-instant-qr/fio-token')
+                && $request->data()['token'] === $token;
+        });
+    }
+
+    public function test_fio_token_requires_a_value(): void
+    {
+        Http::fake();
+
+        $this->postJson("/api/stores/{$this->store->id}/sepa/fio-token", [])->assertStatus(422);
+        Http::assertNothingSent();
+    }
+
+    public function test_fio_token_rejects_invalid_lengths_locally(): void
+    {
+        Http::fake();
+
+        foreach (['   ', str_repeat('a', 63), str_repeat('a', 65)] as $invalid) {
+            $this->postJson("/api/stores/{$this->store->id}/sepa/fio-token", [
+                'token' => $invalid,
+            ])->assertStatus(422);
+        }
+
+        Http::assertNothingSent();
+    }
+
+    public function test_fio_token_clear_proxies(): void
+    {
+        Http::fake([
+            $this->pluginBase().'/fio-token' => Http::response($this->settingsBody(['confirmationBackend' => 'manual'])),
+        ]);
+
+        $response = $this->deleteJson("/api/stores/{$this->store->id}/sepa/fio-token");
+
+        $response->assertOk();
+        $response->assertJsonPath('data.confirmationBackend', 'manual');
+    }
+
+    public function test_fio_backend_is_a_valid_option(): void
+    {
+        Http::fake([
+            $this->pluginBase().'/settings' => Http::response($this->settingsBody(['confirmationBackend' => 'fio'])),
+        ]);
+
+        $response = $this->putJson("/api/stores/{$this->store->id}/sepa/settings", [
+            'enabled' => true,
+            'country_profile' => 'SK',
+            'iban' => 'SK6807200002891987426353',
+            'beneficiary' => 'My Company s.r.o.',
+            'confirmation_backend' => 'fio',
+            'sk_qr_variant' => 'payme',
+            'amount_tolerance' => 0,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.confirmationBackend', 'fio');
     }
 
     public function test_guest_accounts_have_full_access(): void

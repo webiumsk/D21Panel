@@ -64,8 +64,9 @@ class SepaController extends Controller
             'beneficiary' => 'required|string|max:70',
             'bic' => 'nullable|string|max:11',
             'message' => 'nullable|string|max:60',
-            'confirmation_backend' => 'required|string|in:manual,nop-mqtt,nop-rest',
+            'confirmation_backend' => 'required|string|in:manual,fio,nop-mqtt,nop-rest',
             'sk_qr_variant' => 'required|string|in:payme,bysquare',
+            'checkout_confirm_enabled' => 'sometimes|boolean',
             'amount_tolerance' => 'required|numeric|min:0|max:10',
             'nop_environment' => 'nullable|string|in:INT,PROD',
         ]);
@@ -79,6 +80,7 @@ class SepaController extends Controller
             'message' => $validated['message'] ?? null,
             'confirmationBackend' => $validated['confirmation_backend'],
             'skQrVariant' => $validated['sk_qr_variant'],
+            'checkoutConfirmEnabled' => (bool) ($validated['checkout_confirm_enabled'] ?? false),
             'amountTolerance' => (float) $validated['amount_tolerance'],
         ];
         if (! empty($validated['nop_environment'])) {
@@ -137,6 +139,44 @@ class SepaController extends Controller
 
         try {
             $settings = $this->sepaService->uploadCertificate($store->btcpay_store_id, $payload, $userApiKey);
+
+            return response()->json(['data' => $settings]);
+        } catch (BtcPayException $e) {
+            return $this->handleBtcPayError($e);
+        }
+    }
+
+    public function setFioToken(Request $request, Store $store): JsonResponse
+    {
+        // Normalize before validating so surrounding whitespace is tolerated
+        // but anything that is not exactly a 64-char token never reaches the
+        // plugin (Fio tokens are exactly 64 characters).
+        $request->merge(['token' => trim((string) $request->input('token'))]);
+        $validated = $request->validate([
+            'token' => 'required|string|size:64',
+        ]);
+
+        $userApiKey = $this->ownerApiKey($store);
+
+        try {
+            $settings = $this->sepaService->setFioToken(
+                $store->btcpay_store_id,
+                ['token' => $validated['token']],
+                $userApiKey
+            );
+
+            return response()->json(['data' => $settings]);
+        } catch (BtcPayException $e) {
+            return $this->handleBtcPayError($e);
+        }
+    }
+
+    public function clearFioToken(Store $store): JsonResponse
+    {
+        $userApiKey = $this->ownerApiKey($store);
+
+        try {
+            $settings = $this->sepaService->clearFioToken($store->btcpay_store_id, $userApiKey);
 
             return response()->json(['data' => $settings]);
         } catch (BtcPayException $e) {

@@ -112,6 +112,21 @@
               <p v-if="fieldErrors.beneficiary" class="mt-1 text-sm text-red-400">{{ fieldErrors.beneficiary }}</p>
             </div>
 
+            <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+              <label class="flex items-start gap-3 text-sm text-gray-300">
+                <input
+                  id="sepa-checkout-confirm"
+                  v-model="form.checkout_confirm_enabled"
+                  type="checkbox"
+                  class="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
+                />
+                <span>
+                  {{ t("sepa.checkout_confirm_label") }}
+                  <span class="block mt-1 text-xs text-amber-400">{{ t("sepa.checkout_confirm_warning") }}</span>
+                </span>
+              </label>
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label for="sepa-bic" class="block text-sm font-medium text-gray-300 mb-1">
@@ -166,6 +181,7 @@
                 class="block w-full px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
               >
                 <option value="manual">{{ t("sepa.backend_manual") }}</option>
+                <option value="fio">{{ t("sepa.backend_fio") }}</option>
                 <option value="nop-mqtt">{{ t("sepa.backend_nop_mqtt") }}</option>
                 <option value="nop-rest">{{ t("sepa.backend_nop_rest") }}</option>
               </select>
@@ -199,6 +215,45 @@
               </button>
             </div>
           </form>
+
+          <!-- Fio token -->
+          <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-white">{{ t("sepa.fio_title") }}</h2>
+            <div
+              v-if="settings?.fioTokenSet"
+              class="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-sm text-green-300"
+            >
+              <p>{{ t("sepa.fio_token_stored") }}</p>
+              <button
+                type="button"
+                :disabled="fioWorking"
+                class="mt-2 text-red-400 hover:text-red-300 disabled:opacity-60"
+                @click="clearFioToken"
+              >
+                {{ t("sepa.fio_token_clear") }}
+              </button>
+            </div>
+            <p v-else class="text-sm text-gray-400">{{ t("sepa.fio_hint") }}</p>
+            <div class="flex gap-3">
+              <label for="sepa-fio-token" class="sr-only">{{ t("sepa.fio_title") }}</label>
+              <input
+                id="sepa-fio-token"
+                v-model="fioToken"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="t('sepa.fio_token_placeholder')"
+                class="block flex-1 px-4 py-3 rounded-xl border border-gray-600 bg-gray-700/50 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+              />
+              <button
+                type="button"
+                :disabled="fioWorking || !fioToken.trim()"
+                class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                @click="saveFioToken"
+              >
+                {{ fioWorking ? t("common.saving") : t("sepa.fio_token_save") }}
+              </button>
+            </div>
+          </div>
 
           <!-- NOP certificate -->
           <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-5">
@@ -425,6 +480,8 @@ interface SepaSettings {
   amountTolerance: number;
   nopEnvironment: string;
   nopCertSet: boolean;
+  fioTokenSet: boolean;
+  checkoutConfirmEnabled: boolean;
   nopVatsk: string | null;
   nopPokladnica: string | null;
 }
@@ -458,6 +515,7 @@ const fieldErrors = reactive<Record<string, string>>({});
 
 const form = reactive({
   enabled: false,
+  checkout_confirm_enabled: false,
   country_profile: "SK",
   sk_qr_variant: "payme",
   iban: "",
@@ -469,6 +527,8 @@ const form = reactive({
 });
 
 const certForm = reactive({ pfx_password: "", nop_environment: "INT" });
+const fioToken = ref("");
+const fioWorking = ref(false);
 const certFiles = reactive<{ pfx: File | null; cert: File | null; key: File | null }>({
   pfx: null,
   cert: null,
@@ -493,6 +553,7 @@ function applySettings(data: SepaSettings) {
   form.message = data.message ?? "";
   form.confirmation_backend = data.confirmationBackend;
   form.amount_tolerance = data.amountTolerance;
+  form.checkout_confirm_enabled = data.checkoutConfirmEnabled ?? false;
   certForm.nop_environment = data.nopEnvironment || "INT";
 }
 
@@ -531,6 +592,7 @@ async function saveSettings() {
       bic: form.bic || null,
       message: form.message || null,
       confirmation_backend: form.confirmation_backend,
+      checkout_confirm_enabled: form.checkout_confirm_enabled,
       amount_tolerance: form.amount_tolerance || 0,
       nop_environment: certForm.nop_environment,
     };
@@ -586,6 +648,35 @@ async function uploadCertificate() {
     flashStore.error(getApiErrorMessage(err, t("sepa.certificate_upload_failed")));
   } finally {
     certWorking.value = false;
+  }
+}
+
+async function saveFioToken() {
+  if (!fioToken.value.trim()) return;
+  fioWorking.value = true;
+  try {
+    const res = await api.post(`/stores/${storeId.value}/sepa/fio-token`, { token: fioToken.value.trim() });
+    applySettings(res.data?.data ?? res.data);
+    fioToken.value = "";
+    flashStore.success(t("sepa.fio_token_saved"));
+  } catch (err: unknown) {
+    flashStore.error(getApiErrorMessage(err, t("sepa.fio_token_save_failed")));
+  } finally {
+    fioWorking.value = false;
+  }
+}
+
+async function clearFioToken() {
+  if (!window.confirm(t("sepa.fio_token_clear_confirm"))) return;
+  fioWorking.value = true;
+  try {
+    const res = await api.delete(`/stores/${storeId.value}/sepa/fio-token`);
+    applySettings(res.data?.data ?? res.data);
+    flashStore.success(t("sepa.fio_token_cleared"));
+  } catch (err: unknown) {
+    flashStore.error(getApiErrorMessage(err, t("sepa.fio_token_clear_failed")));
+  } finally {
+    fioWorking.value = false;
   }
 }
 
