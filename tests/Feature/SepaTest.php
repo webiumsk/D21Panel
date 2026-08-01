@@ -294,6 +294,19 @@ class SepaTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_fio_token_rejects_invalid_lengths_locally(): void
+    {
+        Http::fake();
+
+        foreach (['   ', str_repeat('a', 63), str_repeat('a', 65)] as $invalid) {
+            $this->postJson("/api/stores/{$this->store->id}/sepa/fio-token", [
+                'token' => $invalid,
+            ])->assertStatus(422);
+        }
+
+        Http::assertNothingSent();
+    }
+
     public function test_fio_token_clear_proxies(): void
     {
         Http::fake([

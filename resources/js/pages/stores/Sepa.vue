@@ -115,6 +115,7 @@
             <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
               <label class="flex items-start gap-3 text-sm text-gray-300">
                 <input
+                  id="sepa-checkout-confirm"
                   v-model="form.checkout_confirm_enabled"
                   type="checkbox"
                   class="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
@@ -234,7 +235,9 @@
             </div>
             <p v-else class="text-sm text-gray-400">{{ t("sepa.fio_hint") }}</p>
             <div class="flex gap-3">
+              <label for="sepa-fio-token" class="sr-only">{{ t("sepa.fio_title") }}</label>
               <input
+                id="sepa-fio-token"
                 v-model="fioToken"
                 type="password"
                 autocomplete="new-password"

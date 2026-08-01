@@ -148,8 +148,12 @@ class SepaController extends Controller
 
     public function setFioToken(Request $request, Store $store): JsonResponse
     {
+        // Normalize before validating so surrounding whitespace is tolerated
+        // but anything that is not exactly a 64-char token never reaches the
+        // plugin (Fio tokens are exactly 64 characters).
+        $request->merge(['token' => trim((string) $request->input('token'))]);
         $validated = $request->validate([
-            'token' => 'required|string|max:128',
+            'token' => 'required|string|size:64',
         ]);
 
         $userApiKey = $this->ownerApiKey($store);
@@ -157,7 +161,7 @@ class SepaController extends Controller
         try {
             $settings = $this->sepaService->setFioToken(
                 $store->btcpay_store_id,
-                ['token' => trim($validated['token'])],
+                ['token' => $validated['token']],
                 $userApiKey
             );
 
