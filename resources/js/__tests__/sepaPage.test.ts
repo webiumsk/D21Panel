@@ -28,7 +28,7 @@ vi.mock("../store/flash", () => ({
     useFlashStore: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
 
-const settings = {
+const baseSettings = {
     configured: true,
     enabled: true,
     countryProfile: "SK",
@@ -47,7 +47,10 @@ const settings = {
     nopPokladnica: "88812345678900001",
 };
 
-function primeApi({ available = true } = {}) {
+let settings = { ...baseSettings };
+
+function primeApi({ available = true, overrides = {} as Record<string, unknown> } = {}) {
+    settings = { ...baseSettings, ...overrides };
     apiMock.get.mockImplementation((url: string) => {
         if (url.includes("/sepa/status")) {
             return Promise.resolve({ data: { data: { available } } });
@@ -102,13 +105,33 @@ describe("Sepa store page", () => {
         expect(iban.element.value).toBe("SK6807200002891987426353");
         const variant = wrapper.find<HTMLSelectElement>("#sepa-variant");
         expect(variant.element.value).toBe("bysquare");
-        expect(wrapper.text()).toContain("VATSK-1234567890");
         const checkoutToggle = wrapper.find<HTMLInputElement>("#sepa-checkout-confirm");
         expect(checkoutToggle.exists()).toBe(true);
         expect(checkoutToggle.element.checked).toBe(true);
         expect(wrapper.text()).toContain("sepa.checkout_confirm_label");
-        expect(wrapper.text()).toContain("sepa.fio_title");
-        expect(wrapper.text()).toContain("POKLADNICA-88812345678900001");
+    });
+
+    it("shows only the section of the selected backend", async () => {
+        primeApi(); // manual backend fixture
+        const manual = await mountPage();
+        expect(manual.find("#sepa-fio-token").exists()).toBe(false);
+        expect(manual.find("#sepa-pfx").exists()).toBe(false);
+        expect(manual.text()).not.toContain("sepa.test_title");
+        expect(manual.text()).toContain("sepa.backend_manual_short");
+
+        primeApi({ overrides: { confirmationBackend: "fio", fioTokenSet: true } });
+        const fio = await mountPage();
+        expect(fio.find("#sepa-fio-token").exists()).toBe(true);
+        expect(fio.find("#sepa-pfx").exists()).toBe(false);
+        expect(fio.text()).toContain("sepa.fio_token_stored");
+        expect(fio.text()).toContain("sepa.test_title");
+
+        primeApi({ overrides: { confirmationBackend: "nop-mqtt" } });
+        const nop = await mountPage();
+        expect(nop.find("#sepa-pfx").exists()).toBe(true);
+        expect(nop.find("#sepa-fio-token").exists()).toBe(false);
+        expect(nop.text()).toContain("VATSK-1234567890");
+        expect(nop.text()).toContain("POKLADNICA-88812345678900001");
     });
 
     it("renders pending payment requests with a confirm action", async () => {
