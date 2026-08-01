@@ -75,6 +75,23 @@ class SepaService
     }
 
     /**
+     * @param  array  $data  { token }
+     */
+    public function setFioToken(string $storeId, array $data, ?string $userApiKey = null): array
+    {
+        return $this->client->withUserKey($userApiKey, function () use ($storeId, $data) {
+            return $this->client->post($this->base($storeId).'/fio-token', $data);
+        });
+    }
+
+    public function clearFioToken(string $storeId, ?string $userApiKey = null): array
+    {
+        return $this->client->withUserKey($userApiKey, function () use ($storeId) {
+            return $this->client->delete($this->base($storeId).'/fio-token');
+        });
+    }
+
+    /**
      * @return array { ok, message }
      */
     public function testBackend(string $storeId, ?string $userApiKey = null): array
