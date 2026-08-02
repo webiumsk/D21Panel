@@ -3779,6 +3779,7 @@
       "stores": "Stores",
       "pos_terminals": "PoS-Terminals & Apps",
       "pos_orders": "Bezahlte Bestellungen",
+      "volume_sats": "Volumen (sats)",
       "pos_orders_30d": "PoS-Bestellungen (30 T.)",
       "pos_volume": "PoS-Volumen ({currency})",
       "wallet_needs_support": "Brauchen Support",

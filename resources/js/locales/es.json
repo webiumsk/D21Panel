@@ -1980,6 +1980,7 @@
       "stores": "Tiendas",
       "pos_terminals": "Terminales y apps PoS",
       "pos_orders": "Pedidos pagados",
+      "volume_sats": "Volumen (sats)",
       "pos_orders_30d": "Pedidos PoS (30d)",
       "pos_volume": "Volumen PoS ({currency})",
       "wallet_needs_support": "Necesitan soporte",
