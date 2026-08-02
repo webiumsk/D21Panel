@@ -6,6 +6,7 @@ use App\Models\App;
 use App\Models\PosOrder;
 use App\Models\PosTerminal;
 use App\Models\Store;
+use App\Models\StoreSettlement;
 use App\Models\User;
 use App\Models\WalletConnection;
 use App\Services\StatsService;
@@ -26,7 +27,7 @@ class AdminController extends Controller
      */
     public function stats(): JsonResponse
     {
-        $data = Cache::remember('admin.platform_stats.v5', 600, fn () => $this->getPlatformStats());
+        $data = Cache::remember('admin.platform_stats.v6', 600, fn () => $this->getPlatformStats());
 
         return response()->json($data);
     }
@@ -36,7 +37,7 @@ class AdminController extends Controller
      */
     public function statsExport(Request $request): StreamedResponse
     {
-        $data = Cache::remember('admin.platform_stats.v5', 600, fn () => $this->getPlatformStats());
+        $data = Cache::remember('admin.platform_stats.v6', 600, fn () => $this->getPlatformStats());
 
         $response = new StreamedResponse(function () use ($data) {
             $out = fopen('php://output', 'w');
@@ -94,13 +95,31 @@ class AdminController extends Controller
         $stores7d = Store::where('created_at', '>=', $sevenDaysAgo)->count();
         $stores30d = Store::where('created_at', '>=', $thirtyDaysAgo)->count();
 
-        $posTerminalsTotal = PosTerminal::count();
+        // Native satflux terminals + BTCPay PointOfSale apps - merchants
+        // overwhelmingly use the BTCPay PoS app, which lives in `apps`.
+        $posTerminalsTotal = PosTerminal::count() + App::where('app_type', 'PointOfSale')->count();
         $appsTotal = App::count();
 
-        $posOrdersPaidTotal = PosOrder::where('status', PosOrder::STATUS_PAID)->count();
+        // Orders come from two sources: the native terminal flow (pos_orders)
+        // and BTCPay invoices settled platform-wide, which webhooks mirror
+        // into store_settlements (one row per payment - dedupe per invoice).
+        $settledBase = StoreSettlement::query()
+            ->selectRaw('store_id, btcpay_invoice_id, MIN(paid_at) as paid_at, '
+                ."MAX(COALESCE(invoice_currency, '')) as currency, "
+                .'MAX(COALESCE(invoice_amount, 0)) as amount, '
+                .'COALESCE(SUM(gross_sats), 0) as sats')
+            ->whereNotNull('paid_at')
+            ->groupBy('store_id', 'btcpay_invoice_id');
+
+        $settledInvoices = fn () => DB::query()->fromSub($settledBase, 'inv');
+
+        $settledTotal = (int) $settledInvoices()->count();
+        $settled30d = (int) $settledInvoices()->where('paid_at', '>=', $thirtyDaysAgo)->count();
+
+        $posOrdersPaidTotal = PosOrder::where('status', PosOrder::STATUS_PAID)->count() + $settledTotal;
         $posOrdersPaid30d = PosOrder::where('status', PosOrder::STATUS_PAID)
             ->where('paid_at', '>=', $thirtyDaysAgo)
-            ->count();
+            ->count() + $settled30d;
 
         // SATS: explicit SATS only (case-insensitive). EUR: everything else (fiat).
         $posOrdersAmount30dSats = (float) PosOrder::where('status', PosOrder::STATUS_PAID)
@@ -116,6 +135,21 @@ class AdminController extends Controller
             ->sum('amount');
         $posOrdersAmountTotalEur = (float) PosOrder::where('status', PosOrder::STATUS_PAID)
             ->whereRaw("UPPER(TRIM(COALESCE(currency, ''))) != ?", ['SATS'])
+            ->sum('amount');
+
+        $posOrdersAmount30dSats += (float) $settledInvoices()
+            ->where('paid_at', '>=', $thirtyDaysAgo)
+            ->whereRaw('UPPER(TRIM(currency)) = ?', ['SATS'])
+            ->sum('sats');
+        $posOrdersAmount30dEur += (float) $settledInvoices()
+            ->where('paid_at', '>=', $thirtyDaysAgo)
+            ->whereRaw('UPPER(TRIM(currency)) != ?', ['SATS'])
+            ->sum('amount');
+        $posOrdersAmountTotalSats += (float) $settledInvoices()
+            ->whereRaw('UPPER(TRIM(currency)) = ?', ['SATS'])
+            ->sum('sats');
+        $posOrdersAmountTotalEur += (float) $settledInvoices()
+            ->whereRaw('UPPER(TRIM(currency)) != ?', ['SATS'])
             ->sum('amount');
 
         $walletConnectionsNeedsSupport = WalletConnection::where('status', 'needs_support')->count();
@@ -172,6 +206,27 @@ class AdminController extends Controller
             ->pluck('total', 'day')
             ->toArray();
 
+        $dateExprInv = DB::getDriverName() === 'sqlite' ? 'date(paid_at)' : 'CAST(paid_at AS DATE)';
+        $mergeByDay = function (array &$target, $rows): void {
+            foreach ($rows as $day => $value) {
+                $target[$day] = ($target[$day] ?? 0) + (float) $value;
+            }
+        };
+        $mergeByDay($posOrdersByDay, $settledInvoices()
+            ->selectRaw("{$dateExprInv} as day, count(*) as c")
+            ->where('paid_at', '>=', $thirtyDaysAgo)
+            ->groupBy('day')->pluck('c', 'day')->toArray());
+        $mergeByDay($posOrdersAmountByDaySats, $settledInvoices()
+            ->selectRaw("{$dateExprInv} as day, COALESCE(SUM(sats), 0) as total")
+            ->where('paid_at', '>=', $thirtyDaysAgo)
+            ->whereRaw('UPPER(TRIM(currency)) = ?', ['SATS'])
+            ->groupBy('day')->pluck('total', 'day')->toArray());
+        $mergeByDay($posOrdersAmountByDayEur, $settledInvoices()
+            ->selectRaw("{$dateExprInv} as day, COALESCE(SUM(amount), 0) as total")
+            ->where('paid_at', '>=', $thirtyDaysAgo)
+            ->whereRaw('UPPER(TRIM(currency)) != ?', ['SATS'])
+            ->groupBy('day')->pluck('total', 'day')->toArray());
+
         $days30 = [];
         for ($i = 29; $i >= 0; $i--) {
             $day = now()->subDays($i)->format('Y-m-d');
@@ -225,6 +280,21 @@ class AdminController extends Controller
             ->pluck('total', 'day')
             ->toArray();
 
+        $mergeByDay($posOrdersByDay7d, $settledInvoices()
+            ->selectRaw("{$dateExprInv} as day, count(*) as c")
+            ->where('paid_at', '>=', $sevenDaysAgo)
+            ->groupBy('day')->pluck('c', 'day')->toArray());
+        $mergeByDay($posOrdersAmountByDay7dSats, $settledInvoices()
+            ->selectRaw("{$dateExprInv} as day, COALESCE(SUM(sats), 0) as total")
+            ->where('paid_at', '>=', $sevenDaysAgo)
+            ->whereRaw('UPPER(TRIM(currency)) = ?', ['SATS'])
+            ->groupBy('day')->pluck('total', 'day')->toArray());
+        $mergeByDay($posOrdersAmountByDay7dEur, $settledInvoices()
+            ->selectRaw("{$dateExprInv} as day, COALESCE(SUM(amount), 0) as total")
+            ->where('paid_at', '>=', $sevenDaysAgo)
+            ->whereRaw('UPPER(TRIM(currency)) != ?', ['SATS'])
+            ->groupBy('day')->pluck('total', 'day')->toArray());
+
         $days7 = [];
         for ($i = 6; $i >= 0; $i--) {
             $day = now()->subDays($i)->format('Y-m-d');
@@ -238,25 +308,51 @@ class AdminController extends Controller
             ];
         }
 
-        // Top stores by paid PoS orders (with amounts by currency), only stores with at least 1 order
-        $topStoresQuery = Store::whereHas('posOrders', fn ($q) => $q->where('status', PosOrder::STATUS_PAID))
-            ->withCount(['posOrders' => fn ($q) => $q->where('status', PosOrder::STATUS_PAID)])
-            ->withSum(['posOrders as pos_amount_sats' => fn ($q) => $q->where('status', PosOrder::STATUS_PAID)->whereRaw("UPPER(TRIM(COALESCE(currency, ''))) = ?", ['SATS'])], 'amount')
-            ->withSum(['posOrders as pos_amount_eur' => fn ($q) => $q->where('status', PosOrder::STATUS_PAID)->whereRaw("UPPER(TRIM(COALESCE(currency, ''))) != ?", ['SATS'])], 'amount')
-            ->with('user:id,email')
-            ->orderByDesc('pos_orders_count')
-            ->take(10)
-            ->get(['id', 'name', 'user_id']);
+        // Top stores by paid orders: native PoS orders merged with settled
+        // BTCPay invoices per store, only stores with at least 1 order.
+        $perStore = [];
+        $nativeRows = PosOrder::selectRaw(
+            'store_id, count(*) as cnt, '
+            ."COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(currency, ''))) = 'SATS' THEN amount ELSE 0 END), 0) as sats, "
+            ."COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(currency, ''))) != 'SATS' THEN amount ELSE 0 END), 0) as eur")
+            ->where('status', PosOrder::STATUS_PAID)
+            ->groupBy('store_id')
+            ->get();
+        $settledRows = $settledInvoices()
+            ->selectRaw(
+                'store_id, count(*) as cnt, '
+                ."COALESCE(SUM(CASE WHEN UPPER(TRIM(currency)) = 'SATS' THEN sats ELSE 0 END), 0) as sats, "
+                ."COALESCE(SUM(CASE WHEN UPPER(TRIM(currency)) != 'SATS' THEN amount ELSE 0 END), 0) as eur")
+            ->groupBy('store_id')
+            ->get();
+        foreach ([$nativeRows, $settledRows] as $rows) {
+            foreach ($rows as $row) {
+                $entry = $perStore[$row->store_id] ?? ['cnt' => 0, 'sats' => 0.0, 'eur' => 0.0];
+                $entry['cnt'] += (int) $row->cnt;
+                $entry['sats'] += (float) $row->sats;
+                $entry['eur'] += (float) $row->eur;
+                $perStore[$row->store_id] = $entry;
+            }
+        }
+        uasort($perStore, fn (array $a, array $b) => $b['cnt'] <=> $a['cnt']);
+        $perStore = array_slice($perStore, 0, 10, preserve_keys: true);
+        $storesById = Store::with('user:id,email')
+            ->findMany(array_keys($perStore), ['id', 'name', 'user_id'])
+            ->keyBy('id');
 
         $topStoresByPosOrders = [];
-        foreach ($topStoresQuery as $s) {
+        foreach ($perStore as $sid => $entry) {
+            $s = $storesById->get($sid);
+            if ($s === null) {
+                continue;
+            }
             $topStoresByPosOrders[] = [
                 'store_id' => $s->id,
                 'store_name' => $s->name,
                 'user_email' => $s->user?->email ?? null,
-                'pos_orders_paid' => (int) $s->pos_orders_count,
-                'pos_amount_sats' => round((float) ($s->pos_amount_sats ?? 0), 0),
-                'pos_amount_eur' => round((float) ($s->pos_amount_eur ?? 0), 2),
+                'pos_orders_paid' => $entry['cnt'],
+                'pos_amount_sats' => round($entry['sats'], 0),
+                'pos_amount_eur' => round($entry['eur'], 2),
             ];
         }
 
