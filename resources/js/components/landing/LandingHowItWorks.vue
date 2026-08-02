@@ -875,10 +875,10 @@
                   </p>
                   <div class="flex flex-wrap gap-3">
                     <a
-                      href="https://github.com/webiumsk/btcpay-greenfield-tickets/releases"
+                      href="https://wordpress.org/plugins/satflux-for-woocommerce/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="SATFLUX WooCommerce - GitHub Releases"
+                      title="SATFLUX for WooCommerce - WordPress.org"
                       class="group inline-flex flex-wrap items-center gap-2 rounded-xl border border-gray-600 bg-gray-800/80 px-4 py-2.5 transition-all hover:border-orange-500/50 hover:bg-gray-800"
                     >
                       <span
@@ -886,13 +886,13 @@
                         >{{ t("landing.step7_plugin_woocommerce") }}</span
                       >
                       <img
-                        src="https://img.shields.io/badge/license-MIT-blue.svg"
-                        alt="MIT"
+                        src="https://img.shields.io/wordpress/plugin/v/satflux-for-woocommerce?label=release"
+                        alt="release"
                         class="h-4"
                       />
                       <img
-                        src="https://img.shields.io/github/v/release/webiumsk/btcpay-greenfield-tickets?label=release"
-                        alt="release"
+                        src="https://img.shields.io/wordpress/plugin/installs/satflux-for-woocommerce?label=installs"
+                        alt="installs"
                         class="h-4"
                       />
                     </a>
