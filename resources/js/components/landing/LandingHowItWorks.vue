@@ -101,11 +101,11 @@
                 class="group block w-full max-w-md overflow-hidden rounded-2xl border border-gray-700 shadow-2xl transition-colors duration-500 hover:border-orange-500/40 hover:shadow-[0_0_32px_-6px_rgba(251,146,60,0.18)]"
               >
                 <img
-                  src="/img/satflux-register.webp"
+                  src="/img/satflux-create-account.webp"
                   :alt="t('landing.alt_register')"
                   class="block h-auto w-full"
-                  width="488"
-                  height="608"
+                  width="512"
+                  height="660"
                   loading="lazy"
                   decoding="async"
                 />
@@ -875,10 +875,10 @@
                   </p>
                   <div class="flex flex-wrap gap-3">
                     <a
-                      href="https://github.com/webiumsk/btcpay-greenfield-tickets/releases"
+                      href="https://wordpress.org/plugins/satflux-for-woocommerce/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="SATFLUX WooCommerce - GitHub Releases"
+                      :title="t('landing.step7_plugin_woocommerce_title')"
                       class="group inline-flex flex-wrap items-center gap-2 rounded-xl border border-gray-600 bg-gray-800/80 px-4 py-2.5 transition-all hover:border-orange-500/50 hover:bg-gray-800"
                     >
                       <span
@@ -886,13 +886,13 @@
                         >{{ t("landing.step7_plugin_woocommerce") }}</span
                       >
                       <img
-                        src="https://img.shields.io/badge/license-MIT-blue.svg"
-                        alt="MIT"
+                        src="https://img.shields.io/wordpress/plugin/v/satflux-for-woocommerce?label=release"
+                        :alt="t('landing.badge_release_alt')"
                         class="h-4"
                       />
                       <img
-                        src="https://img.shields.io/github/v/release/webiumsk/btcpay-greenfield-tickets?label=release"
-                        alt="release"
+                        src="https://img.shields.io/wordpress/plugin/installs/satflux-for-woocommerce?label=installs"
+                        :alt="t('landing.badge_installs_alt')"
                         class="h-4"
                       />
                     </a>
@@ -1496,6 +1496,118 @@
                 <p class="text-gray-400 text-lg md:text-xl leading-relaxed">
                   {{ t("landing.step10_text") }}
                 </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 11: SEPA Instant QR -->
+          <div
+            id="how-it-works-sepa"
+            class="landing-howitworks-step scroll-mt-24 flex flex-col md:flex-row items-center justify-between gap-10 py-16 md:py-24 relative group"
+          >
+            <div
+              class="absolute left-1/2 top-1/2 z-20 hidden h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-indigo-500/35 bg-gray-950/90 shadow-[0_0_32px_rgba(99,102,241,0.35)] backdrop-blur-sm md:flex motion-safe:transition-transform motion-safe:duration-300 group-hover:scale-110"
+              aria-hidden="true"
+            >
+              <span
+                class="block h-3 w-3 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 shadow-[0_0_14px_rgba(167,139,250,0.85)]"
+              />
+            </div>
+            <div
+              class="absolute left-6 top-14 z-20 flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-full border-2 border-orange-400/60 bg-gray-950/95 font-mono text-sm font-bold text-orange-200 shadow-[0_0_24px_rgba(251,146,60,0.4)] ring-2 ring-orange-500/15 md:hidden"
+            >
+              11
+            </div>
+
+            <div
+              class="md:w-5/12 text-left md:text-right pl-16 md:pl-0 pr-0 md:pr-16 order-1 md:order-1"
+            >
+              <div class="mb-4 flex justify-start md:justify-end">
+                <span
+                  class="inline-flex rounded-lg border border-orange-500/35 bg-orange-500/10 px-2.5 py-1 font-mono text-[11px] font-bold tabular-nums tracking-[0.2em] text-orange-300/95"
+                  aria-hidden="true"
+                >
+                  11
+                </span>
+              </div>
+              <div
+                class="rounded-2xl border border-gray-700/10 p-6 shadow-xl shadow-black/25 ring-1 ring-white/[0.04] backdrop-blur-md transition-all duration-300 group-hover:border-orange-500/25 group-hover:bg-gray-950/55 group-hover:shadow-orange-950/10 md:p-8"
+              >
+                <h3
+                  class="mb-4 bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-indigo-300/90 text-3xl font-bold md:text-5xl"
+                >
+                  {{ t("landing.step11_title") }}
+                </h3>
+                <p class="text-gray-400 text-lg md:text-xl leading-relaxed">
+                  {{ t("landing.step11_text") }}
+                </p>
+              </div>
+            </div>
+
+            <div
+              class="md:w-5/12 flex justify-start pl-16 md:pl-16 order-2 md:order-2"
+            >
+              <div
+                class="w-full max-w-md rounded-2xl border border-gray-700 bg-gradient-to-br from-sky-950/40 via-gray-900 to-indigo-950/50 p-6 shadow-2xl transition-colors duration-500 group-hover:border-sky-500/40 md:p-8"
+              >
+                <div class="mb-5 flex items-center gap-3">
+                  <div
+                    class="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/25"
+                  >
+                    <svg
+                      class="h-6 w-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M3 4h4v4H3V4zm0 12h4v4H3v-4zM17 4h4v4h-4V4zM3 10h2m4 0h2m2 0h2m4 0h2M11 4h2v4h-2V4zm0 8h2v8h-2v-8zm6 2h4v2h-4v-2zm0 4h4v2h-4v-2z"
+                      />
+                    </svg>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      class="rounded-md border border-sky-500/30 bg-gray-800/80 px-2.5 py-1 text-xs font-medium text-sky-200/90"
+                      >{{ t("landing.sepa_chip_payme") }}</span
+                    >
+                    <span
+                      class="rounded-md border border-sky-500/30 bg-gray-800/80 px-2.5 py-1 text-xs font-medium text-sky-200/90"
+                      >{{ t("landing.sepa_chip_bysquare") }}</span
+                    >
+                    <span
+                      class="rounded-md border border-gray-600 bg-gray-800/80 px-2.5 py-1 text-xs font-medium text-gray-300"
+                      >{{ t("landing.sepa_chip_qrplatba") }}</span
+                    >
+                    <span
+                      class="rounded-md border border-gray-600 bg-gray-800/80 px-2.5 py-1 text-xs font-medium text-gray-300"
+                      >{{ t("landing.sepa_chip_epc") }}</span
+                    >
+                  </div>
+                </div>
+                <ul class="space-y-3 text-sm text-gray-300">
+                  <li class="flex items-start gap-2">
+                    <span class="mt-0.5 shrink-0 text-sky-400" aria-hidden="true"
+                      >✓</span
+                    >
+                    <span>{{ t("landing.feature_sepa_bullet_qr") }}</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <span class="mt-0.5 shrink-0 text-sky-400" aria-hidden="true"
+                      >✓</span
+                    >
+                    <span>{{ t("landing.feature_sepa_bullet_confirm") }}</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <span class="mt-0.5 shrink-0 text-sky-400" aria-hidden="true"
+                      >✓</span
+                    >
+                    <span>{{ t("landing.feature_sepa_bullet_mandate") }}</span>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
