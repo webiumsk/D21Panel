@@ -97,6 +97,17 @@
               {{ platformStats.pos_orders_paid_30d }} (30d)
             </p>
           </div>
+          <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <p class="text-gray-400 text-xs font-medium mb-1">
+              {{ t("admin.dashboard.volume_sats") }}
+            </p>
+            <p class="text-2xl font-bold text-white">
+              {{ loading ? "..." : formatSats(platformStats.volume_sats_total) }}
+            </p>
+            <p v-if="platformStats.volume_sats_30d > 0" class="text-xs text-emerald-400 mt-1">
+              {{ formatSats(platformStats.volume_sats_30d) }} (30d)
+            </p>
+          </div>
           <div
             class="bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-purple-500/50 transition-all cursor-pointer"
             @click="$router.push('/support/wallet-connections')"
@@ -859,6 +870,8 @@ const platformStats = ref({
   apps_total: 0,
   pos_orders_paid_total: 0,
   pos_orders_paid_30d: 0,
+  volume_sats_total: 0,
+  volume_sats_30d: 0,
   pos_orders_amount_30d_sats: 0,
   pos_orders_amount_30d_eur: 0,
   pos_orders_amount_total_sats: 0,
@@ -909,6 +922,10 @@ function posAmountForDay(
   return amountCurrency.value === "sats"
     ? (d.pos_amount_sats ?? 0)
     : (d.pos_amount_eur ?? 0);
+}
+
+function formatSats(value: number): string {
+  return new Intl.NumberFormat("en-US").format(Math.round(value || 0)) + " sats";
 }
 
 function formatPosAmount(n: number): string {
