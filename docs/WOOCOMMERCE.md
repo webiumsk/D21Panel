@@ -22,7 +22,7 @@ WooCommerce (SATFLUX plugin)
    - `integration_token`, `integration_secret` (for invoicing API + webhooks)
    - `invoicing_enabled=0|1`
 
-Legacy URL `/woocommerce/satflux-tickets/connect` remains supported.
+Canonical connect URL is `/woocommerce/satflux-tickets/connect`; the legacy `/woocommerce/satoshi-tickets/connect` remains supported for plugins in the field.
 
 ## Integration API (invoicing)
 
@@ -77,8 +77,8 @@ WooCommerce orders can enqueue to `integration_document_inbox` instead of server
 
 - **Payment only:** any Satflux store with BTCPay credentials
 - **Invoicing:** Pro/Enterprise `business_invoicing` + company linked to store (`stores.company_id`)
-- **Tickets:** BTCPay SatoshiTickets plugin on the merchant's BTCPay Server
+- **Tickets:** Satflux Tickets plugin (fork of Satoshi Tickets) on the merchant's BTCPay Server
 
-## Upgrade from v1.x (BTCPay Satflux Tickets plugin)
+## Upgrade from v1.x (BTCPay Satoshi Tickets plugin era)
 
 Plugin v2.0 migrates `btcpay_satoshi_*` options to `satflux_*`, keeps ticket gateway ID for existing orders, and auto-enables Tickets module when ticket products exist.
