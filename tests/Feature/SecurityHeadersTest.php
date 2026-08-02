@@ -186,4 +186,46 @@ class SecurityHeadersTest extends TestCase
         preg_match('/script-src ([^;]+)/', $policy, $m);
         $this->assertStringContainsString('https://analytics.example.com', $m[1] ?? '');
     }
+
+    #[Test]
+    public function frame_src_allows_the_btcpay_origin_for_the_pos_embed(): void
+    {
+        config([
+            'security.csp.enabled' => true,
+            'security.csp.report_only' => false,
+            'services.btcpay.public_url' => 'https://btcpay.example.com/some/path',
+        ]);
+
+        $response = $this->get('/');
+
+        $csp = (string) $response->headers->get('Content-Security-Policy');
+        $frameSrc = collect(explode(';', $csp))
+            ->map(fn (string $directive) => trim($directive))
+            ->first(fn (string $directive) => str_starts_with($directive, 'frame-src'));
+
+        $this->assertNotNull($frameSrc, 'frame-src directive missing: '.$csp);
+        $this->assertStringContainsString('https://btcpay.example.com', $frameSrc);
+        $this->assertStringNotContainsString('/some/path', $frameSrc);
+    }
+
+    #[Test]
+    public function frame_src_falls_back_to_the_base_url_like_api_config(): void
+    {
+        config([
+            'security.csp.enabled' => true,
+            'security.csp.report_only' => false,
+            'services.btcpay.public_url' => '',
+            'services.btcpay.base_url' => 'https://btcpay-internal.example.com',
+        ]);
+
+        $response = $this->get('/');
+
+        $csp = (string) $response->headers->get('Content-Security-Policy');
+        $frameSrc = collect(explode(';', $csp))
+            ->map(fn (string $directive) => trim($directive))
+            ->first(fn (string $directive) => str_starts_with($directive, 'frame-src'));
+
+        $this->assertNotNull($frameSrc, 'frame-src directive missing: '.$csp);
+        $this->assertStringContainsString('https://btcpay-internal.example.com', $frameSrc);
+    }
 }
