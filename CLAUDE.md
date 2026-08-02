@@ -81,9 +81,9 @@ Browser (Vue SPA)
 - Browser sends `laravel_session` cookie + `X-XSRF-TOKEN` header on every request
 - For local dev: `SESSION_SECURE_COOKIE=false`, and set `SANCTUM_STATEFUL_DOMAINS` to the **exact** browser host:port (e.g. `localhost:8000` for `php artisan serve`, or `localhost:8080` for Docker). Plain `localhost` does not match `localhost:8000` for Sanctum stateful detection, so guest login and SPA sessions will not persist without the port.
 
-## Satoshi Tickets (BTCPay plugin)
+## Satflux Tickets (BTCPay plugin)
 
-Events/tickets use the **Webium-maintained fork** of the Satoshi Tickets plugin (not raw TChukwuleta upstream on production). Monthly merge checklist and branch model: [docs/SATOSHI_TICKETS.md](docs/SATOSHI_TICKETS.md). Fork runbook lives in the plugin repo: `BTCPayServerPluginsTChukwuleta/Plugins/BTCPayServer.Plugins.SatoshiTickets/FORK_MAINTENANCE.md` (next review **2026-06-20**).
+Events/tickets use **Satflux Tickets** - a standalone fork of Satoshi Tickets by TChukwuleta with its own identity (`BTCPayServer.Plugins.SatfluxTickets`, monorepo `~/apps/bitcoin/BTCPayServerPlugins`, branch `main`). Details: [docs/SATFLUX_TICKETS.md](docs/SATFLUX_TICKETS.md); runbook `Plugins/BTCPayServer.Plugins.SatfluxTickets/FORK_MAINTENANCE.md`. API paths are canonically `satflux-tickets` (legacy `satoshi-tickets` aliases stay functional).
 
 ## Key Conventions
 

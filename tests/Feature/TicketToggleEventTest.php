@@ -33,7 +33,7 @@ class TicketToggleEventTest extends TestCase
                 return Http::response([], 404);
             }
 
-            if ($request->method() === 'GET' && str_contains($url, '/satoshi-tickets/events/evt-1')) {
+            if ($request->method() === 'GET' && str_contains($url, '/satflux-tickets/events/evt-1')) {
                 return Http::response([
                     'id' => 'evt-1',
                     'title' => 'My event',
@@ -42,7 +42,7 @@ class TicketToggleEventTest extends TestCase
                 ], 200);
             }
 
-            if ($request->method() === 'PUT' && str_contains($url, '/satoshi-tickets/events/evt-1/toggle')) {
+            if ($request->method() === 'PUT' && str_contains($url, '/satflux-tickets/events/evt-1/toggle')) {
                 $toggleCalled = true;
 
                 return Http::response([
@@ -88,7 +88,7 @@ class TicketToggleEventTest extends TestCase
                 return Http::response([], 404);
             }
 
-            if ($request->method() === 'GET' && str_contains($url, '/satoshi-tickets/events/evt-2')) {
+            if ($request->method() === 'GET' && str_contains($url, '/satflux-tickets/events/evt-2')) {
                 return Http::response([
                     'id' => 'evt-2',
                     'title' => 'Sold event',
@@ -97,7 +97,7 @@ class TicketToggleEventTest extends TestCase
                 ], 200);
             }
 
-            if ($request->method() === 'PUT' && str_contains($url, '/satoshi-tickets/events/evt-2/toggle')) {
+            if ($request->method() === 'PUT' && str_contains($url, '/satflux-tickets/events/evt-2/toggle')) {
                 $toggleCalled = true;
             }
 
@@ -131,11 +131,11 @@ class TicketToggleEventTest extends TestCase
                 return Http::response([], 404);
             }
 
-            if ($request->method() === 'GET' && str_contains($url, '/satoshi-tickets/events/evt-3')) {
+            if ($request->method() === 'GET' && str_contains($url, '/satflux-tickets/events/evt-3')) {
                 return Http::response(['message' => 'BTCPay unavailable'], 500);
             }
 
-            if ($request->method() === 'PUT' && str_contains($url, '/satoshi-tickets/events/evt-3/toggle')) {
+            if ($request->method() === 'PUT' && str_contains($url, '/satflux-tickets/events/evt-3/toggle')) {
                 $toggleCalled = true;
             }
 

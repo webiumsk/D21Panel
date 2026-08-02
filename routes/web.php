@@ -99,6 +99,9 @@ Route::get('/auth/verify-email/{id}/{hash}', function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/woocommerce/connect', [WooCommerceConnectController::class, 'connect']);
     Route::post('/woocommerce/connect/select-store', [WooCommerceConnectController::class, 'selectStore']);
+    Route::get('/woocommerce/satflux-tickets/connect', [WooCommerceConnectController::class, 'connect']);
+    Route::post('/woocommerce/satflux-tickets/connect/select-store', [WooCommerceConnectController::class, 'selectStore']);
+    // Legacy aliases - WordPress plugins in the field still link the old path.
     Route::get('/woocommerce/satoshi-tickets/connect', [WooCommerceConnectController::class, 'connect']);
     Route::post('/woocommerce/satoshi-tickets/connect/select-store', [WooCommerceConnectController::class, 'selectStore']);
 });

@@ -44,14 +44,14 @@ class TicketEventRaffleBundleTest extends TestCase
             }
 
             if ($request->method() === 'GET'
-                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satoshi-tickets/events")
-                && ! str_contains($url, '/satoshi-tickets/events/')
+                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satflux-tickets/events")
+                && ! str_contains($url, '/satflux-tickets/events/')
             ) {
                 return Http::response([], 200);
             }
 
             if ($request->method() === 'POST'
-                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satoshi-tickets/events")
+                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satflux-tickets/events")
             ) {
                 $postSeen = true;
                 $body = $request->data();
@@ -106,7 +106,7 @@ class TicketEventRaffleBundleTest extends TestCase
             }
 
             if ($request->method() === 'PUT'
-                && str_ends_with($url, "/api/v1/stores/{$btcpayStoreId}/satoshi-tickets/events/{$eventId}")
+                && str_ends_with($url, "/api/v1/stores/{$btcpayStoreId}/satflux-tickets/events/{$eventId}")
             ) {
                 $body = $request->data();
                 $postedBundleRaffleId = array_key_exists('bundledRaffleId', $body)

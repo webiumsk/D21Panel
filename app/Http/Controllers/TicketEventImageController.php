@@ -66,7 +66,7 @@ class TicketEventImageController extends Controller
 
     /**
      * Upload event logo to an existing event (plugin endpoint, store-level permission).
-     * POST /api/v1/stores/{storeId}/satoshi-tickets/events/{eventId}/logo
+     * POST /api/v1/stores/{storeId}/satflux-tickets/events/{eventId}/logo
      */
     public function uploadLogo(Request $request, Store $store, string $eventId)
     {
@@ -105,7 +105,7 @@ class TicketEventImageController extends Controller
 
     /**
      * Delete event logo (plugin endpoint).
-     * DELETE /api/v1/stores/{storeId}/satoshi-tickets/events/{eventId}/logo
+     * DELETE /api/v1/stores/{storeId}/satflux-tickets/events/{eventId}/logo
      */
     public function deleteLogo(Request $request, Store $store, string $eventId)
     {
