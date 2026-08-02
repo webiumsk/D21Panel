@@ -878,7 +878,7 @@
                       href="https://wordpress.org/plugins/satflux-for-woocommerce/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="SATFLUX for WooCommerce - WordPress.org"
+                      :title="t('landing.step7_plugin_woocommerce_title')"
                       class="group inline-flex flex-wrap items-center gap-2 rounded-xl border border-gray-600 bg-gray-800/80 px-4 py-2.5 transition-all hover:border-orange-500/50 hover:bg-gray-800"
                     >
                       <span
@@ -887,12 +887,12 @@
                       >
                       <img
                         src="https://img.shields.io/wordpress/plugin/v/satflux-for-woocommerce?label=release"
-                        alt="release"
+                        :alt="t('landing.badge_release_alt')"
                         class="h-4"
                       />
                       <img
                         src="https://img.shields.io/wordpress/plugin/installs/satflux-for-woocommerce?label=installs"
-                        alt="installs"
+                        :alt="t('landing.badge_installs_alt')"
                         class="h-4"
                       />
                     </a>
@@ -1572,19 +1572,19 @@
                   <div class="flex flex-wrap gap-2">
                     <span
                       class="rounded-md border border-sky-500/30 bg-gray-800/80 px-2.5 py-1 text-xs font-medium text-sky-200/90"
-                      >PayMe</span
+                      >{{ t("landing.sepa_chip_payme") }}</span
                     >
                     <span
                       class="rounded-md border border-sky-500/30 bg-gray-800/80 px-2.5 py-1 text-xs font-medium text-sky-200/90"
-                      >PAY by square</span
+                      >{{ t("landing.sepa_chip_bysquare") }}</span
                     >
                     <span
                       class="rounded-md border border-gray-600 bg-gray-800/80 px-2.5 py-1 text-xs font-medium text-gray-300"
-                      >QR Platba</span
+                      >{{ t("landing.sepa_chip_qrplatba") }}</span
                     >
                     <span
                       class="rounded-md border border-gray-600 bg-gray-800/80 px-2.5 py-1 text-xs font-medium text-gray-300"
-                      >EPC QR</span
+                      >{{ t("landing.sepa_chip_epc") }}</span
                     >
                   </div>
                 </div>
