@@ -3513,8 +3513,8 @@
       }
     },
     "feature_lightning_ecash_title": "Lightning & Ecash in One Place",
-    "feature_sepa_title": "SEPA Instant QR - bank payments without a terminal",
-    "feature_sepa_description": "Next to Bitcoin and Lightning, a EUR invoice can show a bank QR code: the customer scans it with their banking app and pays by instant SEPA transfer straight to your own IBAN. No card terminal, no intermediary, no custody - and with the Fio banka token or Slovak NOP notifications the payment confirms automatically within seconds.",
+    "step11_title": "SEPA Instant QR - bank payments without a terminal",
+    "step11_text": "Next to Bitcoin and Lightning, a EUR invoice can show a bank QR code: the customer scans it with their banking app and pays by instant SEPA transfer straight to your own IBAN. No card terminal, no intermediary, no custody - and with the Fio banka token or Slovak NOP notifications the payment confirms automatically within seconds.",
     "feature_sepa_bullet_qr": "PayMe and PAY by square for Slovakia, QR Platba for Czechia (CZK supported), EPC QR for the rest of the EU",
     "feature_sepa_bullet_confirm": "Automatic confirmation via Fio banka API token (no certificates) or the Slovak NOP instant-notification scheme",
     "feature_sepa_bullet_mandate": "Counts as cashless payment under the Slovak cashless mandate (effective 1 May 2026) - a free terminal alternative",

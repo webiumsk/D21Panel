@@ -3518,8 +3518,8 @@
       }
     },
     "feature_lightning_ecash_title": "Lightning a ecash na jednom mieste",
-    "feature_sepa_title": "SEPA Instant QR - platby z banky bez terminálu",
-    "feature_sepa_description": "Vedľa Bitcoinu a Lightningu môže EUR faktúra zobraziť bankový QR kód: zákazník ho naskenuje bankovou appkou a zaplatí okamžitým SEPA prevodom priamo na váš IBAN. Bez terminálu, bez sprostredkovateľa, bez custody - a s Fio banka tokenom alebo slovenskými NOP notifikáciami sa platba potvrdí automaticky do pár sekúnd.",
+    "step11_title": "SEPA Instant QR - platby z banky bez terminálu",
+    "step11_text": "Vedľa Bitcoinu a Lightningu môže EUR faktúra zobraziť bankový QR kód: zákazník ho naskenuje bankovou appkou a zaplatí okamžitým SEPA prevodom priamo na váš IBAN. Bez terminálu, bez sprostredkovateľa, bez custody - a s Fio banka tokenom alebo slovenskými NOP notifikáciami sa platba potvrdí automaticky do pár sekúnd.",
     "feature_sepa_bullet_qr": "PayMe a PAY by square pre Slovensko, QR Platba pre Česko (podpora CZK), EPC QR pre zvyšok EÚ",
     "feature_sepa_bullet_confirm": "Automatické potvrdenie cez Fio banka API token (bez certifikátov) alebo slovenskú štátnu schému NOP",
     "feature_sepa_bullet_mandate": "Spĺňa zákon o bezhotovostnej platbe (účinný od 1. 5. 2026) - bezplatná alternatíva terminálu",
