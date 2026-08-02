@@ -255,6 +255,114 @@
           </div>
         </div>
 
+        <!-- SEPA Instant QR (Large Card) -->
+        <div
+          class="md:col-span-2 bg-gradient-to-br from-sky-950/40 via-gray-900 to-indigo-950/50 rounded-3xl p-8 border border-gray-700 shadow-xl relative overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:border-sky-500/25 hover:shadow-2xl hover:shadow-sky-950/20"
+        >
+          <div
+            class="absolute z-0 right-0 bottom-0 w-72 h-72 bg-sky-500/10 rounded-full blur-3xl"
+          ></div>
+          <div
+            class="absolute z-0 left-1/3 top-0 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl"
+          ></div>
+          <div
+            class="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-8"
+          >
+            <div class="flex-1">
+              <h3
+                class="mb-4 bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-sky-300/90 text-2xl font-bold"
+              >
+                {{ t("landing.feature_sepa_title") }}
+              </h3>
+              <p class="text-gray-400 text-lg mb-6 leading-relaxed">
+                {{ t("landing.feature_sepa_description") }}
+              </p>
+              <ul class="space-y-2 text-sm text-gray-300 mb-6">
+                <li class="flex items-start gap-2">
+                  <span
+                    class="text-sky-400 mt-0.5 shrink-0"
+                    aria-hidden="true"
+                    >✓</span
+                  >
+                  <span>{{ t("landing.feature_sepa_bullet_qr") }}</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span
+                    class="text-sky-400 mt-0.5 shrink-0"
+                    aria-hidden="true"
+                    >✓</span
+                  >
+                  <span>{{ t("landing.feature_sepa_bullet_confirm") }}</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span
+                    class="text-sky-400 mt-0.5 shrink-0"
+                    aria-hidden="true"
+                    >✓</span
+                  >
+                  <span>{{ t("landing.feature_sepa_bullet_mandate") }}</span>
+                </li>
+              </ul>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  class="px-3 py-1 rounded-md bg-gray-800/80 border border-sky-500/30 text-xs font-medium text-sky-200/90"
+                  >PayMe</span
+                >
+                <span
+                  class="px-3 py-1 rounded-md bg-gray-800/80 border border-sky-500/30 text-xs font-medium text-sky-200/90"
+                  >PAY by square</span
+                >
+                <span
+                  class="px-3 py-1 rounded-md bg-gray-800/80 border border-gray-600 text-xs font-medium text-gray-300"
+                  >QR Platba</span
+                >
+                <span
+                  class="px-3 py-1 rounded-md bg-gray-800/80 border border-gray-600 text-xs font-medium text-gray-300"
+                  >EPC QR</span
+                >
+              </div>
+            </div>
+            <div class="flex shrink-0 gap-3 self-center md:self-auto">
+              <div
+                class="w-14 h-14 bg-sky-500/15 rounded-2xl flex items-center justify-center text-sky-400 ring-1 ring-sky-500/25"
+              >
+                <svg
+                  class="w-7 h-7"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 4h4v4H3V4zm0 12h4v4H3v-4zM17 4h4v4h-4V4zM3 10h2m4 0h2m2 0h2m4 0h2M11 4h2v4h-2V4zm0 8h2v8h-2v-8zm6 2h4v2h-4v-2zm0 4h4v2h-4v-2z"
+                  />
+                </svg>
+              </div>
+              <div
+                class="w-14 h-14 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400 ring-1 ring-indigo-500/30"
+              >
+                <svg
+                  class="w-7 h-7"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Tickets, LN addresses, Pay Button -->
         <div
           class="md:col-span-2 bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-xl relative group transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/25 hover:shadow-2xl hover:shadow-emerald-950/20"

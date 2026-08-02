@@ -3513,6 +3513,11 @@
       }
     },
     "feature_lightning_ecash_title": "Lightning a ecash na jednom místě",
+    "feature_sepa_title": "SEPA Instant QR - platby z banky bez terminálu",
+    "feature_sepa_description": "Vedle Bitcoinu a Lightningu může EUR faktura zobrazit bankovní QR kód: zákazník jej naskenuje bankovní aplikací a zaplatí okamžitým SEPA převodem přímo na váš IBAN. Bez terminálu, bez prostředníka, bez custody - a s Fio banka tokenem nebo slovenskými NOP notifikacemi se platba potvrdí automaticky během pár sekund.",
+    "feature_sepa_bullet_qr": "PayMe a PAY by square pro Slovensko, QR Platba pro Česko (podpora CZK), EPC QR pro zbytek EU",
+    "feature_sepa_bullet_confirm": "Automatické potvrzení přes Fio banka API token (bez certifikátů) nebo slovenské státní schéma NOP",
+    "feature_sepa_bullet_mandate": "Splňuje slovenský zákon o bezhotovostní platbě (účinný od 1. 5. 2026) - bezplatná alternativa terminálu",
     "feature_lightning_ecash_description": "Přijímejte Lightning platby a volitelné Cashu settlementy přes váš BTCPay obchod - rychlý checkout bez předání klíčů.",
     "feature_lightning_ecash_bullet_ln": "Jedno Lightning nastavení na obchod: Blink (connection string), nebo Aqua/Bull (Boltz) přes watch-only deskriptor či SamRock QR (Aqua).",
     "feature_lightning_ecash_bullet_cashu": "Cashu mint URL + Lightning adresa se sledováním settlementu přes plugin v aplikaci.",
