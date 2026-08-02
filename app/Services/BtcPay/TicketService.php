@@ -38,7 +38,7 @@ class TicketService
                 $query['include_inactive'] = 'true';
             }
 
-            return $this->client->get("/api/v1/stores/{$storeId}/satoshi-tickets/events", $query);
+            return $this->client->get("/api/v1/stores/{$storeId}/satflux-tickets/events", $query);
         });
     }
 
@@ -48,7 +48,7 @@ class TicketService
     public function getEvent(string $storeId, string $eventId, ?string $userApiKey = null): array
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId) {
-            return $this->client->get("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}");
+            return $this->client->get("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}");
         });
     }
 
@@ -61,7 +61,7 @@ class TicketService
         $payload = $this->normalizeEventPayloadForBtcPay($data);
         Log::debug('TicketService createEvent payload', ['store_id' => $storeId, 'payload_keys' => array_keys($payload), 'eventLogoFileId' => $payload['eventLogoFileId'] ?? null]);
         $result = $this->withApiKey($userApiKey, function () use ($storeId, $payload) {
-            return $this->client->post("/api/v1/stores/{$storeId}/satoshi-tickets/events", $payload);
+            return $this->client->post("/api/v1/stores/{$storeId}/satflux-tickets/events", $payload);
         });
         Log::debug('TicketService createEvent response', ['event_id' => $result['id'] ?? null, 'eventLogoUrl' => $result['eventLogoUrl'] ?? null, 'eventLogoFileId' => $result['eventLogoFileId'] ?? null]);
 
@@ -77,7 +77,7 @@ class TicketService
         $payload = $this->normalizeEventPayloadForBtcPay($data);
         Log::debug('TicketService updateEvent payload', ['store_id' => $storeId, 'event_id' => $eventId, 'eventLogoFileId' => $payload['eventLogoFileId'] ?? null, 'eventLogoUrl' => $payload['eventLogoUrl'] ?? null]);
         $result = $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $payload) {
-            return $this->client->put("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}", $payload);
+            return $this->client->put("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}", $payload);
         });
         Log::debug('TicketService updateEvent response', ['eventLogoUrl' => $result['eventLogoUrl'] ?? null, 'eventLogoFileId' => $result['eventLogoFileId'] ?? null]);
 
@@ -90,7 +90,7 @@ class TicketService
     public function deleteEvent(string $storeId, string $eventId, ?string $userApiKey = null): array
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId) {
-            return $this->client->delete("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}");
+            return $this->client->delete("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}");
         });
     }
 
@@ -100,20 +100,20 @@ class TicketService
     public function toggleEvent(string $storeId, string $eventId, ?string $userApiKey = null): array
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId) {
-            return $this->client->put("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/toggle", []);
+            return $this->client->put("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/toggle", []);
         });
     }
 
     /**
      * Upload event logo via plugin endpoint (store-level permission only).
-     * POST /api/v1/stores/{storeId}/satoshi-tickets/events/{eventId}/logo
+     * POST /api/v1/stores/{storeId}/satflux-tickets/events/{eventId}/logo
      * Returns updated EventData including eventLogoUrl and eventLogoFileId.
      */
     public function uploadEventLogo(string $storeId, string $eventId, $file, ?string $userApiKey = null): array
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $file) {
             return $this->client->postMultipart(
-                "/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/logo",
+                "/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/logo",
                 $file
             );
         });
@@ -121,14 +121,14 @@ class TicketService
 
     /**
      * Delete event logo via plugin endpoint.
-     * DELETE /api/v1/stores/{storeId}/satoshi-tickets/events/{eventId}/logo
+     * DELETE /api/v1/stores/{storeId}/satflux-tickets/events/{eventId}/logo
      * Returns updated EventData.
      */
     public function deleteEventLogo(string $storeId, string $eventId, ?string $userApiKey = null): array
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId) {
             return $this->client->delete(
-                "/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/logo"
+                "/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/logo"
             );
         });
     }
@@ -144,7 +144,7 @@ class TicketService
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $sortBy, $sortDir) {
             return $this->client->get(
-                "/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/ticket-types",
+                "/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/ticket-types",
                 ['sortBy' => $sortBy, 'sortDir' => $sortDir]
             );
         });
@@ -156,7 +156,7 @@ class TicketService
     public function getTicketType(string $storeId, string $eventId, string $ticketTypeId, ?string $userApiKey = null): array
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $ticketTypeId) {
-            return $this->client->get("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/ticket-types/{$ticketTypeId}");
+            return $this->client->get("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/ticket-types/{$ticketTypeId}");
         });
     }
 
@@ -166,7 +166,7 @@ class TicketService
     public function createTicketType(string $storeId, string $eventId, array $data, ?string $userApiKey = null): array
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $data) {
-            return $this->client->post("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/ticket-types", $data);
+            return $this->client->post("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/ticket-types", $data);
         });
     }
 
@@ -176,7 +176,7 @@ class TicketService
     public function updateTicketType(string $storeId, string $eventId, string $ticketTypeId, array $data, ?string $userApiKey = null): array
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $ticketTypeId, $data) {
-            return $this->client->put("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/ticket-types/{$ticketTypeId}", $data);
+            return $this->client->put("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/ticket-types/{$ticketTypeId}", $data);
         });
     }
 
@@ -187,7 +187,7 @@ class TicketService
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $ticketTypeId) {
             return $this->client->delete(
-                "/api/v1/stores/{$storeId}/satoshi-tickets/ticket-types/{$ticketTypeId}",
+                "/api/v1/stores/{$storeId}/satflux-tickets/ticket-types/{$ticketTypeId}",
                 ['eventId' => $eventId]
             );
         });
@@ -200,7 +200,7 @@ class TicketService
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $ticketTypeId) {
             return $this->client->put(
-                "/api/v1/stores/{$storeId}/satoshi-tickets/ticket-types/{$ticketTypeId}/toggle",
+                "/api/v1/stores/{$storeId}/satflux-tickets/ticket-types/{$ticketTypeId}/toggle",
                 [],
                 ['eventId' => $eventId]
             );
@@ -219,7 +219,7 @@ class TicketService
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $searchText) {
             $query = $searchText ? ['searchText' => $searchText] : [];
 
-            return $this->client->get("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/tickets", $query);
+            return $this->client->get("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/tickets", $query);
         });
     }
 
@@ -229,7 +229,7 @@ class TicketService
     public function checkInTicket(string $storeId, string $eventId, string $ticketNumber, ?string $userApiKey = null): array
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $ticketNumber) {
-            return $this->client->post("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/tickets/{$ticketNumber}/check-in", []);
+            return $this->client->post("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/tickets/{$ticketNumber}/check-in", []);
         });
     }
 
@@ -245,7 +245,7 @@ class TicketService
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $searchText) {
             $query = $searchText ? ['searchText' => $searchText] : [];
 
-            return $this->client->get("/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/orders", $query);
+            return $this->client->get("/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/orders", $query);
         });
     }
 
@@ -256,7 +256,7 @@ class TicketService
     {
         return $this->withApiKey($userApiKey, function () use ($storeId, $eventId, $orderId, $ticketId) {
             return $this->client->post(
-                "/api/v1/stores/{$storeId}/satoshi-tickets/events/{$eventId}/orders/{$orderId}/tickets/{$ticketId}/send-reminder",
+                "/api/v1/stores/{$storeId}/satflux-tickets/events/{$eventId}/orders/{$orderId}/tickets/{$ticketId}/send-reminder",
                 []
             );
         });

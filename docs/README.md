@@ -11,7 +11,7 @@ Public docs in this repository:
 | [INVOICING_LOCAL_FIRST_ROLLOUT.md](INVOICING_LOCAL_FIRST_ROLLOUT.md) | Evolu local-first invoicing |
 | [OFAC_COMPLIANCE.md](OFAC_COMPLIANCE.md) | Sanctions compliance plan |
 | [WOOCOMMERCE.md](WOOCOMMERCE.md) | WooCommerce integration |
-| [SATOSHI_TICKETS.md](SATOSHI_TICKETS.md) | Satoshi Tickets plugin maintenance |
+| [SATFLUX_TICKETS.md](SATFLUX_TICKETS.md) | Satflux Tickets plugin maintenance |
 | [SK_EFAKTURA.md](SK_EFAKTURA.md) | Slovak e-faktura (SAPI) |
 | [DATA_RETENTION.md](DATA_RETENTION.md) | Data retention policy |
 | [BANK_PAYMENT_MATCHING.md](BANK_PAYMENT_MATCHING.md) | Bank payment matching |

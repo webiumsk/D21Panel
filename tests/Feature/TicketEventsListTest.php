@@ -31,8 +31,8 @@ class TicketEventsListTest extends TestCase
             }
 
             if ($request->method() === 'GET'
-                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satoshi-tickets/events")
-                && ! str_contains($url, '/satoshi-tickets/events/')
+                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satflux-tickets/events")
+                && ! str_contains($url, '/satflux-tickets/events/')
             ) {
                 parse_str((string) parse_url($url, PHP_URL_QUERY), $q);
                 $includeInactiveSeen = isset($q['includeInactive']) && $q['includeInactive'] === 'true';

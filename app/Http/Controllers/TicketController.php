@@ -292,7 +292,7 @@ class TicketController extends Controller
 
         // If the event is currently active, we're attempting to deactivate it.
         // Allow deactivation with existing ticket types as long as nothing was sold yet
-        // (aligns with BTCPay Satoshi Tickets plugin behavior).
+        // (aligns with BTCPay Satflux Tickets plugin behavior).
         if (($current['eventState'] ?? '') === 'Active') {
             $ticketsSold = (int) ($current['ticketsSold'] ?? 0);
             if ($ticketsSold > 0) {

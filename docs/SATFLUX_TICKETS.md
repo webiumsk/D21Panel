@@ -1,16 +1,22 @@
-# Satoshi Tickets (BTCPay plugin)
+# Satflux Tickets (BTCPay plugin)
 
-Satflux neimplementuje tickety lokálne - volá Greenfield API pluginu **Satoshi Tickets** na BTCPay Serveri.
+Satflux neimplementuje tickety lokálne - volá Greenfield API pluginu
+**Satflux Tickets** na BTCPay Serveri (samostatný fork Satoshi Tickets od
+TChukwuletu, od 2.0.0 s vlastnou identitou
+`BTCPayServer.Plugins.SatfluxTickets`).
 
 ## Ktorý plugin nasadiť
 
-Na produkcii používaj **Webium fork**, nie čistý build od TChukwuleta:
+Na produkcii používaj **Satflux Tickets** z monorepa:
 
-- Repozitár: `webiumsk/BTCPayServerPlugins` (lokálne často `BTCPayServerPluginsTChukwuleta`)
-- Runbook (mesačný merge, vetvy, checklist):  
-  `Plugins/BTCPayServer.Plugins.SatoshiTickets/FORK_MAINTENANCE.md`
+- Repozitár: `webiumsk/BTCPayServerPluginsWebium` (lokálne
+  `~/apps/bitcoin/BTCPayServerPlugins`), vetva `main`
+- Runbook (údržba, upstream = manuálny port):  
+  `Plugins/BTCPayServer.Plugins.SatfluxTickets/FORK_MAINTENANCE.md`
 - Zoznam fork-only zmien:  
-  `Plugins/BTCPayServer.Plugins.SatoshiTickets/CHANGELOG-FORK.md`
+  `Plugins/BTCPayServer.Plugins.SatfluxTickets/CHANGELOG-FORK.md`
+- API cesty: kanonicky `satflux-tickets`, legacy `satoshi-tickets` aliasy
+  zostávajú funkčné pre staré integrácie a rozposlané linky leteniek.
 
 **Ďalšia plánovaná kontrola fork + upstream:** 20. jún 2026.
 
