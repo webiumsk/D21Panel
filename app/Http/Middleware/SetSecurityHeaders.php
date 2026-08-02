@@ -57,6 +57,9 @@ class SetSecurityHeaders
         $matomoOrigin = $this->originOf((string) config('services.matomo.url', ''));
         // Chorala support widget script (loaded client-side when a widget key is configured).
         $choralaOrigin = $this->originOf((string) config('services.chorala.widget_url', ''));
+        // BTCPay Server origin - the landing page embeds a live POS terminal
+        // (checkout iframe) served from BTCPay.
+        $btcpayOrigin = $this->originOf((string) config('services.btcpay.public_url', ''));
 
         $directives = [
             'default-src' => ["'self'"],
@@ -76,7 +79,7 @@ class SetSecurityHeaders
             'worker-src' => ["'self'", 'blob:'],
             // YouTube embeds: landing SK video + documentation articles (both use youtube-nocookie);
             // Chorala widget may render its UI in an iframe.
-            'frame-src' => array_filter(["'self'", 'blob:', 'https://www.youtube-nocookie.com', 'https://www.youtube.com', $choralaOrigin]),
+            'frame-src' => array_filter(["'self'", 'blob:', 'https://www.youtube-nocookie.com', 'https://www.youtube.com', $choralaOrigin, $btcpayOrigin]),
             'object-src' => ["'none'"],
             'base-uri' => ["'self'"],
             'form-action' => ["'self'"],
