@@ -101,7 +101,7 @@
                 class="group block w-full max-w-md overflow-hidden rounded-2xl border border-gray-700 shadow-2xl transition-colors duration-500 hover:border-orange-500/40 hover:shadow-[0_0_32px_-6px_rgba(251,146,60,0.18)]"
               >
                 <img
-                  src="/img/satflux-create-account.png"
+                  src="/img/satflux-create-account.webp"
                   :alt="t('landing.alt_register')"
                   class="block h-auto w-full"
                   width="512"
