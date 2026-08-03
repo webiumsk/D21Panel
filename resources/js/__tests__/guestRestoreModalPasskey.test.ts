@@ -4,6 +4,7 @@ import { DeviceUnlockError } from "../services/deviceUnlock/envelope";
 
 const mocks = vi.hoisted(() => ({
     loginWithAccountPasskey: vi.fn(),
+    addAccountPasskeyFromSession: vi.fn(),
     rememberDeviceWithPassphrase: vi.fn(),
     restoreGuestFromMnemonic: vi.fn(),
     storeGuestMnemonic: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock("../services/passkeyEnrollOffer", () => ({
 
 vi.mock("../services/deviceUnlock/provider", () => ({
     loginWithAccountPasskey: mocks.loginWithAccountPasskey,
+    addAccountPasskeyFromSession: mocks.addAccountPasskeyFromSession,
     rememberDeviceWithPassphrase: mocks.rememberDeviceWithPassphrase,
 }));
 

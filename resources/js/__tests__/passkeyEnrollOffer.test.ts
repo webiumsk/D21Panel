@@ -63,12 +63,21 @@ describe("shouldOfferPasskeyEnrollment", () => {
     });
 
     it("does not offer while snoozed and offers again after the snooze expires", async () => {
-        const { snoozePasskeyOffer, isPasskeyOfferSnoozed } = await import(
-            "../services/passkeyEnrollOffer"
-        );
+        const { snoozePasskeyOffer, isPasskeyOfferSnoozed, shouldOfferPasskeyEnrollment } =
+            await import("../services/passkeyEnrollOffer");
         snoozePasskeyOffer(1_000);
         expect(isPasskeyOfferSnoozed(1_000 + 24 * 60 * 60 * 1000)).toBe(true);
         expect(isPasskeyOfferSnoozed(1_000 + 31 * 24 * 60 * 60 * 1000)).toBe(false);
+
+        vi.useFakeTimers();
+        try {
+            vi.setSystemTime(1_000 + 24 * 60 * 60 * 1000);
+            await expect(shouldOfferPasskeyEnrollment()).resolves.toBe(false);
+            vi.setSystemTime(1_000 + 31 * 24 * 60 * 60 * 1000);
+            await expect(shouldOfferPasskeyEnrollment()).resolves.toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it("does not offer when the envelope list fails", async () => {

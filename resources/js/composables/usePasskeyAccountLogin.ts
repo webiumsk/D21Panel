@@ -72,25 +72,33 @@ export function usePasskeyAccountLogin(callbacks: {
     async function run(): Promise<void> {
         loading.value = true;
         try {
-            const { recoveryPhrase } = await loginWithAccountPasskey();
-            const recoveryPublicKeyHex = deriveRecoveryPublicKeyHex(recoveryPhrase);
-            if (ownerSwitchConfirmedFor.value !== recoveryPublicKeyHex) {
-                const impact = await previewOwnerSwitchImpact(recoveryPhrase);
-                if (impact.switches) {
-                    ownerSwitchImpact.value = impact;
-                    ownerSwitchConfirmedFor.value = recoveryPublicKeyHex;
-                    return;
+            let recoveryPhrase: string;
+            try {
+                ({ recoveryPhrase } = await loginWithAccountPasskey());
+                const recoveryPublicKeyHex = deriveRecoveryPublicKeyHex(recoveryPhrase);
+                if (ownerSwitchConfirmedFor.value !== recoveryPublicKeyHex) {
+                    const impact = await previewOwnerSwitchImpact(recoveryPhrase);
+                    if (impact.switches) {
+                        ownerSwitchImpact.value = impact;
+                        ownerSwitchConfirmedFor.value = recoveryPublicKeyHex;
+                        return;
+                    }
                 }
+            } catch (rawError) {
+                if (!(rawError instanceof PasskeyCancelledError)) {
+                    reset();
+                    trackEvent("auth", "passkey_login_failed");
+                    callbacks.onError(passkeyLoginErrorKey(rawError));
+                }
+                return;
             }
+            // The restore step is NOT passkey authentication: its failures
+            // (network, server) propagate to the caller unchanged so the UI
+            // can show the real message, and success is only counted once the
+            // whole sign-in - not just the decrypt - went through.
             reset();
-            trackEvent("auth", "passkey_login_success");
             await callbacks.onRestore(recoveryPhrase);
-        } catch (rawError) {
-            if (!(rawError instanceof PasskeyCancelledError)) {
-                reset();
-                trackEvent("auth", "passkey_login_failed");
-                callbacks.onError(passkeyLoginErrorKey(rawError));
-            }
+            trackEvent("auth", "passkey_login_success");
         } finally {
             loading.value = false;
         }

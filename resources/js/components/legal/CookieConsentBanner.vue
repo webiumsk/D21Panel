@@ -71,5 +71,8 @@ function accept() {
 function acceptEssentialOnly() {
   setCookieConsent('essential');
   visible.value = false;
+  void import('../../services/analytics')
+    .then(({ onAnalyticsConsentWithdrawn }) => onAnalyticsConsentWithdrawn())
+    .catch(() => {});
 }
 </script>

@@ -170,7 +170,15 @@ export const EVOLU_READY_TIMEOUT_MS = 10_000;
 /** Short probe once a timeout already happened (this page load or, via sessionStorage, a previous one). */
 export const EVOLU_READY_RETRY_TIMEOUT_MS = 1_500;
 
-const EVOLU_READY_PROBE_FAILED_KEY = "satflux.evolu.ready_probe_failed.v1";
+/** Token wait after a timeout in the SAME page load - the worker is not coming up. */
+export const EVOLU_READY_FAST_PROBE_TIMEOUT_MS = 250;
+
+export const EVOLU_READY_PROBE_FAILED_KEY = "satflux.evolu.ready_probe_failed.v1";
+
+/** True for the "worker never came up" rejection of initEvoluFromAccountSeedIfNeeded. */
+export function isEvoluUnavailableError(error: unknown): boolean {
+    return error instanceof Error && error.message === "evolu_unavailable";
+}
 
 let evoluReadyLatch: "unknown" | "ready" | "timed_out" = "unknown";
 
@@ -205,7 +213,7 @@ async function awaitEvoluReady(evolu: { appOwner: Promise<unknown> }): Promise<v
     // is still raced each time, so a worker that did come up wins immediately.
     const timeoutMs =
         evoluReadyLatch === "timed_out"
-            ? 250
+            ? EVOLU_READY_FAST_PROBE_TIMEOUT_MS
             : readyProbeFlagged()
               ? EVOLU_READY_RETRY_TIMEOUT_MS
               : EVOLU_READY_TIMEOUT_MS;

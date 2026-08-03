@@ -285,7 +285,7 @@ const {
   loading: passkeyLoginLoading,
   ownerSwitchImpact: passkeyOwnerSwitchImpact,
   probeSupport: probePasskeySupport,
-  run: handlePasskeyLogin,
+  run: runPasskeyLogin,
 } = usePasskeyAccountLogin({
   onRestore: async (recoveryPhrase) => {
     await authStore.restoreGuestFromMnemonic(recoveryPhrase);
@@ -295,6 +295,19 @@ const {
     flashStore.error(t(messageKey));
   },
 });
+
+async function handlePasskeyLogin(): Promise<void> {
+  try {
+    await runPasskeyLogin();
+  } catch (rawError) {
+    // Restore-step (network/server) failure after a successful passkey
+    // decrypt - show the real message instead of a passkey error.
+    const err = asApiError(rawError);
+    flashStore.error(
+      err?.response?.data?.message || t("auth.guest_restore_error"),
+    );
+  }
+}
 
 onMounted(() => {
   applyAuthTabFromQuery();

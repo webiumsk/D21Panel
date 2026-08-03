@@ -86,7 +86,10 @@ import { useStoresStore } from "../../store/stores";
 import { useFlashStore } from "../../store/flash";
 import api from "../../services/api";
 import { storeGuestMnemonic } from "../../services/guestRecovery";
-import { initEvoluFromAccountSeedIfNeeded } from "../../services/accountSeed";
+import {
+  initEvoluFromAccountSeedIfNeeded,
+  isEvoluUnavailableError,
+} from "../../services/accountSeed";
 import { isPasskeyPrfSupported } from "../../services/deviceUnlock/passkeyPrf";
 
 const { t } = useI18n();
@@ -123,7 +126,15 @@ async function handleGuestEnrolled(payload: {
   try {
     const response = await authStore.continueAsGuest(payload.recoveryPublicKeyHex);
     storeGuestMnemonic(payload.mnemonic);
-    await initEvoluFromAccountSeedIfNeeded(payload.mnemonic);
+    try {
+      await initEvoluFromAccountSeedIfNeeded(payload.mnemonic);
+    } catch (evoluError) {
+      // The session is valid; a dead local-first storage (private window
+      // without OPFS) only disables invoicing, it must not fail registration.
+      if (!isEvoluUnavailableError(evoluError)) {
+        throw evoluError;
+      }
+    }
     let storeId = response?.store_id ?? response?.data?.store_id ?? null;
 
     if (!storeId) {

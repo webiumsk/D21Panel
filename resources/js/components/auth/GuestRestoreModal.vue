@@ -294,7 +294,14 @@ async function submitWithPasskey() {
   if (!snapshotRememberInputs()) {
     return;
   }
-  await passkey.run();
+  try {
+    await passkey.run();
+  } catch (rawError) {
+    // Passkey-phase failures went through onError; what reaches here is the
+    // restore step (network/server) - same message source as the seed path.
+    const e = asApiError(rawError);
+    error.value = e?.response?.data?.message || t("auth.guest_restore_error");
+  }
 }
 
 async function submit() {

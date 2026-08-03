@@ -48,12 +48,25 @@ export function onAnalyticsConsentGranted(): void {
 }
 
 /**
+ * Called when consent drops below "all": drop commands still queued for the
+ * tracker so nothing recorded before the withdrawal gets sent. The Matomo
+ * script itself cannot be unloaded, but trackEvent stops pushing (it rechecks
+ * consent) and page reloads won't load it again.
+ */
+export function onAnalyticsConsentWithdrawn(): void {
+    if (window._paq) {
+        window._paq.length = 0;
+    }
+}
+
+/**
  * Matomo custom event, consent-gated by the same switch as page views: a
- * no-op until the tracker was loaded. Category/action/name must never carry
- * user data - counters only (e.g. passkey adoption).
+ * no-op until the tracker was loaded, and consent is rechecked on every call
+ * so a withdrawal takes effect immediately. Category/action/name must never
+ * carry user data - counters only (e.g. passkey adoption).
  */
 export function trackEvent(category: string, action: string, name?: string): void {
-    if (!analyticsLoaded || !window._paq) {
+    if (!analyticsLoaded || !window._paq || getCookieConsent() !== 'all') {
         return;
     }
     window._paq.push(

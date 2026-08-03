@@ -9,9 +9,11 @@
         class="relative w-full max-w-lg rounded-2xl border border-gray-700 bg-gray-800 shadow-xl"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="passkey-offer-title"
+        @keydown.esc="skip"
       >
         <div class="p-6 sm:p-8 space-y-4">
-          <h3 class="text-lg font-bold text-white">
+          <h3 id="passkey-offer-title" class="text-lg font-bold text-white">
             {{ t("auth.passkey_offer_title") }}
           </h3>
           <p class="text-sm text-gray-400">
@@ -28,6 +30,7 @@
             {{ error }}
           </div>
           <button
+            ref="createButton"
             type="button"
             :disabled="busy"
             class="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-50 transition-all"
@@ -51,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { addAccountPasskeyFromSession } from "../../services/deviceUnlock/provider";
 import {
@@ -80,6 +83,7 @@ const flashStore = useFlashStore();
 const labelInput = ref("");
 const error = ref("");
 const busy = ref(false);
+const createButton = ref<HTMLButtonElement | null>(null);
 
 watch(
   () => props.open,
@@ -88,6 +92,9 @@ watch(
       labelInput.value = "";
       error.value = "";
       trackEvent("auth", "passkey_offer_shown", props.context);
+      void nextTick(() => {
+        createButton.value?.focus();
+      });
     }
   },
   { immediate: true },
@@ -126,6 +133,10 @@ async function submit(): Promise<void> {
 }
 
 function skip(): void {
+  // Escape routes here too - never bail out mid-enrollment.
+  if (busy.value) {
+    return;
+  }
   // Only an explicit "not now" after a sign-in nudge snoozes; the one-time
   // post-registration offer never suppresses the later nudges.
   if (props.context === "restore") {

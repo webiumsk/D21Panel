@@ -60,4 +60,21 @@ describe("analytics trackEvent", () => {
         expect(window._paq).toContainEqual(["trackEvent", "auth", "passkey_offer_shown", "register"]);
         expect(window._paq).toContainEqual(["trackEvent", "auth", "seed_login_success"]);
     });
+
+    it("stops pushing and drops the queue when consent is withdrawn after load", async () => {
+        addMatomoMeta();
+        mocks.getCookieConsent.mockReturnValue("all");
+        const { loadAnalyticsIfConsented, onAnalyticsConsentWithdrawn, trackEvent } =
+            await import("../services/analytics");
+
+        loadAnalyticsIfConsented();
+        trackEvent("auth", "seed_login_success");
+        expect(window._paq).toContainEqual(["trackEvent", "auth", "seed_login_success"]);
+
+        mocks.getCookieConsent.mockReturnValue("essential");
+        onAnalyticsConsentWithdrawn();
+        trackEvent("auth", "passkey_login_success");
+
+        expect(window._paq).toEqual([]);
+    });
 });
