@@ -19,20 +19,26 @@
           <p class="text-sm text-gray-400">
             {{ t("auth.passkey_offer_body") }}
           </p>
-          <input
-            v-model="labelInput"
-            type="text"
-            autocomplete="off"
-            class="w-full rounded-xl border border-gray-600 bg-gray-900/80 px-4 py-3 text-sm text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            :placeholder="t('account.passkey_label_placeholder')"
-          />
-          <div v-if="error" class="text-sm text-red-400">
+          <div class="space-y-1">
+            <label for="passkey-offer-label" class="block text-xs font-medium text-gray-400">
+              {{ t("account.passkey_label_placeholder") }}
+            </label>
+            <input
+              id="passkey-offer-label"
+              v-model="labelInput"
+              type="text"
+              autocomplete="off"
+              class="w-full rounded-xl border border-gray-600 bg-gray-900/80 px-4 py-3 text-sm text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              :aria-describedby="error ? 'passkey-offer-error' : undefined"
+            />
+          </div>
+          <div v-if="error" id="passkey-offer-error" class="text-sm text-red-400">
             {{ error }}
           </div>
           <button
             ref="createButton"
             type="button"
-            :disabled="busy"
+            :disabled="busy || prfBlocked"
             class="w-full flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-50 transition-all"
             @click="submit"
           >
@@ -56,7 +62,11 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { addAccountPasskeyFromSession } from "../../services/deviceUnlock/provider";
+import {
+  addAccountPasskeyFromSession,
+  PasskeyEnvelopeUploadError,
+  upgradeAccountPasskey,
+} from "../../services/deviceUnlock/provider";
 import {
   PasskeyCancelledError,
   PasskeyPrfUnsupportedError,
@@ -84,6 +94,11 @@ const labelInput = ref("");
 const error = ref("");
 const busy = ref(false);
 const createButton = ref<HTMLButtonElement | null>(null);
+/** Credential minted but its envelope upload failed - retry against it, never create() again. */
+const pendingCredentialIdB64 = ref<string | null>(null);
+/** The authenticator ignored PRF: another create() can only mint more unusable credentials. */
+const prfBlocked = ref(false);
+let previouslyFocused: HTMLElement | null = null;
 
 watch(
   () => props.open,
@@ -91,10 +106,15 @@ watch(
     if (isOpen) {
       labelInput.value = "";
       error.value = "";
+      previouslyFocused =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
       trackEvent("auth", "passkey_offer_shown", props.context);
       void nextTick(() => {
         createButton.value?.focus();
       });
+    } else {
+      previouslyFocused?.focus();
+      previouslyFocused = null;
     }
   },
   { immediate: true },
@@ -110,7 +130,12 @@ async function submit(): Promise<void> {
   busy.value = true;
   try {
     const label = labelInput.value.trim() || t("account.passkey_default_label");
-    await addAccountPasskeyFromSession(label);
+    if (pendingCredentialIdB64.value) {
+      await upgradeAccountPasskey(pendingCredentialIdB64.value, label);
+    } else {
+      await addAccountPasskeyFromSession(label);
+    }
+    pendingCredentialIdB64.value = null;
     flashStore.success(t("account.passkey_added"));
     trackEvent("auth", "passkey_offer_accepted", props.context);
     emit("done");
@@ -118,7 +143,13 @@ async function submit(): Promise<void> {
     if (rawError instanceof PasskeyCancelledError) {
       return;
     }
+    if (rawError instanceof PasskeyEnvelopeUploadError) {
+      pendingCredentialIdB64.value = rawError.credentialIdB64;
+      error.value = t("auth.passkey_offer_error");
+      return;
+    }
     if (rawError instanceof PasskeyPrfUnsupportedError) {
+      prfBlocked.value = true;
       error.value = t("auth.passkey_browser_no_prf");
       return;
     }

@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../services/deviceUnlock/provider", () => ({
     loginWithAccountPasskey: mocks.loginWithAccountPasskey,
+    addAccountPasskeyFromSession: vi.fn(),
+    upgradeAccountPasskey: vi.fn(),
+    PasskeyEnvelopeUploadError: class PasskeyEnvelopeUploadError extends Error {},
+    rememberDeviceWithPassphrase: vi.fn(),
 }));
 
 vi.mock("../services/deviceUnlock/passkeyPrf", () => ({

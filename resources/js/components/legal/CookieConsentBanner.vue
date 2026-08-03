@@ -73,6 +73,12 @@ function acceptEssentialOnly() {
   visible.value = false;
   void import('../../services/analytics')
     .then(({ onAnalyticsConsentWithdrawn }) => onAnalyticsConsentWithdrawn())
-    .catch(() => {});
+    .catch(() => {
+      // Even without the module, queued tracker commands must not survive
+      // the withdrawal.
+      if (window._paq) {
+        window._paq.length = 0;
+      }
+    });
 }
 </script>

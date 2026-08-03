@@ -77,4 +77,25 @@ describe("analytics trackEvent", () => {
 
         expect(window._paq).toEqual([]);
     });
+
+    it("rebuilds the tracker queue when consent is granted again after withdrawal", async () => {
+        addMatomoMeta();
+        mocks.getCookieConsent.mockReturnValue("all");
+        const { loadAnalyticsIfConsented, onAnalyticsConsentWithdrawn, trackEvent } =
+            await import("../services/analytics");
+
+        loadAnalyticsIfConsented();
+        mocks.getCookieConsent.mockReturnValue("essential");
+        onAnalyticsConsentWithdrawn();
+        expect(window._paq).toEqual([]);
+
+        mocks.getCookieConsent.mockReturnValue("all");
+        loadAnalyticsIfConsented();
+        trackEvent("auth", "seed_login_success");
+
+        expect(window._paq).toContainEqual(["setSiteId", "7"]);
+        expect(window._paq).toContainEqual(["trackEvent", "auth", "seed_login_success"]);
+        // The script tag must not be appended a second time.
+        expect(document.head.querySelectorAll("script").length).toBe(1);
+    });
 });

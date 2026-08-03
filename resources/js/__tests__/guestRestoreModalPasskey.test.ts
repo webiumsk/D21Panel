@@ -21,6 +21,8 @@ vi.mock("../services/passkeyEnrollOffer", () => ({
 vi.mock("../services/deviceUnlock/provider", () => ({
     loginWithAccountPasskey: mocks.loginWithAccountPasskey,
     addAccountPasskeyFromSession: mocks.addAccountPasskeyFromSession,
+    upgradeAccountPasskey: vi.fn(),
+    PasskeyEnvelopeUploadError: class PasskeyEnvelopeUploadError extends Error {},
     rememberDeviceWithPassphrase: mocks.rememberDeviceWithPassphrase,
 }));
 

@@ -3,14 +3,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     addAccountPasskeyFromSession: vi.fn(),
+    upgradeAccountPasskey: vi.fn(),
     listAccountEnvelopes: vi.fn(),
     isPasskeyPrfSupported: vi.fn(),
     flashSuccess: vi.fn(),
 }));
 
-vi.mock("../services/deviceUnlock/provider", () => ({
-    addAccountPasskeyFromSession: mocks.addAccountPasskeyFromSession,
-}));
+vi.mock("../services/deviceUnlock/provider", () => {
+    class PasskeyEnvelopeUploadError extends Error {
+        readonly credentialIdB64: string;
+
+        constructor(credentialIdB64: string) {
+            super("account envelope upload failed");
+            this.credentialIdB64 = credentialIdB64;
+        }
+    }
+    return {
+        addAccountPasskeyFromSession: mocks.addAccountPasskeyFromSession,
+        upgradeAccountPasskey: mocks.upgradeAccountPasskey,
+        PasskeyEnvelopeUploadError,
+    };
+});
 
 vi.mock("../services/deviceUnlock/accountPasskeyEnvelope", () => ({
     listAccountEnvelopes: mocks.listAccountEnvelopes,
@@ -144,6 +157,42 @@ describe("PasskeyEnrollOfferModal", () => {
 
         await button(wrapper, "auth.passkey_offer_skip").trigger("click");
         expect(wrapper.emitted("skip")).toHaveLength(1);
+    });
+
+    it("retries a failed envelope upload against the same credential", async () => {
+        const { PasskeyEnvelopeUploadError } = await import("../services/deviceUnlock/provider");
+        mocks.addAccountPasskeyFromSession.mockRejectedValue(
+            new PasskeyEnvelopeUploadError("cred-1"),
+        );
+        mocks.upgradeAccountPasskey.mockResolvedValue(undefined);
+        const wrapper = await mountModal();
+
+        await button(wrapper, "auth.passkey_offer_create").trigger("click");
+        await flushPromises();
+        expect(wrapper.text()).toContain("auth.passkey_offer_error");
+
+        await button(wrapper, "auth.passkey_offer_create").trigger("click");
+        await flushPromises();
+
+        expect(mocks.addAccountPasskeyFromSession).toHaveBeenCalledTimes(1);
+        expect(mocks.upgradeAccountPasskey).toHaveBeenCalledWith(
+            "cred-1",
+            "account.passkey_default_label",
+        );
+        expect(wrapper.emitted("done")).toHaveLength(1);
+    });
+
+    it("blocks further create attempts when the authenticator lacks PRF", async () => {
+        const { PasskeyPrfUnsupportedError } = await import("../services/deviceUnlock/passkeyPrf");
+        mocks.addAccountPasskeyFromSession.mockRejectedValue(new PasskeyPrfUnsupportedError());
+        const wrapper = await mountModal();
+
+        const create = button(wrapper, "auth.passkey_offer_create");
+        await create.trigger("click");
+        await flushPromises();
+
+        expect(wrapper.text()).toContain("auth.passkey_browser_no_prf");
+        expect(create.attributes("disabled")).toBeDefined();
     });
 
     it("snoozes only when skipped in the restore context", async () => {
