@@ -2,7 +2,9 @@
 
 namespace App\Services\Invoicing;
 
+use App\Models\AuditLog;
 use App\Models\Company;
+use App\Models\Store;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -73,6 +75,117 @@ class BankInboundAddressService
         }
 
         return Company::query()->where('bank_inbound_token', $matches[1])->firstOrFail();
+    }
+
+    /**
+     * Store-scoped variant of the inbound address (SEPA payment
+     * confirmations): distinct prefix, token stored on stores.
+     */
+    public function ensureStoreToken(Store $store): string
+    {
+        if ($store->bank_inbound_token) {
+            return $store->bank_inbound_token;
+        }
+
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                return DB::transaction(function () use ($store): string {
+                    $locked = Store::query()->whereKey($store->id)->lockForUpdate()->firstOrFail();
+
+                    if ($locked->bank_inbound_token) {
+                        $store->bank_inbound_token = $locked->bank_inbound_token;
+
+                        return $locked->bank_inbound_token;
+                    }
+
+                    $token = $this->generateUniqueStoreToken();
+                    $locked->forceFill(['bank_inbound_token' => $token])->save();
+                    $store->bank_inbound_token = $token;
+
+                    // Sensitive store mutation - keep it auditable (store +
+                    // acting principal; null user in queue contexts).
+                    AuditLog::log('sepa.bmail_address_created', 'store', $store->id);
+
+                    return $token;
+                });
+            } catch (UniqueConstraintViolationException) {
+                $store->refresh();
+                if ($store->bank_inbound_token) {
+                    return $store->bank_inbound_token;
+                }
+            }
+        }
+
+        return $this->ensureStoreToken($store->refresh());
+    }
+
+    public function buildStoreAddress(Store $store): string
+    {
+        $token = $this->ensureStoreToken($store);
+        $address = $this->storePrefix().$token.'@'.$this->domain();
+
+        if (strlen($address) > $this->maxAddressLength()) {
+            throw new InvalidArgumentException(
+                'Bank inbound address exceeds max length ('.$this->maxAddressLength().' chars). Shorten BANK_INBOUND_DOMAIN or BANK_INBOUND_STORE_ADDRESS_PREFIX.'
+            );
+        }
+
+        return $address;
+    }
+
+    /**
+     * Resolves any inbound address to its owner: a Company (invoicing
+     * bank matching) or a Store (SEPA payment confirmation).
+     */
+    public function resolveOwner(string $to): Company|Store
+    {
+        $normalized = strtolower(trim($to));
+        $domain = preg_quote($this->domain(), '/');
+        $storePrefix = preg_quote($this->storePrefix(), '/');
+
+        // Tokens are persisted at generation time; a later config change can
+        // alter the COMPUTED length, so resolution accepts the whole range
+        // the generator (8..12) and the column (16) allow - the DB lookup
+        // is the actual authority.
+        if (preg_match('/^'.$storePrefix.'([a-z0-9]{8,16})@'.$domain.'$/', $normalized, $matches)) {
+            $store = Store::query()->where('bank_inbound_token', $matches[1])->first();
+            if ($store !== null) {
+                return $store;
+            }
+        }
+
+        return $this->resolveCompany($to);
+    }
+
+    public function generateUniqueStoreToken(): string
+    {
+        $length = $this->storeTokenLength();
+
+        do {
+            $token = Str::lower(Str::random($length));
+        } while (! preg_match('/^[a-z0-9]{'.$length.'}$/', $token)
+            || Store::query()->where('bank_inbound_token', $token)->exists());
+
+        return $token;
+    }
+
+    public function storeTokenLength(): int
+    {
+        $maxLocal = $this->maxAddressLength() - strlen('@'.$this->domain());
+        $available = $maxLocal - strlen($this->storePrefix());
+
+        if ($available < 8) {
+            throw new InvalidArgumentException(
+                'Bank inbound store prefix/domain leave too little room for token (need at least 8 chars).'
+            );
+        }
+
+        return min(12, $available);
+    }
+
+    protected function storePrefix(): string
+    {
+        return strtolower((string) config('bank_inbound.store_address_prefix', 'ps'));
     }
 
     public function generateUniqueToken(): string

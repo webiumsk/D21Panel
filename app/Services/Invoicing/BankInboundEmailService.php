@@ -4,9 +4,11 @@ namespace App\Services\Invoicing;
 
 use App\Enums\BankImportSource;
 use App\Models\Company;
+use App\Models\Store;
 use App\Services\Invoicing\BankImport\BankNotificationParser;
 use App\Services\Invoicing\BankImport\SlspBankEmailParser;
 use App\Services\Invoicing\BankImport\TatraBankEmailParser;
+use App\Services\SepaEmailConfirmationService;
 use App\Support\Invoicing\ParsedBankTransaction;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +22,7 @@ class BankInboundEmailService
         protected BankStatementImportService $importService,
         protected BusinessDocumentPaymentMatcher $matcher,
         protected BankInboundAddressService $addressService,
+        protected SepaEmailConfirmationService $sepaConfirmation,
         ?array $parsers = null,
     ) {
         $this->parsers = $parsers ?? [
@@ -30,7 +33,7 @@ class BankInboundEmailService
 
     /**
      * @param  array{to: string, from: string, subject: string, body: string, headers?: string}  $payload
-     * @return array{company_id: string, imported: int, auto_matched: int}
+     * @return array{company_id: string, imported: int, auto_matched: int}|array{store_id: string, reported: int, outcome: string|null}
      */
     public function handle(array $payload): array
     {
@@ -46,8 +49,17 @@ class BankInboundEmailService
             ]);
         }
 
-        $company = $this->resolveCompany($payload['to']);
+        $owner = $this->addressService->resolveOwner($payload['to']);
         $rows = $this->parseBody($payload['from'], $payload['subject'], $payload['body']);
+
+        // Store-scoped address: SEPA payment confirmation channel - the
+        // parsed credit is reported to the BTCPay plugin instead of the
+        // invoicing bank-transaction pipeline.
+        if ($owner instanceof Store) {
+            return $this->sepaConfirmation->handle($owner, $payload, $rows);
+        }
+
+        $company = $owner;
 
         if ($rows === []) {
             Log::warning('Bank inbound: no transactions parsed', [

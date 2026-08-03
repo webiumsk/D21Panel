@@ -408,6 +408,27 @@
             </div>
           </div>
 
+          <!-- Bank e-mail (b-mail) confirmations - complementary channel, always available -->
+          <div class="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-white">{{ t("sepa.bmail_title") }}</h2>
+            <p class="text-sm text-gray-400">{{ t("sepa.bmail_help") }}</p>
+            <div v-if="!bmail.enabled" class="text-sm text-amber-400">
+              {{ t("sepa.bmail_disabled") }}
+            </div>
+            <div v-else-if="bmail.address" class="flex flex-wrap items-center gap-3">
+              <code class="rounded-lg bg-gray-900 border border-gray-700 px-3 py-2 font-mono text-sm text-sky-300">{{ bmail.address }}</code>
+              <button
+                type="button"
+                class="px-3 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-gray-700 text-xs font-medium"
+                @click="copyBmailAddress"
+              >
+                {{ bmailCopied ? t("sepa.bmail_copied") : t("sepa.bmail_copy") }}
+              </button>
+            </div>
+            <p class="text-xs text-gray-500">{{ t("sepa.bmail_setup_hint") }}</p>
+            <p class="text-xs text-gray-500">{{ t("sepa.bmail_latency_hint") }}</p>
+          </div>
+
           <!-- Needs review -->
           <div
             v-if="reviewRequests.length > 0"
@@ -549,6 +570,8 @@ const testing = ref(false);
 const testResult = ref<{ ok: boolean; message: string | null } | null>(null);
 const confirming = ref<string | null>(null);
 const requests = ref<SepaPaymentRequest[]>([]);
+const bmail = ref<{ enabled: boolean; address: string | null }>({ enabled: false, address: null });
+const bmailCopied = ref(false);
 const fieldErrors = reactive<Record<string, string>>({});
 
 const form = reactive({
@@ -619,12 +642,16 @@ async function reload(refreshProbe = false) {
       pluginUnavailable.value = true;
       return;
     }
-    const [settingsRes, requestsRes] = await Promise.all([
+    const [settingsRes, requestsRes, bmailRes] = await Promise.all([
       api.get(`/stores/${storeId.value}/sepa/settings`),
       api.get(`/stores/${storeId.value}/sepa/payment-requests`),
+      api.get(`/stores/${storeId.value}/sepa/inbound-email`).catch(() => null),
     ]);
     applySettings(settingsRes.data?.data ?? settingsRes.data);
     requests.value = requestsRes.data?.data ?? [];
+    if (bmailRes) {
+      bmail.value = bmailRes.data?.data ?? { enabled: false, address: null };
+    }
   } catch (err: unknown) {
     flashStore.error(getApiErrorMessage(err, t("sepa.loading_failed")));
   } finally {
@@ -790,6 +817,17 @@ async function confirmRequest(reference: string) {
     flashStore.error(getApiErrorMessage(err, t("sepa.payment_confirm_failed")));
   } finally {
     confirming.value = null;
+  }
+}
+
+async function copyBmailAddress() {
+  if (!bmail.value.address) return;
+  try {
+    await navigator.clipboard.writeText(bmail.value.address);
+    bmailCopied.value = true;
+    setTimeout(() => (bmailCopied.value = false), 2000);
+  } catch {
+    flashStore.error(t("sepa.bmail_copy_failed"));
   }
 }
 
