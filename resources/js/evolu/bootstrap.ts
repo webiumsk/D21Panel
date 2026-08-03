@@ -65,7 +65,13 @@ export function ensureEvoluBoundToAccountSeed(): Promise<void> {
                 }
                 bootstrapState = "failed";
                 if (import.meta.env.DEV) {
-                    console.warn("[evolu] bootstrap failed:", error);
+                    if (error instanceof Error && error.message === "evolu_unavailable") {
+                        console.info(
+                            "[evolu] local-first storage unavailable (private window without OPFS?) - invoicing stays disabled this session",
+                        );
+                    } else {
+                        console.warn("[evolu] bootstrap failed:", error);
+                    }
                 }
             })
             .finally(() => {

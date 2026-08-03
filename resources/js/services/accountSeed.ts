@@ -7,6 +7,7 @@ import {
     deriveEvoluOwnerMnemonic,
     isTargetEvoluOwner,
 } from "./evoluOwner";
+import { withTimeout } from "@/evolu/asyncTimeout";
 
 ed25519.hashes.sha512 = sha512;
 
@@ -157,6 +158,69 @@ export type OwnerSwitchImpact =
     | { switches: true; companies: number; contacts: number; documents: number };
 
 /**
+ * Evolu `appOwner` resolves only once the DB worker initializes; when the
+ * worker cannot come up at all (private windows without OPFS - e.g. Firefox
+ * private browsing), the promise stays pending FOREVER, so every login-path
+ * await on it must be bounded. Generous on purpose: on working browsers this
+ * covers a cold WASM load, and timing out the data-loss preview skips the
+ * owner-switch warning, so it must not fire on a merely slow device.
+ */
+export const EVOLU_READY_TIMEOUT_MS = 10_000;
+
+/** Short probe once a timeout already happened (this page load or, via sessionStorage, a previous one). */
+export const EVOLU_READY_RETRY_TIMEOUT_MS = 1_500;
+
+const EVOLU_READY_PROBE_FAILED_KEY = "satflux.evolu.ready_probe_failed.v1";
+
+let evoluReadyLatch: "unknown" | "ready" | "timed_out" = "unknown";
+
+function readyProbeFlagged(): boolean {
+    try {
+        return sessionStorage.getItem(EVOLU_READY_PROBE_FAILED_KEY) === "1";
+    } catch {
+        return false;
+    }
+}
+
+function setReadyProbeFlag(failed: boolean): void {
+    try {
+        if (failed) {
+            sessionStorage.setItem(EVOLU_READY_PROBE_FAILED_KEY, "1");
+        } else {
+            sessionStorage.removeItem(EVOLU_READY_PROBE_FAILED_KEY);
+        }
+    } catch {
+        // Storage unavailable - probes just keep their full timeout.
+    }
+}
+
+async function awaitEvoluReady(evolu: { appOwner: Promise<unknown> }): Promise<void> {
+    if (evoluReadyLatch === "ready") {
+        return;
+    }
+    // Once a probe timed out, the worker almost certainly never comes up this
+    // session (dead storage, e.g. Firefox private browsing without OPFS), so
+    // later probes only need a token wait; the sessionStorage flag carries
+    // that knowledge across the full page load into the app bundle. appOwner
+    // is still raced each time, so a worker that did come up wins immediately.
+    const timeoutMs =
+        evoluReadyLatch === "timed_out"
+            ? 250
+            : readyProbeFlagged()
+              ? EVOLU_READY_RETRY_TIMEOUT_MS
+              : EVOLU_READY_TIMEOUT_MS;
+    try {
+        await withTimeout(evolu.appOwner, timeoutMs, "evolu_unavailable");
+        evoluReadyLatch = "ready";
+        setReadyProbeFlag(false);
+    } catch (error) {
+        evoluReadyLatch = "timed_out";
+        setReadyProbeFlag(true);
+        throw error;
+    }
+}
+
+/**
  * Data-loss guard preview (P1): would restoring with this phrase switch the
  * local Evolu owner, and how much local data would that re-link? Read-only -
  * nothing is mutated. Invalid phrases report no switch (authentication will
@@ -169,6 +233,7 @@ export async function previewOwnerSwitchImpact(mnemonic: string): Promise<OwnerS
     }
     try {
         const { evolu } = await import("@/evolu/client");
+        await awaitEvoluReady(evolu);
         const owner = await evolu.appOwner;
         if (owner.mnemonic == null || isTargetEvoluOwner(owner.mnemonic, normalized)) {
             return { switches: false };
@@ -226,6 +291,9 @@ export async function initEvoluFromAccountSeedIfNeeded(
 ): Promise<EvoluAccountSeedInitResult> {
     const evoluMnemonic = deriveEvoluOwnerMnemonic(mnemonic);
     const { evolu } = await import("@/evolu/client");
+    // Fail fast (instead of the 60s bootstrap cap) when the worker never
+    // initializes - every operation below would hang on it.
+    await awaitEvoluReady(evolu);
     const { isEvoluRelaySyncPending, markEvoluRelaySyncPending, waitForInvoicingRelaySync } =
         await import("@/evolu/relaySyncWait");
     const { ensureEvoluRelaySubscription } = await import("@/evolu/evoluRelaySubscription");

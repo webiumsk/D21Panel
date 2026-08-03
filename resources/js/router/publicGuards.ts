@@ -16,6 +16,10 @@ export async function runPublicRouteGuard(
 ): Promise<void> {
     if (!isPublicMarketingPath(to.path)) {
         navigateToAppPath(to.fullPath);
+        // Cancel the in-router navigation - the full page load takes over.
+        // Without this the guard never settles and vue-router throws
+        // "Invalid navigation guard".
+        next(false);
         return;
     }
 
@@ -45,6 +49,7 @@ export async function runPublicRouteGuard(
             ? redirectQuery
             : '/dashboard';
         navigateToAppPath(redirect);
+        next(false);
         return;
     }
 
