@@ -24,18 +24,54 @@
               {{ t("common.close") }}
             </button>
           </div>
+          <template v-if="passkey.supported.value">
+            <button
+              type="button"
+              :disabled="passkey.loading.value || loading"
+              class="w-full flex items-center justify-center gap-2 py-3 px-4 text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-50 transition-all"
+              :class="
+                passkey.ownerSwitchImpact.value
+                  ? 'bg-amber-600 hover:bg-amber-500 focus:ring-amber-500'
+                  : 'bg-indigo-600 hover:bg-indigo-500 focus:ring-indigo-500'
+              "
+              @click="submitWithPasskey"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+              {{
+                passkey.loading.value
+                  ? t("common.loading")
+                  : passkey.ownerSwitchImpact.value
+                    ? t("auth.guest_restore_owner_switch_confirm")
+                    : t("auth.passkey_login_button")
+              }}
+            </button>
+            <div
+              v-if="passkey.ownerSwitchImpact.value"
+              class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-2"
+            >
+              <p class="text-sm font-medium text-amber-300">
+                {{ t("auth.guest_restore_owner_switch_title") }}
+              </p>
+              <p class="text-sm text-gray-300">
+                {{
+                  t("auth.guest_restore_owner_switch_body", {
+                    documents: passkey.ownerSwitchImpact.value.documents,
+                    contacts: passkey.ownerSwitchImpact.value.contacts,
+                    companies: passkey.ownerSwitchImpact.value.companies,
+                  })
+                }}
+              </p>
+            </div>
+            <p class="text-center text-xs text-gray-500">
+              {{ t("account.passkey_or_phrase_divider") }}
+            </p>
+          </template>
           <p class="text-sm text-gray-400">
             {{ t("auth.guest_restore_hint") }}
           </p>
-          <p class="text-xs text-indigo-300/90 rounded-lg border border-indigo-500/25 bg-indigo-500/10 px-3 py-2">
-            {{ t("auth.guest_restore_passkey_hint") }}
-          </p>
-          <textarea
+          <SeedPhraseInput
             v-model="mnemonicInput"
-            rows="4"
-            class="w-full rounded-xl border border-gray-600 bg-gray-900/80 px-4 py-3 text-sm text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             :placeholder="t('auth.guest_restore_placeholder')"
-            autocomplete="off"
           />
           <div class="rounded-xl border border-gray-700 bg-gray-900/50 p-4 space-y-3">
             <label class="flex items-start gap-3 cursor-pointer select-none">
@@ -83,7 +119,7 @@
           </div>
           <button
             type="button"
-            :disabled="loading"
+            :disabled="loading || passkey.loading.value"
             class="w-full py-3 rounded-xl text-white text-sm font-semibold disabled:opacity-50"
             :class="ownerSwitchImpact ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'"
             @click="submit"
@@ -99,6 +135,12 @@
         </div>
       </div>
     </div>
+    <PasskeyEnrollOfferModal
+      :open="showPasskeyOffer"
+      context="restore"
+      @done="finishPasskeyOffer"
+      @skip="finishPasskeyOffer"
+    />
   </div>
 </template>
 
@@ -111,6 +153,11 @@ import { storeGuestMnemonic } from "../../services/guestRecovery";
 import { rememberDeviceWithPassphrase } from "../../services/deviceUnlock/provider";
 import { isAcceptableDevicePassphrase } from "../../services/deviceUnlock/envelope";
 import { previewOwnerSwitchImpact, type OwnerSwitchImpact } from "../../services/accountSeed";
+import { usePasskeyAccountLogin } from "../../composables/usePasskeyAccountLogin";
+import { shouldOfferPasskeyEnrollment } from "../../services/passkeyEnrollOffer";
+import { trackEvent } from "../../services/analytics";
+import PasskeyEnrollOfferModal from "./PasskeyEnrollOfferModal.vue";
+import SeedPhraseInput from "./SeedPhraseInput.vue";
 import { useFlashStore } from "../../store/flash";
 
 const props = defineProps<{ open: boolean }>();
@@ -133,6 +180,28 @@ const devicePassphrase = ref("");
 const ownerSwitchImpact = ref<Extract<OwnerSwitchImpact, { switches: true }> | null>(null);
 const ownerSwitchConfirmedFor = ref("");
 
+// The passkey path shares the seed path's finish (restore + remember +
+// emit); its owner-switch confirm lives in the composable so the seed
+// submit button never turns amber for a passkey-initiated switch.
+const passkey = usePasskeyAccountLogin({
+  onRestore: (recoveryPhrase) =>
+    finishRestore(recoveryPhrase, rememberSnapshot.value, passphraseSnapshot.value, "passkey"),
+  onError: (messageKey) => {
+    error.value = t(messageKey);
+  },
+});
+
+// Post-restore enrollment nudge (typed-seed path only): success/close are
+// deferred while the offer is open, never dropped.
+const showPasskeyOffer = ref(false);
+const pendingSuccessPayload = ref<{ store_id?: string | null } | null>(null);
+
+// Snapshots taken when a restore attempt starts: edits made while the
+// passkey prompt or restore request is in flight must not change what was
+// validated and what gets persisted.
+const rememberSnapshot = ref(false);
+const passphraseSnapshot = ref("");
+
 watch(
   () => props.open,
   (isOpen) => {
@@ -143,8 +212,13 @@ watch(
       devicePassphrase.value = "";
       ownerSwitchImpact.value = null;
       ownerSwitchConfirmedFor.value = "";
+      showPasskeyOffer.value = false;
+      pendingSuccessPayload.value = null;
+      passkey.reset();
+      void passkey.probeSupport();
     }
   },
+  { immediate: true },
 );
 
 // Editing the phrase after the warning was shown invalidates the confirmation.
@@ -155,17 +229,87 @@ watch(mnemonicInput, (value) => {
   }
 });
 
+/**
+ * Both restore paths converge here once the phrase is accepted: session via
+ * the Ed25519 challenge, then the opt-in device envelope, then success.
+ */
+async function finishRestore(
+  mnemonic: string,
+  remember: boolean,
+  passphrase: string,
+  source: "seed" | "passkey",
+): Promise<void> {
+  const data = await authStore.restoreGuestFromMnemonic(mnemonic);
+  storeGuestMnemonic(mnemonic);
+  if (remember) {
+    // Best-effort: the phrase is already session-bound; remembering failing
+    // must not block the login.
+    try {
+      await rememberDeviceWithPassphrase(mnemonic, passphrase);
+    } catch {
+      flashStore.warning(t("account.device_remember_failed"));
+    }
+  }
+  const payload = { store_id: data?.store_id ?? null };
+  if (source === "seed") {
+    trackEvent("auth", "seed_login_success");
+  }
+  // The session is unlocked right now - the one moment enrolling an account
+  // passkey needs nothing extra. Only for typed phrases (a passkey sign-in
+  // proves an envelope already exists) and never blocking: any check failure
+  // falls through to the normal success.
+  if (source === "seed" && (await shouldOfferPasskeyEnrollment())) {
+    pendingSuccessPayload.value = payload;
+    showPasskeyOffer.value = true;
+    return;
+  }
+  emit("success", payload);
+  emit("close");
+}
+
+function finishPasskeyOffer(): void {
+  showPasskeyOffer.value = false;
+  const payload = pendingSuccessPayload.value ?? { store_id: null };
+  pendingSuccessPayload.value = null;
+  emit("success", payload);
+  emit("close");
+}
+
+/**
+ * Snapshot the remember-device inputs and fail fast on a weak device
+ * passphrase BEFORE any prompt/authentication.
+ */
+function snapshotRememberInputs(): boolean {
+  rememberSnapshot.value = rememberDevice.value;
+  passphraseSnapshot.value = devicePassphrase.value;
+  if (rememberSnapshot.value && !isAcceptableDevicePassphrase(passphraseSnapshot.value)) {
+    error.value = t("account.device_passphrase_too_weak");
+    return false;
+  }
+  return true;
+}
+
+async function submitWithPasskey() {
+  error.value = "";
+  if (!snapshotRememberInputs()) {
+    return;
+  }
+  try {
+    await passkey.run();
+  } catch (rawError) {
+    // Passkey-phase failures went through onError; what reaches here is the
+    // restore step (network/server) - same message source as the seed path.
+    const e = asApiError(rawError);
+    error.value = e?.response?.data?.message || t("auth.guest_restore_error");
+  }
+}
+
 async function submit() {
   error.value = "";
-  // Snapshot the inputs: edits made while the restore request is in flight
+  // Snapshot the input: edits made while the restore request is in flight
   // must not change what was validated and what gets persisted.
   const mnemonic = mnemonicInput.value;
-  const remember = rememberDevice.value;
-  const passphrase = devicePassphrase.value;
-  // Validate the optional device passphrase BEFORE authenticating, so a weak
-  // passphrase fails fast without a half-done restore.
-  if (remember && !isAcceptableDevicePassphrase(passphrase)) {
-    error.value = t("account.device_passphrase_too_weak");
+  if (!snapshotRememberInputs()) {
     return;
   }
   loading.value = true;
@@ -188,19 +332,7 @@ async function submit() {
         return;
       }
     }
-    const data = await authStore.restoreGuestFromMnemonic(mnemonic);
-    storeGuestMnemonic(mnemonic);
-    if (remember) {
-      // Best-effort: the phrase is already session-bound; remembering failing
-      // must not block the login.
-      try {
-        await rememberDeviceWithPassphrase(mnemonic, passphrase);
-      } catch {
-        flashStore.warning(t("account.device_remember_failed"));
-      }
-    }
-    emit("success", { store_id: data?.store_id ?? null });
-    emit("close");
+    await finishRestore(mnemonic, rememberSnapshot.value, passphraseSnapshot.value, "seed");
   } catch (rawError) {
     const e = asApiError(rawError);
     error.value =

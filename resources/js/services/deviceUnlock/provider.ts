@@ -263,6 +263,21 @@ export async function restoreWithAccountPasskey(envelopes?: AccountEnvelopeSumma
  * the session phrase (Evolu unlocked). Cloud envelope only - a local slot
  * additionally requires the device passphrase path.
  */
+/**
+ * The passkey was created on the authenticator but the encrypted envelope
+ * never reached the server. A retry must NOT create() again (that would mint
+ * an orphan credential) - re-run the upload against this credential via
+ * upgradeAccountPasskey.
+ */
+export class PasskeyEnvelopeUploadError extends Error {
+    readonly credentialIdB64: string;
+
+    constructor(credentialIdB64: string) {
+        super("account envelope upload failed");
+        this.credentialIdB64 = credentialIdB64;
+    }
+}
+
 export async function addAccountPasskeyFromSession(label: string): Promise<void> {
     const phrase = getStoredAccountMnemonic();
     if (!phrase) {
@@ -283,6 +298,8 @@ export async function addAccountPasskeyFromSession(label: string): Promise<void>
             payload,
             label,
         });
+    } catch {
+        throw new PasskeyEnvelopeUploadError(credential.credentialIdB64);
     } finally {
         credential.prfOutput.fill(0);
     }

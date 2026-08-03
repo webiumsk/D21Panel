@@ -14,10 +14,16 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../services/deviceUnlock/provider", () => ({
     loginWithAccountPasskey: mocks.loginWithAccountPasskey,
+    addAccountPasskeyFromSession: vi.fn(),
+    upgradeAccountPasskey: vi.fn(),
+    PasskeyEnvelopeUploadError: class PasskeyEnvelopeUploadError extends Error {},
+    rememberDeviceWithPassphrase: vi.fn(),
 }));
 
 vi.mock("../services/deviceUnlock/passkeyPrf", () => ({
     PasskeyCancelledError: class PasskeyCancelledError extends Error {},
+    PasskeyPrfUnsupportedError: class PasskeyPrfUnsupportedError extends Error {},
+    PasskeyUnsupportedError: class PasskeyUnsupportedError extends Error {},
     isPasskeyPrfSupported: vi.fn(async () => true),
 }));
 

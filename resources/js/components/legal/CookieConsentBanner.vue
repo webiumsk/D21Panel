@@ -71,5 +71,14 @@ function accept() {
 function acceptEssentialOnly() {
   setCookieConsent('essential');
   visible.value = false;
+  void import('../../services/analytics')
+    .then(({ onAnalyticsConsentWithdrawn }) => onAnalyticsConsentWithdrawn())
+    .catch(() => {
+      // Even without the module, queued tracker commands must not survive
+      // the withdrawal.
+      if (window._paq) {
+        window._paq.length = 0;
+      }
+    });
 }
 </script>

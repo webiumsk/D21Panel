@@ -1,4 +1,8 @@
-import { getStoredAccountMnemonic, initEvoluFromAccountSeedIfNeeded } from "@/services/accountSeed";
+import {
+    getStoredAccountMnemonic,
+    initEvoluFromAccountSeedIfNeeded,
+    isEvoluUnavailableError,
+} from "@/services/accountSeed";
 import { requestPersistence } from "@/services/browserStorage";
 import { sleep, withTimeout } from "./asyncTimeout";
 import { isInvoicingLocalFirst } from "./flags";
@@ -65,7 +69,13 @@ export function ensureEvoluBoundToAccountSeed(): Promise<void> {
                 }
                 bootstrapState = "failed";
                 if (import.meta.env.DEV) {
-                    console.warn("[evolu] bootstrap failed:", error);
+                    if (isEvoluUnavailableError(error)) {
+                        console.info(
+                            "[evolu] local-first storage unavailable (private window without OPFS?) - invoicing stays disabled this session",
+                        );
+                    } else {
+                        console.warn("[evolu] bootstrap failed:", error);
+                    }
                 }
             })
             .finally(() => {
