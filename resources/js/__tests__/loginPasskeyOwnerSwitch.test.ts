@@ -18,6 +18,8 @@ vi.mock("../services/deviceUnlock/provider", () => ({
 
 vi.mock("../services/deviceUnlock/passkeyPrf", () => ({
     PasskeyCancelledError: class PasskeyCancelledError extends Error {},
+    PasskeyPrfUnsupportedError: class PasskeyPrfUnsupportedError extends Error {},
+    PasskeyUnsupportedError: class PasskeyUnsupportedError extends Error {},
     isPasskeyPrfSupported: vi.fn(async () => true),
 }));
 

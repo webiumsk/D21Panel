@@ -63,6 +63,12 @@
       @close="showGuestRestoreModal = false"
       @success="redirectAfterGuestRestore"
     />
+    <PasskeyEnrollOfferModal
+      :open="showPasskeyOffer"
+      context="register"
+      @done="finishPasskeyOffer"
+      @skip="finishPasskeyOffer"
+    />
   </div>
 </template>
 
@@ -73,6 +79,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import GuestBackupWizardModal from "../../components/auth/GuestBackupWizardModal.vue";
 import GuestRestoreModal from "../../components/auth/GuestRestoreModal.vue";
+import PasskeyEnrollOfferModal from "../../components/auth/PasskeyEnrollOfferModal.vue";
 import AuthSeedGuestPanel from "../../components/auth/AuthSeedGuestPanel.vue";
 import { useAuthStore } from "../../store/auth";
 import { useStoresStore } from "../../store/stores";
@@ -80,6 +87,7 @@ import { useFlashStore } from "../../store/flash";
 import api from "../../services/api";
 import { storeGuestMnemonic } from "../../services/guestRecovery";
 import { initEvoluFromAccountSeedIfNeeded } from "../../services/accountSeed";
+import { isPasskeyPrfSupported } from "../../services/deviceUnlock/passkeyPrf";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -88,6 +96,8 @@ const flashStore = useFlashStore();
 const guestLoading = ref(false);
 const showGuestBackupWizard = ref(false);
 const showGuestRestoreModal = ref(false);
+const showPasskeyOffer = ref(false);
+const passkeyOfferRedirectPath = ref("");
 
 function redirectAfterGuestRestore(_payload: { store_id?: string | null }) {
   // A restored account is not a fresh guest: it may already have a connected
@@ -129,12 +139,9 @@ async function handleGuestEnrolled(payload: {
       }
     }
 
-    if (storeId) {
-      router.replace(`/stores/${storeId}/wallet-connection`);
-      return;
-    }
-
-    router.replace("/stores/create");
+    await redirectOrOfferPasskey(
+      storeId ? `/stores/${storeId}/wallet-connection` : "/stores/create",
+    );
   } catch (rawError) {
     const err = asApiError(rawError);
     flashStore.error(
@@ -143,5 +150,31 @@ async function handleGuestEnrolled(payload: {
   } finally {
     guestLoading.value = false;
   }
+}
+
+/**
+ * First authenticated instant after registration = the one moment the
+ * session phrase is guaranteed unlocked, so offer the account passkey now
+ * ("sign in without your 24 words next time"). The redirect is only
+ * deferred, never blocked: done and skip both land on the same target.
+ */
+async function redirectOrOfferPasskey(targetPath: string): Promise<void> {
+  let offerPasskey = false;
+  try {
+    offerPasskey = await isPasskeyPrfSupported();
+  } catch {
+    offerPasskey = false;
+  }
+  if (!offerPasskey) {
+    router.replace(targetPath);
+    return;
+  }
+  passkeyOfferRedirectPath.value = targetPath;
+  showPasskeyOffer.value = true;
+}
+
+function finishPasskeyOffer(): void {
+  showPasskeyOffer.value = false;
+  router.replace(passkeyOfferRedirectPath.value || "/stores/create");
 }
 </script>

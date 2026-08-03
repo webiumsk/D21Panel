@@ -46,3 +46,19 @@ export function loadAnalyticsIfConsented(): void {
 export function onAnalyticsConsentGranted(): void {
     loadAnalyticsIfConsented();
 }
+
+/**
+ * Matomo custom event, consent-gated by the same switch as page views: a
+ * no-op until the tracker was loaded. Category/action/name must never carry
+ * user data - counters only (e.g. passkey adoption).
+ */
+export function trackEvent(category: string, action: string, name?: string): void {
+    if (!analyticsLoaded || !window._paq) {
+        return;
+    }
+    window._paq.push(
+        name === undefined
+            ? ['trackEvent', category, action]
+            : ['trackEvent', category, action, name],
+    );
+}

@@ -94,11 +94,11 @@
             v-if="passkeyLoginSupported"
             type="button"
             :disabled="passkeyLoginLoading"
-            class="w-full flex items-center justify-center gap-2 py-3 px-4 mb-3 border text-sm font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 transition-all"
+            class="w-full flex items-center justify-center gap-2 py-3 px-4 mb-3 text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 transition-all shadow-lg"
             :class="
               passkeyOwnerSwitchImpact
-                ? 'border-amber-500/50 text-amber-100 bg-amber-600/30 hover:bg-amber-600/40 focus:ring-amber-500'
-                : 'border-indigo-500/40 text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 focus:ring-indigo-500'
+                ? 'bg-amber-600 hover:bg-amber-500 focus:ring-amber-500 shadow-amber-600/20'
+                : 'bg-indigo-600 hover:bg-indigo-500 focus:ring-indigo-500 shadow-indigo-600/20'
             "
             @click="handlePasskeyLogin"
           >
@@ -128,6 +128,7 @@
           </div>
           <AuthSeedGuestPanel
             variant="login"
+            :hierarchy="passkeyLoginSupported ? 'secondary' : 'primary'"
             :primary-label="t('auth.restore_guest_session')"
             @primary="showGuestRestoreModal = true"
           />
@@ -269,60 +270,36 @@ import GuestRestoreModal from "../../components/auth/GuestRestoreModal.vue";
 import AuthSeedGuestPanel from "../../components/auth/AuthSeedGuestPanel.vue";
 import { isPublicMarketingPath, navigateToAppPath } from "../../utils/publicMarketingRoutes";
 import { isSeedFirstRegistration } from "../../config/auth";
-import { loginWithAccountPasskey } from "../../services/deviceUnlock/provider";
-import { isPasskeyPrfSupported, PasskeyCancelledError } from "../../services/deviceUnlock/passkeyPrf";
-import {
-  deriveRecoveryPublicKeyHex,
-  previewOwnerSwitchImpact,
-  type OwnerSwitchImpact,
-} from "../../services/accountSeed";
+import { usePasskeyAccountLogin } from "../../composables/usePasskeyAccountLogin";
 
 const { t } = useI18n();
-
-const passkeyLoginSupported = ref(false);
-const passkeyLoginLoading = ref(false);
-const passkeyOwnerSwitchImpact = ref<Extract<OwnerSwitchImpact, { switches: true }> | null>(null);
-const passkeyOwnerSwitchConfirmedFor = ref("");
-
-onMounted(() => {
-  applyAuthTabFromQuery();
-  void isPasskeyPrfSupported().then((supported) => {
-    passkeyLoginSupported.value = supported;
-  });
-});
 
 /**
  * One gesture on ANY device: the passkey's PRF output decrypts the
  * server-held ciphertext envelope into the recovery phrase, and the phrase
- * signs the existing guest-recovery challenge for the session.
+ * signs the existing guest-recovery challenge for the session (shared flow
+ * with GuestRestoreModal, incl. the owner-switch two-click confirm).
  */
-async function handlePasskeyLogin() {
-  passkeyLoginLoading.value = true;
-  try {
-    const { recoveryPhrase } = await loginWithAccountPasskey();
-    const recoveryPublicKeyHex = deriveRecoveryPublicKeyHex(recoveryPhrase);
-    if (passkeyOwnerSwitchConfirmedFor.value !== recoveryPublicKeyHex) {
-      const impact = await previewOwnerSwitchImpact(recoveryPhrase);
-      if (impact.switches) {
-        passkeyOwnerSwitchImpact.value = impact;
-        passkeyOwnerSwitchConfirmedFor.value = recoveryPublicKeyHex;
-        return;
-      }
-    }
-    passkeyOwnerSwitchImpact.value = null;
-    passkeyOwnerSwitchConfirmedFor.value = "";
+const {
+  supported: passkeyLoginSupported,
+  loading: passkeyLoginLoading,
+  ownerSwitchImpact: passkeyOwnerSwitchImpact,
+  probeSupport: probePasskeySupport,
+  run: handlePasskeyLogin,
+} = usePasskeyAccountLogin({
+  onRestore: async (recoveryPhrase) => {
     await authStore.restoreGuestFromMnemonic(recoveryPhrase);
     redirectAfterGuestRestore({});
-  } catch (rawError) {
-    if (!(rawError instanceof PasskeyCancelledError)) {
-      passkeyOwnerSwitchImpact.value = null;
-      passkeyOwnerSwitchConfirmedFor.value = "";
-      flashStore.error(t("auth.passkey_login_failed"));
-    }
-  } finally {
-    passkeyLoginLoading.value = false;
-  }
-}
+  },
+  onError: (messageKey) => {
+    flashStore.error(t(messageKey));
+  },
+});
+
+onMounted(() => {
+  applyAuthTabFromQuery();
+  void probePasskeySupport();
+});
 
 const router = useRouter();
 const route = useRoute();

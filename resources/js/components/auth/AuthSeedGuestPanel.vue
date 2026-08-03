@@ -21,7 +21,12 @@
       <button
         type="button"
         :disabled="primaryDisabled"
-        class="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-gray-800"
+        class="w-full inline-flex items-center justify-center gap-2 py-3 px-4 text-sm font-bold rounded-lg disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-gray-800"
+        :class="
+          hierarchy === 'secondary'
+            ? 'border border-indigo-500/40 text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20'
+            : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+        "
         @click="emit('primary')"
       >
         <svg
@@ -93,10 +98,13 @@ const props = withDefaults(
     primaryLabel: string;
     primaryDisabled?: boolean;
     className?: string;
+    /** "secondary" de-emphasizes the primary button when a passkey CTA sits above the panel. */
+    hierarchy?: "primary" | "secondary";
   }>(),
   {
     primaryDisabled: false,
     className: "",
+    hierarchy: "primary",
   },
 );
 
