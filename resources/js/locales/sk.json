@@ -4192,7 +4192,7 @@
     "bmail_copied": "Skopírované!",
     "bmail_copy_failed": "Adresu sa nepodarilo skopírovať",
     "bmail_setup_hint": "Nastavíte v bankovníctve: napr. Tatra banka - B-mail notifikácie o prijatých platbách na tento e-mail. Podporované formáty: Tatra banka, SLSP; notifikácia musí prísť priamo z banky (bez preposielania).",
-    "bmail_latency_hint": "Typický čas potvrdenia: 15-90 sekúnd od pripísania platby (bankový e-mail + spracovanie).",
+    "bmail_latency_hint": "Typický čas potvrdenia: 15 - 90 sekúnd od pripísania platby (bankový e-mail + spracovanie).",
     "test_help": "Spustí živú kontrolu nastaveného potvrdzovacieho backendu (pre NOP: mTLS status volanie s vaším certifikátom).",
     "test_button": "Otestovať potvrdzovací backend",
     "testing": "Testujem...",

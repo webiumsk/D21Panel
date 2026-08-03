@@ -10,6 +10,7 @@ use App\Services\Invoicing\BankInboundAddressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * SEPA Instant QR management - proxies the BTCPay plugin Greenfield API.
@@ -32,9 +33,25 @@ class SepaController extends Controller
      */
     public function inboundEmail(Store $store, BankInboundAddressService $addressService): JsonResponse
     {
+        $enabled = (bool) config('bank_inbound.enabled', false);
+        $address = null;
+        if ($enabled) {
+            // Token generation is a write - never do it while the channel is
+            // disabled, and never let a misconfigured domain/prefix break
+            // the SEPA page.
+            try {
+                $address = $addressService->buildStoreAddress($store);
+            } catch (\InvalidArgumentException $e) {
+                Log::error('SEPA b-mail address unavailable', [
+                    'store_id' => $store->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         return response()->json(['data' => [
-            'enabled' => (bool) config('bank_inbound.enabled', false),
-            'address' => $addressService->buildStoreAddress($store),
+            'enabled' => $enabled && $address !== null,
+            'address' => $address,
         ]]);
     }
 

@@ -4188,7 +4188,7 @@
     "bmail_copied": "Copied!",
     "bmail_copy_failed": "Could not copy the address",
     "bmail_setup_hint": "Set it up in your banking: e.g. Tatra banka - B-mail notifications for incoming payments to this e-mail. Supported formats: Tatra banka, SLSP; the notification must be sent by the bank directly (no forwarding).",
-    "bmail_latency_hint": "Typical confirmation time: 15-90 seconds after the payment arrives (bank e-mail + processing).",
+    "bmail_latency_hint": "Typical confirmation time: 15 - 90 seconds after the payment arrives (bank e-mail + processing).",
     "test_help": "Runs a live check of the configured confirmation backend (for NOP: an mTLS status call with your certificate).",
     "test_button": "Test confirmation backend",
     "testing": "Testing...",

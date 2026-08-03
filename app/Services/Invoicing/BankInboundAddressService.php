@@ -2,6 +2,7 @@
 
 namespace App\Services\Invoicing;
 
+use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\Store;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -101,6 +102,10 @@ class BankInboundAddressService
                     $locked->forceFill(['bank_inbound_token' => $token])->save();
                     $store->bank_inbound_token = $token;
 
+                    // Sensitive store mutation - keep it auditable (store +
+                    // acting principal; null user in queue contexts).
+                    AuditLog::log('sepa.bmail_address_created', 'store', $store->id);
+
                     return $token;
                 });
             } catch (UniqueConstraintViolationException) {
@@ -137,9 +142,12 @@ class BankInboundAddressService
         $normalized = strtolower(trim($to));
         $domain = preg_quote($this->domain(), '/');
         $storePrefix = preg_quote($this->storePrefix(), '/');
-        $storeTokenLength = $this->storeTokenLength();
 
-        if (preg_match('/^'.$storePrefix.'([a-z0-9]{'.$storeTokenLength.'})@'.$domain.'$/', $normalized, $matches)) {
+        // Tokens are persisted at generation time; a later config change can
+        // alter the COMPUTED length, so resolution accepts the whole range
+        // the generator (8..12) and the column (16) allow - the DB lookup
+        // is the actual authority.
+        if (preg_match('/^'.$storePrefix.'([a-z0-9]{8,16})@'.$domain.'$/', $normalized, $matches)) {
             $store = Store::query()->where('bank_inbound_token', $matches[1])->first();
             if ($store !== null) {
                 return $store;

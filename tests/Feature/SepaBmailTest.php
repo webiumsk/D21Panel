@@ -159,4 +159,44 @@ class SepaBmailTest extends TestCase
         $response->assertJsonPath('data.enabled', true);
         $this->assertStringStartsWith('ps', $response->json('data.address'));
     }
+
+    #[Test]
+    public function disabled_channel_generates_no_token_on_get(): void
+    {
+        config(['bank_inbound.enabled' => false]);
+        Sanctum::actingAs($this->user);
+
+        $response = $this->getJson("/api/stores/{$this->store->id}/sepa/inbound-email");
+
+        $response->assertOk();
+        $response->assertJsonPath('data.enabled', false);
+        $response->assertJsonPath('data.address', null);
+        $this->assertNull($this->store->fresh()->bank_inbound_token);
+    }
+
+    #[Test]
+    public function issued_addresses_survive_a_config_length_change(): void
+    {
+        $address = $this->addressService->buildStoreAddress($this->store);
+
+        // shortening the max length changes the COMPUTED token length -
+        // already issued addresses must still resolve
+        config(['bank_inbound.max_address_length' => 40]);
+
+        $owner = $this->addressService->resolveOwner($address);
+        $this->assertTrue($owner->is($this->store));
+    }
+
+    #[Test]
+    public function token_creation_is_audited(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        $this->getJson("/api/stores/{$this->store->id}/sepa/inbound-email")->assertOk();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'sepa.bmail_address_created',
+            'target_id' => $this->store->id,
+        ]);
+    }
 }
