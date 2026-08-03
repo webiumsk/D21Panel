@@ -102,6 +102,21 @@ class SepaService
     }
 
     /**
+     * Amount-verified confirmation report (b-mail channel): the plugin
+     * matches amount/currency against the pending request - mismatches go
+     * to manual review, never auto-settle.
+     *
+     * @param  array{reference: string, amount: float, currency: string, dedupKey?: string}  $data
+     * @return array { outcome }
+     */
+    public function reportPayment(string $storeId, array $data, ?string $userApiKey = null): array
+    {
+        return $this->client->withUserKey($userApiKey, function () use ($storeId, $data) {
+            return $this->client->post($this->base($storeId).'/payment-requests/report', $data);
+        });
+    }
+
+    /**
      * @param  string|null  $state  pending | review | null (both)
      */
     public function listPaymentRequests(string $storeId, ?string $state = null, ?string $userApiKey = null): array

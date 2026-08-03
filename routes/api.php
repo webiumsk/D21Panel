@@ -851,6 +851,7 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
         Route::get('/status', [SepaController::class, 'status'])
             ->middleware('throttle:10,1');
         Route::get('/settings', [SepaController::class, 'getSettings']);
+        Route::get('/inbound-email', [SepaController::class, 'inboundEmail']);
         Route::put('/settings', [SepaController::class, 'updateSettings'])
             ->middleware(AuditLog::class.':sepa.settings_updated');
         Route::post('/certificate', [SepaController::class, 'uploadCertificate'])

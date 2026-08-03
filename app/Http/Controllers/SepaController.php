@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\SepaService;
+use App\Services\Invoicing\BankInboundAddressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -21,6 +22,21 @@ use Illuminate\Support\Facades\Cache;
 class SepaController extends Controller
 {
     public function __construct(protected SepaService $sepaService) {}
+
+    /**
+     * Store-scoped b-mail inbound address: the merchant points the bank's
+     * credit-notification e-mails here and pending SEPA requests confirm
+     * automatically (amount-verified plugin report). Safe to expose
+     * unconditionally - the channel can only settle a matching pending
+     * reference with a matching amount.
+     */
+    public function inboundEmail(Store $store, BankInboundAddressService $addressService): JsonResponse
+    {
+        return response()->json(['data' => [
+            'enabled' => (bool) config('bank_inbound.enabled', false),
+            'address' => $addressService->buildStoreAddress($store),
+        ]]);
+    }
 
     public function status(Request $request, Store $store): JsonResponse
     {
