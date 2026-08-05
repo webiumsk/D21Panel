@@ -98,6 +98,13 @@
         </div>
 
         <template v-else>
+          <div
+            v-if="retryNotice"
+            class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 mb-4 text-sm text-amber-200"
+          >
+            {{ retryNotice }}
+          </div>
+
           <div class="overflow-x-auto rounded-xl border border-gray-700">
             <table class="min-w-full divide-y divide-gray-700 text-sm">
               <thead class="bg-gray-700/50">
@@ -183,15 +190,45 @@
                     </div>
                     <span v-else class="text-gray-600 text-sm">-</span>
                   </td>
-                  <td
-                    class="px-4 py-3 break-all max-w-xs"
-                    :class="
-                      p.settlement_error
-                        ? 'text-red-300/90 text-sm'
-                        : 'text-gray-500 text-sm'
-                    "
-                  >
-                    {{ p.settlement_error || "-" }}
+                  <td class="px-4 py-3 break-all max-w-xs text-sm">
+                    <div
+                      v-if="
+                        p.failure_reason_code ||
+                        p.settlement_error ||
+                        p.needs_manual_review
+                      "
+                      class="space-y-1"
+                    >
+                      <span
+                        v-if="p.needs_manual_review"
+                        class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                      >
+                        {{ t("stores.cashu_needs_review_badge") }}
+                      </span>
+                      <p
+                        v-if="p.failure_reason_code"
+                        class="text-red-300/90 font-medium"
+                      >
+                        {{ failureReasonLabel(p.failure_reason_code) }}
+                      </p>
+                      <p
+                        v-if="p.settlement_error"
+                        class="text-red-300/60 text-xs"
+                      >
+                        {{ p.settlement_error }}
+                      </p>
+                      <p
+                        v-if="(p.retry_count ?? 0) > 0"
+                        class="text-gray-500 text-xs"
+                      >
+                        {{
+                          t("stores.cashu_retry_count_label", {
+                            count: p.retry_count,
+                          })
+                        }}
+                      </p>
+                    </div>
+                    <span v-else class="text-gray-500">-</span>
                   </td>
                   <td class="px-4 py-3">
                     <button
@@ -280,7 +317,24 @@ interface CashuPayment {
   settlement_state?: SettlementState | string | null;
   settlement_error?: string | null;
   mint_quote_poll_url?: string | null;
+  retry_count?: number | null;
+  needs_manual_review?: boolean | null;
+  failure_reason_code?: string | null;
 }
+
+/** Failure reason codes emitted by the CashuMelt plugin (CashuMeltFailureReasons). */
+const FAILURE_REASON_KEYS: Record<string, string> = {
+  mint_poll_error: "stores.cashu_reason_mint_poll_error",
+  trusted_mint_violation: "stores.cashu_reason_trusted_mint_violation",
+  mint_proof_failed: "stores.cashu_reason_mint_proof_failed",
+  keyset_conflict: "stores.cashu_reason_keyset_conflict",
+  ln_address_unresolvable: "stores.cashu_reason_ln_address_unresolvable",
+  melt_quote_failed: "stores.cashu_reason_melt_quote_failed",
+  fee_too_high: "stores.cashu_reason_fee_too_high",
+  melt_failed: "stores.cashu_reason_melt_failed",
+  amount_too_small: "stores.cashu_reason_amount_too_small",
+  max_retries_exceeded: "stores.cashu_reason_max_retries_exceeded",
+};
 
 interface CashuPaymentsResponse {
   total: number;
@@ -310,6 +364,7 @@ const payments = ref<CashuPaymentsResponse>({
 
 const loading = ref(false);
 const error = ref<string | null>(null);
+const retryNotice = ref<string | null>(null);
 const retryingQuoteIds = ref<Set<string>>(new Set());
 const copiedPollQuoteId = ref<string | null>(null);
 let copyPollResetTimer: ReturnType<typeof setTimeout> | null = null;
@@ -387,12 +442,22 @@ async function copyMintPollUrl(p: CashuPayment) {
   }
 }
 
+function failureReasonLabel(code?: string | null): string {
+  if (!code) return "";
+  const key = FAILURE_REASON_KEYS[code];
+  return key ? t(key) : code;
+}
+
 function canRetry(p: CashuPayment): boolean {
   if (!p.quote_id) return false;
-  if (p.settlement_state !== "FAILED") return false;
-  const err = (p.settlement_error ?? "").toString();
-  if (err.toLowerCase().includes("proofs are not available")) return false;
-  return true;
+  const s = (p.settlement_state ?? "").toString().toUpperCase();
+  if (s === "FAILED") {
+    const err = (p.settlement_error ?? "").toString();
+    return !err.toLowerCase().includes("proofs are not available");
+  }
+  // The plugin also retries PENDING (stuck settlement) and MELT_COMPLETE
+  // (merchant already paid - only the BTCPay accounting record is retried).
+  return s === "PENDING" || s === "MELT_COMPLETE";
 }
 
 async function fetchPayments() {
@@ -435,10 +500,24 @@ async function fetchPayments() {
 async function retryPayment(quoteId: string) {
   if (!quoteId) return;
 
+  const sid = storeId();
+  retryNotice.value = null;
   retryingQuoteIds.value.add(quoteId);
   retryingQuoteIds.value = new Set(retryingQuoteIds.value);
   try {
-    await api.post(`/stores/${storeId()}/cashu/payments/${quoteId}/retry`);
+    const response = await api.post(
+      `/stores/${sid}/cashu/payments/${quoteId}/retry`,
+    );
+    // The store may have changed while the request was in flight.
+    if (storeId() !== sid) return;
+    const d = response.data?.data ?? {};
+    if (d.settled) {
+      retryNotice.value = t("stores.cashu_retry_settled");
+    } else if (d.retry_after_seconds != null) {
+      retryNotice.value = t("stores.cashu_retry_in_progress", {
+        seconds: d.retry_after_seconds,
+      });
+    }
     await fetchPayments();
   } catch (err: unknown) {
     const e = err as {
@@ -470,6 +549,8 @@ watch(
   () => {
     offset.value = 0;
     settlementState.value = "";
+    retryNotice.value = null;
+    retryingQuoteIds.value = new Set();
     fetchPayments();
   },
 );
