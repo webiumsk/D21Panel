@@ -264,6 +264,7 @@ export interface CashuSettings {
     lightning_address?: string | null;
     trusted_mint_urls?: string[] | string | null;
     enabled?: boolean;
+    unit?: "sat" | "usd" | string | null;
     max_melt_fee_reserve_sats?: number | string | null;
     max_melt_fee_reserve_percent_of_minted?: number | string | null;
 }

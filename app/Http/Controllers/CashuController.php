@@ -205,6 +205,7 @@ class CashuController extends Controller
             'data' => [
                 'settled' => $result['settled'] ?? null,
                 'error' => $result['error'] ?? null,
+                'retry_after_seconds' => $result['retryAfterSeconds'] ?? $result['retry_after_seconds'] ?? null,
             ],
         ]);
     }
@@ -260,6 +261,9 @@ class CashuController extends Controller
             'paid_at' => $item['paidAt'] ?? $item['paid_at'] ?? null,
             'settled_at' => $settledAt,
             'mint_quote_poll_url' => is_string($pollUrl) && $pollUrl !== '' ? $pollUrl : null,
+            'retry_count' => (int) ($item['retryCount'] ?? $item['retry_count'] ?? 0),
+            'needs_manual_review' => (bool) ($item['needsManualReview'] ?? $item['needs_manual_review'] ?? false),
+            'failure_reason_code' => $item['failureReasonCode'] ?? $item['failure_reason_code'] ?? null,
         ];
     }
 

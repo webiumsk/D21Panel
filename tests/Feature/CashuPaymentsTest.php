@@ -103,6 +103,101 @@ class CashuPaymentsTest extends TestCase
         $response->assertJsonPath('data.items.0.settlement_state', 'PENDING');
     }
 
+    public function test_list_payments_passes_through_risk_control_fields(): void
+    {
+        $baseUrl = rtrim(config('services.btcpay.base_url'), '/');
+        $btcpaySid = 'store-cashu-risk';
+
+        Http::fake(function (Request $request) use ($baseUrl, $btcpaySid) {
+            if (! str_contains($request->url(), "{$baseUrl}/api/v1/stores/{$btcpaySid}/plugins/cashumelt/payments")) {
+                return Http::response(['error' => 'unexpected URL'], 500);
+            }
+
+            return Http::response([
+                'total' => 2,
+                'offset' => 0,
+                'limit' => 50,
+                'items' => [
+                    [
+                        'quoteId' => 'q-failed',
+                        'invoiceId' => 'inv-3',
+                        'amountSats' => 18058,
+                        'state' => 'PAID',
+                        'settlementState' => 'FAILED',
+                        'settlementError' => 'Lightning routing fee reserve (180 sat) is too high',
+                        'createdAt' => '2026-08-05T14:00:00Z',
+                        'settledAt' => null,
+                        'retryCount' => 7,
+                        'needsManualReview' => true,
+                        'failureReasonCode' => 'fee_too_high',
+                    ],
+                    [
+                        // Older plugin without risk-control fields - defaults must apply.
+                        'quoteId' => 'q-legacy',
+                        'invoiceId' => 'inv-4',
+                        'amountSats' => 500,
+                        'state' => 'PAID',
+                        'settlementState' => 'SETTLED',
+                        'createdAt' => '2026-08-05T13:00:00Z',
+                        'settledAt' => '2026-08-05T13:01:00Z',
+                    ],
+                ],
+            ], 200);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'wallet_type' => 'cashu',
+            'btcpay_store_id' => $btcpaySid,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson("/api/stores/{$store->id}/cashu/payments");
+
+        $response->assertOk();
+        $response->assertJsonPath('data.items.0.retry_count', 7);
+        $response->assertJsonPath('data.items.0.needs_manual_review', true);
+        $response->assertJsonPath('data.items.0.failure_reason_code', 'fee_too_high');
+        $response->assertJsonPath('data.items.1.retry_count', 0);
+        $response->assertJsonPath('data.items.1.needs_manual_review', false);
+        $response->assertJsonPath('data.items.1.failure_reason_code', null);
+    }
+
+    public function test_retry_payment_passes_through_retry_after_seconds(): void
+    {
+        $baseUrl = rtrim(config('services.btcpay.base_url'), '/');
+        $btcpaySid = 'store-cashu-retry';
+
+        Http::fake(function (Request $request) use ($baseUrl, $btcpaySid) {
+            if (! str_contains($request->url(), "{$baseUrl}/api/v1/stores/{$btcpaySid}/plugins/cashumelt/payments/q-retry/retry")) {
+                return Http::response(['error' => 'unexpected URL'], 500);
+            }
+
+            return Http::response([
+                'settled' => false,
+                'error' => null,
+                'retryAfterSeconds' => 3,
+            ], 200);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'wallet_type' => 'cashu',
+            'btcpay_store_id' => $btcpaySid,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson("/api/stores/{$store->id}/cashu/payments/q-retry/retry");
+
+        $response->assertOk();
+        $response->assertJsonPath('data.settled', false);
+        $response->assertJsonPath('data.retry_after_seconds', 3);
+    }
+
     public function test_cashu_confirm_edit_accepts_account_password(): void
     {
         $user = User::factory()->create([
