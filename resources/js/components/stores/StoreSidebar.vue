@@ -329,7 +329,7 @@
           </button>
 
           <button
-            v-if="store?.wallet_type === 'cashu'"
+            v-if="store?.wallet_type === 'cashu' || store?.cashu_fallback_enabled"
             type="button"
             class="w-full flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors text-left"
             :class="
@@ -1139,6 +1139,7 @@ interface Props {
     name: string;
     logo_url?: string | null;
     wallet_type?: "blink" | "blitz" | "aqua_boltz" | "cashu" | "nwc" | null;
+    cashu_fallback_enabled?: boolean;
     wallet_connection?: {
       status: "pending" | "needs_support" | "connected";
     } | null;

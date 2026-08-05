@@ -9,6 +9,7 @@ use App\Services\WalletConnectionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 
 class SamRockController extends Controller
 {
@@ -133,6 +134,8 @@ class SamRockController extends Controller
 
         $validated = $request->validate([
             'otp' => ['required', 'string'],
+            // Every store keeps a Lightning address as the CashuMelt payout fallback.
+            'fallback_lightning_address' => ['required', 'string', 'max:320', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
         ]);
 
         $userApiKey = $store->user->getBtcPayApiKeyOrFail();
@@ -159,6 +162,19 @@ class SamRockController extends Controller
         }
 
         $connection = $this->walletConnectionService->markSamRockConnected($store, $request->user());
+
+        try {
+            $this->walletConnectionService->configureCashuFallback(
+                $store,
+                $validated['fallback_lightning_address'],
+                $userApiKey
+            );
+        } catch (\Throwable $e) {
+            Log::error('Could not configure CashuMelt fallback after SamRock pairing', [
+                'store_id' => $store->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         try {
             $this->samRockService->deleteOtp($store->btcpay_store_id, $validated['otp'], $userApiKey);

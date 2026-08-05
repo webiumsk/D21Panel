@@ -377,7 +377,8 @@ class StoreProvisioningService
                 $connectionType,
                 $data['connection_string'],
                 $user,
-                'pending'
+                'pending',
+                $data['fallback_lightning_address'] ?? null
             );
 
             Log::info('Wallet connection created (pending - config bot will run)', [

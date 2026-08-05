@@ -64,6 +64,7 @@
               :wallet-type="store?.wallet_type"
               :wallet-brand="resolveStoreWalletBrand(store)"
               :auto-samrock="route.query.samrock === '1'"
+              :cashu-fallback-address="store?.cashu_fallback_enabled ? store?.cashu_fallback_address : null"
               @submitted="handleSubmitted"
               @cancel="handleCancel"
             />

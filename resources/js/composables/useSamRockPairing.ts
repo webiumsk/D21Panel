@@ -15,6 +15,7 @@ export function useSamRockPairing(storeId: () => string) {
     let samrockPollInterval: number | null = null;
     let samrockPollInFlight = false;
     let pairingStoreId: string | null = null;
+    let pairingFallbackAddress = '';
 
     function revokeSamRockQr() {
         if (samrockQrObjectUrl.value) {
@@ -62,7 +63,10 @@ export function useSamRockPairing(storeId: () => string) {
             const { status, error_message } = await walletApi.samrock.otpStatus(sid, otp);
             if (status === 'success') {
                 stopSamRockPolling();
-                await walletApi.samrock.complete(sid, { otp });
+                await walletApi.samrock.complete(sid, {
+                    otp,
+                    fallback_lightning_address: pairingFallbackAddress,
+                });
                 samrockOtp.value = '';
                 pairingStoreId = null;
                 revokeSamRockQr();
@@ -80,9 +84,13 @@ export function useSamRockPairing(storeId: () => string) {
         }
     }
 
-    async function startSamRockPairing(onComplete: () => void | Promise<void>) {
+    async function startSamRockPairing(
+        onComplete: () => void | Promise<void>,
+        fallbackLightningAddress: string,
+    ) {
         const sid = storeId();
         pairingStoreId = sid;
+        pairingFallbackAddress = fallbackLightningAddress.trim();
         samrockBusy.value = true;
         samrockErrorMessage.value = '';
         revokeSamRockQr();

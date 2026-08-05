@@ -47,7 +47,7 @@ class CashuController extends Controller
     {
         $wt = $store->wallet_type ?? null;
 
-        if ($this->isLightningWalletTypeForCashuSwitch($wt)) {
+        if ($this->isLightningWalletTypeForCashuSwitch($wt) && ! $store->cashu_fallback_enabled) {
             return response()->json([
                 'data' => $this->emptyCashuSettingsPayload(),
             ]);
@@ -99,7 +99,12 @@ class CashuController extends Controller
                 }
 
                 if (($store->wallet_type ?? null) === null || $switchingFromLightning) {
-                    $store->update(['wallet_type' => 'cashu']);
+                    // Pure Cashu store: CashuMelt is the primary method, not a fallback.
+                    $store->update([
+                        'wallet_type' => 'cashu',
+                        'cashu_fallback_enabled' => false,
+                        'cashu_fallback_address' => null,
+                    ]);
                     $store->refresh();
                 }
 
@@ -212,9 +217,11 @@ class CashuController extends Controller
 
     protected function ensureCashuStore(Store $store): void
     {
-        if (($store->wallet_type ?? null) !== 'cashu') {
-            abort(404, 'Cashu wallet is not configured for this store.');
+        if (($store->wallet_type ?? null) === 'cashu' || $store->cashu_fallback_enabled) {
+            return;
         }
+
+        abort(404, 'Cashu wallet is not configured for this store.');
     }
 
     /**
@@ -223,7 +230,7 @@ class CashuController extends Controller
     private function isLightningWalletTypeForCashuSwitch(?string $walletType): bool
     {
         return $walletType === null
-            || in_array($walletType, ['blink', 'aqua_boltz', 'nwc'], true);
+            || in_array($walletType, ['blink', 'blitz', 'aqua_boltz', 'nwc'], true);
     }
 
     /**

@@ -191,7 +191,8 @@ class WalletConnectionController extends Controller
             $request->type,
             $request->secret,
             $user,
-            'pending'
+            'pending',
+            $request->input('fallback_lightning_address') ?: null
         );
 
         // Audit log

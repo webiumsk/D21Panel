@@ -288,7 +288,7 @@ export const walletApi = {
             const { data } = await api.get<ApiEnvelope<WalletConnectionDetails | null>>(`/stores/${storeId}/wallet-connection`);
             return data.data;
         },
-        async create(storeId: string, payload: { type: string; secret: string }): Promise<void> {
+        async create(storeId: string, payload: { type: string; secret: string; fallback_lightning_address?: string }): Promise<void> {
             await api.post(`/stores/${storeId}/wallet-connection`, payload);
         },
         async reveal(storeId: string, confirmation: SensitiveActionConfirmation): Promise<WalletSecretReveal> {
@@ -334,7 +334,7 @@ export const walletApi = {
             const { data } = await api.get<Blob>(`/stores/${storeId}/samrock/otps/${encodeURIComponent(otp)}/qr`, { responseType: 'blob', params });
             return data;
         },
-        async complete(storeId: string, payload: { otp: string }): Promise<SamRockCompleteResult> {
+        async complete(storeId: string, payload: { otp: string; fallback_lightning_address: string }): Promise<SamRockCompleteResult> {
             const { data } = await api.post<ApiEnvelope<SamRockCompleteResult>>(`/stores/${storeId}/samrock/complete`, payload);
             return data.data;
         },

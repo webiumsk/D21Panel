@@ -27,6 +27,9 @@ class WalletConnectionStoreRequest extends FormRequest
         return [
             'type' => ['required', 'string', 'in:blink,aqua_descriptor,nwc,blitz'],
             'secret' => ['required', 'string', 'min:10'],
+            // Every store keeps at least one Lightning address as the CashuMelt fallback.
+            // Optional only when it can be derived from the secret (blink/blitz ln-address).
+            'fallback_lightning_address' => ['nullable', 'string', 'max:320', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
         ];
     }
 
@@ -49,6 +52,16 @@ class WalletConnectionStoreRequest extends FormRequest
                     foreach ($validation['errors'] as $error) {
                         $validator->errors()->add('secret', $error);
                     }
+
+                    return;
+                }
+
+                $fallback = trim((string) $this->input('fallback_lightning_address', ''));
+                if ($fallback === '' && $connectionValidator->deriveLightningAddressFromSecret($type, $secret) === null) {
+                    $validator->errors()->add(
+                        'fallback_lightning_address',
+                        'A Lightning address is required as the CashuMelt fallback for this connection type.'
+                    );
                 }
             }
         });

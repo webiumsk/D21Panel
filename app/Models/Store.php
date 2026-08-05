@@ -31,6 +31,8 @@ class Store extends Model
         'timezone',
         'preferred_exchange',
         'wallet_type',
+        'cashu_fallback_enabled',
+        'cashu_fallback_address',
         'blink_alert_snoozed_until',
         'blink_alert_dismissed_at',
         'metadata',
@@ -64,6 +66,7 @@ class Store extends Model
         return [
             'metadata' => 'array',
             'auto_report_enabled' => 'boolean',
+            'cashu_fallback_enabled' => 'boolean',
             'blink_alert_snoozed_until' => 'datetime',
             'blink_alert_dismissed_at' => 'datetime',
             'webhook_secret' => 'encrypted', // Encrypt HMAC secret at rest (like User.btcpay_api_key)
