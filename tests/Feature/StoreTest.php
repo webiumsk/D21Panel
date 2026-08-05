@@ -386,6 +386,23 @@ class StoreTest extends TestCase
         $this->assertSame('aqua_boltz', $store->fresh()->wallet_type);
     }
 
+    public function test_patch_wallet_type_accepts_blitz(): void
+    {
+        $user = User::factory()->create();
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'wallet_type' => null,
+        ]);
+
+        $response = $this->actingAs($user)->patchJson("/api/stores/{$store->id}/wallet-type", [
+            'wallet_type' => 'blitz',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.wallet_type', 'blitz');
+        $this->assertSame('blitz', $store->fresh()->wallet_type);
+    }
+
     public function test_patch_wallet_type_idempotent_when_same(): void
     {
         $user = User::factory()->create();

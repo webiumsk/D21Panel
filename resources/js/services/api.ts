@@ -149,7 +149,7 @@ export interface CreateStorePayload {
     default_currency: string;
     timezone: string;
     /** Omit on first-step create; configure wallet in a follow-up step. */
-    wallet_type?: 'blink' | 'aqua_boltz' | 'cashu' | null;
+    wallet_type?: 'blink' | 'blitz' | 'aqua_boltz' | 'cashu' | null;
     preferred_exchange?: string;
     connection_string?: string;
     mint_url?: string;
@@ -175,7 +175,7 @@ export const storesApi = {
         const { data } = await api.delete<{ message?: string; btcpay_deleted?: boolean }>(`/stores/${storeId}`);
         return data;
     },
-    async setWalletType(storeId: string, walletType: 'blink' | 'aqua_boltz' | 'cashu'): Promise<Store> {
+    async setWalletType(storeId: string, walletType: 'blink' | 'blitz' | 'aqua_boltz' | 'cashu' | 'nwc'): Promise<Store> {
         const { data } = await api.patch<ApiEnvelope<Store>>(`/stores/${storeId}/wallet-type`, { wallet_type: walletType });
         return data.data;
     },
@@ -227,7 +227,7 @@ export const storesApi = {
 
 export interface WalletConnectionDetails {
     id: string;
-    type: 'blink' | 'aqua_boltz' | 'cashu' | 'nwc' | 'aqua_descriptor';
+    type: 'blink' | 'blitz' | 'aqua_boltz' | 'cashu' | 'nwc' | 'aqua_descriptor';
     status: string;
     configuration_source?: string | null;
     brand?: 'aqua' | 'bull' | null;

@@ -71,6 +71,21 @@ class WalletConnectionDetector
             ];
         }
 
+        // type=blitz; strings and the bare 'name@blitzwalletapp.com' shorthand -
+        // must win over the Cashu Lightning-address heuristic, same as Blink.
+        if ($this->looksLikeBlitz($trimmed)) {
+            return [
+                'kind' => 'blitz',
+                'connection_type' => 'blitz',
+                'store_wallet_type' => 'blitz',
+                'brand' => null,
+                'normalized_secret' => $this->validator->formatBtcpayBlitzConnectionString($trimmed),
+                'cashu_mint_url' => null,
+                'cashu_lightning_address' => null,
+                'confidence' => 'high',
+            ];
+        }
+
         if ($this->looksLikeDescriptor($trimmed)) {
             $body = $this->validator->stripDescriptorChecksum($trimmed);
 
@@ -126,6 +141,15 @@ class WalletConnectionDetector
         $parsed = $this->validator->parseBlinkConnectionString($value);
 
         return empty($parsed['errors']) && ($parsed['type'] ?? null) === 'blink';
+    }
+
+    protected function looksLikeBlitz(string $value): bool
+    {
+        if (str_contains(strtolower($value), 'type=blitz;')) {
+            return true;
+        }
+
+        return $this->validator->isBareBlitzLightningAddress($value);
     }
 
     protected function looksLikeDescriptor(string $value): bool

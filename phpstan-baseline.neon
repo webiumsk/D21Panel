@@ -1070,18 +1070,6 @@ parameters:
 			path: app/Http/Requests/Invoicing/SendBusinessDocumentEmailRequest.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between ''aqua_boltz'' and ''aqua_boltz'' will always evaluate to true\.$#'
-			identifier: identical.alwaysTrue
-			count: 1
-			path: app/Http/Requests/StoreCreateRequest.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between \*NEVER\* and ''cashu'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Http/Requests/StoreCreateRequest.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$auto_report_email\.$#'
 			identifier: property.notFound
 			count: 1

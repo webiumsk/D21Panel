@@ -110,7 +110,8 @@ class WalletConnectionService
         // Switching Aqua/Boltz → Blink while still "pending" must also use reconfig: BTCPay may already
         // have a Boltz connection string; the first-setup wizard does not replace it.
         $cameFromCashu = ($store->wallet_type ?? null) === 'cashu';
-        $blinkBotUseReconfigPath = $type === 'blink' && ($wasConnected || $cameFromCashu || $hadAquaDescriptor);
+        $blinkBotUseReconfigPath = in_array($type, ['blink', 'blitz'], true)
+            && ($wasConnected || $cameFromCashu || $hadAquaDescriptor);
 
         Log::info('Checking for existing wallet connection', [
             'store_id' => $store->id,
@@ -137,7 +138,7 @@ class WalletConnectionService
                     'configuration_source' => null,
                     'encrypted_secret' => Crypt::encryptString($secret),
                     'status' => $initialStatus,
-                    'reconfig' => $type === 'blink' ? $blinkBotUseReconfigPath : $wasConnected,
+                    'reconfig' => in_array($type, ['blink', 'blitz'], true) ? $blinkBotUseReconfigPath : $wasConnected,
                     'bot_failure_message' => null,
                     'bot_failed_at' => null,
                     'secret_updated_at' => now(),
@@ -165,7 +166,7 @@ class WalletConnectionService
                 'wallet_type' => $storeWalletType,
             ]);
 
-            if (in_array($storeWalletType, ['blink', 'aqua_boltz', 'nwc'], true)) {
+            if (in_array($storeWalletType, ['blink', 'blitz', 'aqua_boltz', 'nwc'], true)) {
                 $merchant = $store->user;
                 $userApiKey = ($merchant && filled($merchant->btcpay_api_key ?? null))
                     ? $merchant->btcpay_api_key
@@ -329,7 +330,12 @@ class WalletConnectionService
         if ($webhookUrl) {
             try {
                 $storeName = $store->name;
-                $typeLabel = $connection->type === 'blink' ? 'Blink' : 'Aqua/Bull (Boltz)';
+                $typeLabel = match ($connection->type) {
+                    'blink' => 'Blink',
+                    'blitz' => 'Blitz Wallet',
+                    'nwc' => 'NWC',
+                    default => 'Aqua/Bull (Boltz)',
+                };
                 $panelUrl = rtrim(config('app.url'), '/').'/support/wallet-connections';
 
                 Http::timeout(10)->post($webhookUrl, [
@@ -521,6 +527,7 @@ class WalletConnectionService
         return match ($connectionType) {
             'aqua_descriptor' => 'aqua_boltz',
             'nwc' => 'nwc',
+            'blitz' => 'blitz',
             default => 'blink',
         };
     }
@@ -552,6 +559,26 @@ class WalletConnectionService
             }
 
             $btcpayString = $this->validator->formatBtcpayBlinkConnectionString($secret);
+            $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
+
+            return;
+        }
+
+        if ($type === 'blitz') {
+            try {
+                $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
+                    $store->btcpay_store_id,
+                    'BTC',
+                    $userApiKey
+                );
+            } catch (\Throwable $e) {
+                Log::info('Best-effort clear BTCPay Lightning before Blitz connect', [
+                    'store_id' => $store->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
+            $btcpayString = $this->validator->formatBtcpayBlitzConnectionString($secret);
             $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
 
             return;

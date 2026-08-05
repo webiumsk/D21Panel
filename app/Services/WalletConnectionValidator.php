@@ -164,6 +164,107 @@ class WalletConnectionValidator
     }
 
     /**
+     * The Blitz plugin defaults a bare username to the blitzwalletapp.com domain - mirror that.
+     */
+    public function normalizeBlitzLnAddress(string $value): string
+    {
+        $value = trim($value);
+
+        return str_contains($value, '@') ? $value : $value.'@blitzwalletapp.com';
+    }
+
+    /**
+     * Lightning address at the blitzwalletapp.com domain. Gates bare pastes the same
+     * way blink.sv does - other Lightning addresses stay ambiguous (Cashu shape).
+     */
+    public function isBareBlitzLightningAddress(string $value): bool
+    {
+        return (bool) preg_match('/^[^@\s;=]+@blitzwalletapp\.com$/i', trim($value));
+    }
+
+    /**
+     * Parse a Blitz connection secret: a bare you@blitzwalletapp.com address or
+     * type=blitz;ln-address=<user[@domain]>; (aliases: lnaddress, username - the
+     * plugin reads only ln-address, receive-only, no api key).
+     *
+     * @return array{type: string|null, ln_address: string|null, errors: array<int, string>}
+     */
+    public function parseBlitzConnectionString(string $connectionString): array
+    {
+        $trimmed = trim($connectionString);
+        $result = ['type' => null, 'ln_address' => null, 'errors' => []];
+
+        if ($trimmed === '') {
+            $result['errors'][] = 'Empty Blitz connection string.';
+
+            return $result;
+        }
+
+        if ($this->isBareBlitzLightningAddress($trimmed)) {
+            $result['type'] = 'blitz';
+            $result['ln_address'] = $trimmed;
+
+            return $result;
+        }
+
+        if (! str_contains(strtolower($trimmed), 'type=blitz')) {
+            $result['errors'][] = 'Not a Blitz connection string.';
+
+            return $result;
+        }
+
+        $kv = [];
+        foreach (array_filter(array_map('trim', explode(';', $trimmed))) as $pair) {
+            if (! str_contains($pair, '=')) {
+                continue;
+            }
+            [$key, $value] = explode('=', $pair, 2);
+            $kv[strtolower(trim($key))] = trim($value);
+        }
+
+        $result['type'] = strtolower($kv['type'] ?? '');
+        if ($result['type'] !== 'blitz') {
+            $result['errors'][] = 'Connection string type must be blitz.';
+
+            return $result;
+        }
+
+        $lnAddress = $kv['ln-address'] ?? $kv['lnaddress'] ?? $kv['username'] ?? null;
+        if ($lnAddress === null || $lnAddress === '') {
+            $result['errors'][] = "The key 'ln-address' (your Blitz Wallet Lightning address or username) is required for blitz connection strings.";
+
+            return $result;
+        }
+
+        $normalized = $this->normalizeBlitzLnAddress($lnAddress);
+        // Same domain gate as Blink: other Lightning addresses belong to the Cashu path,
+        // not a Blitz secret (the plugin would accept them but satflux routes by domain).
+        if (! $this->isBareBlitzLightningAddress($normalized)) {
+            $result['errors'][] = 'Blitz ln-address must be a blitzwalletapp.com address (or a bare username).';
+
+            return $result;
+        }
+
+        $result['ln_address'] = $normalized;
+
+        return $result;
+    }
+
+    /**
+     * Canonical BTCPay connection string for a Blitz secret (expands the bare
+     * address and username shorthands).
+     */
+    public function formatBtcpayBlitzConnectionString(string $secret): string
+    {
+        $parsed = $this->parseBlitzConnectionString($secret);
+        if (empty($parsed['errors']) && $parsed['ln_address']) {
+            return 'type=blitz;ln-address='.$parsed['ln_address'].';';
+        }
+
+        return trim($secret);
+    }
+
+    /**
      * Parse Boltz connection string.
      *
      * Note: Boltz/Aqua typically uses watch-only descriptors, not connection strings.
@@ -437,6 +538,12 @@ class WalletConnectionValidator
             $returnType = 'nwc';
             if (! $this->validateNwcUri($value)) {
                 $errors[] = 'Invalid NWC connection. Must start with nostr+walletconnect: and include relay= and secret= parameters.';
+            }
+        } elseif ($type === 'blitz') {
+            $returnType = 'blitz';
+            $parsed = $this->parseBlitzConnectionString($value);
+            if (! empty($parsed['errors'])) {
+                $errors[] = 'Invalid Blitz connection. Expected your Blitz Wallet Lightning address (you@blitzwalletapp.com) or type=blitz;ln-address=you;';
             }
         } else {
             Log::error('Unsupported wallet connection type', [

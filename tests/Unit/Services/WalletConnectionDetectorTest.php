@@ -60,6 +60,36 @@ class WalletConnectionDetectorTest extends TestCase
     }
 
     #[Test]
+    public function it_detects_bare_blitz_address_as_blitz_not_cashu(): void
+    {
+        $result = $this->detector->detect('satoshi@blitzwalletapp.com');
+
+        $this->assertSame('blitz', $result['kind']);
+        $this->assertSame('blitz', $result['connection_type']);
+        $this->assertSame('blitz', $result['store_wallet_type']);
+        $this->assertSame('type=blitz;ln-address=satoshi@blitzwalletapp.com;', $result['normalized_secret']);
+        $this->assertNull($result['cashu_lightning_address']);
+    }
+
+    #[Test]
+    public function it_detects_blitz_connection_string_with_bare_username(): void
+    {
+        $result = $this->detector->detect('type=blitz;ln-address=satoshi');
+
+        $this->assertSame('blitz', $result['kind']);
+        $this->assertSame('type=blitz;ln-address=satoshi@blitzwalletapp.com;', $result['normalized_secret']);
+    }
+
+    #[Test]
+    public function it_routes_other_lightning_addresses_to_cashu_not_blitz(): void
+    {
+        $result = $this->detector->detect('satoshi@getalby.com');
+
+        $this->assertSame('cashu', $result['kind']);
+        $this->assertSame('satoshi@getalby.com', $result['cashu_lightning_address']);
+    }
+
+    #[Test]
     public function it_detects_bull_descriptor(): void
     {
         $input = 'ct(slip77(5bd88956b5c0782248ad31f92d24712cff8c4cd761759dd629c08e2b60c9e6a7),elwpkh([0eb9c7d5/84h/1776h/0h]xpub6CE9h9pKdmMzM11sbeuRA1AAnmL3k6PWNzPDNw2gAGHMthvbVChXbhAADsKanndLJ7neMMBeC3oEA4uqadycLz8xYQbCdMF2NoMVZjJU7rB/<0;1>/*))';
