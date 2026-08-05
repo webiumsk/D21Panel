@@ -1138,7 +1138,7 @@ interface Props {
     id: string;
     name: string;
     logo_url?: string | null;
-    wallet_type?: "blink" | "aqua_boltz" | "cashu" | "nwc" | null;
+    wallet_type?: "blink" | "blitz" | "aqua_boltz" | "cashu" | "nwc" | null;
     wallet_connection?: {
       status: "pending" | "needs_support" | "connected";
     } | null;

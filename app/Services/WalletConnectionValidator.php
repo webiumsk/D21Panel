@@ -222,7 +222,7 @@ class WalletConnectionValidator
             $kv[strtolower(trim($key))] = trim($value);
         }
 
-        $result['type'] = $kv['type'] ?? null;
+        $result['type'] = strtolower($kv['type'] ?? '');
         if ($result['type'] !== 'blitz') {
             $result['errors'][] = 'Connection string type must be blitz.';
 
@@ -236,7 +236,16 @@ class WalletConnectionValidator
             return $result;
         }
 
-        $result['ln_address'] = $this->normalizeBlitzLnAddress($lnAddress);
+        $normalized = $this->normalizeBlitzLnAddress($lnAddress);
+        // Same domain gate as Blink: other Lightning addresses belong to the Cashu path,
+        // not a Blitz secret (the plugin would accept them but satflux routes by domain).
+        if (! $this->isBareBlitzLightningAddress($normalized)) {
+            $result['errors'][] = 'Blitz ln-address must be a blitzwalletapp.com address (or a bare username).';
+
+            return $result;
+        }
+
+        $result['ln_address'] = $normalized;
 
         return $result;
     }

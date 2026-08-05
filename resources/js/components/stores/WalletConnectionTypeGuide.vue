@@ -22,43 +22,53 @@ type GuideId = 'nwc' | 'blink' | 'blitz' | 'aqua' | 'bull' | 'cashu';
 
 const openIds = ref<GuideId[]>([]);
 
+// Order mirrors how we prioritize backends: Blink and Blitz first (LN address
+// quick connect), then Aqua/Bull (Boltz), Cashu as the universal fallback, and
+// NWC deliberately last - it needs a self-hosted Alby Hub, so almost nobody uses it.
 const items: Array<{
   id: GuideId;
   titleKey: string;
+  subtitleKey: string;
   iconType: 'nwc' | 'blink' | 'blitz' | 'aqua_boltz' | 'cashu';
   brand?: AquaBoltzWalletBrand;
 }> = [
   {
-    id: 'cashu',
-    titleKey: 'stores.wallet_detect_cashu_ln',
-    iconType: 'cashu',
-  },
-  {
     id: 'blink',
     titleKey: 'stores.wallet_detect_blink',
+    subtitleKey: 'stores.wallet_guide_sub_blink',
     iconType: 'blink',
   },
   {
     id: 'blitz',
     titleKey: 'stores.wallet_detect_blitz',
+    subtitleKey: 'stores.wallet_guide_sub_blitz',
     iconType: 'blitz',
-  },
-  {
-    id: 'nwc',
-    titleKey: 'stores.wallet_detect_nwc',
-    iconType: 'nwc',
   },
   {
     id: 'aqua',
     titleKey: 'stores.wallet_detect_aqua',
+    subtitleKey: 'stores.wallet_guide_sub_aqua',
     iconType: 'aqua_boltz',
     brand: 'aqua',
   },
   {
     id: 'bull',
     titleKey: 'stores.wallet_detect_bull',
+    subtitleKey: 'stores.wallet_guide_sub_bull',
     iconType: 'aqua_boltz',
     brand: 'bull',
+  },
+  {
+    id: 'cashu',
+    titleKey: 'stores.wallet_detect_cashu_ln',
+    subtitleKey: 'stores.wallet_guide_sub_cashu',
+    iconType: 'cashu',
+  },
+  {
+    id: 'nwc',
+    titleKey: 'stores.wallet_detect_nwc',
+    subtitleKey: 'stores.wallet_guide_sub_nwc',
+    iconType: 'nwc',
   },
 ];
 
@@ -117,18 +127,29 @@ watch(
           :aria-expanded="isOpen(item.id)"
           @click="toggle(item.id)"
         >
-          <span class="flex items-center gap-2.5 min-w-0">
-            <WalletTypeIcon
-              v-if="item.iconType === 'aqua_boltz' || item.iconType === 'blink'"
-              :type="item.iconType"
-              :brand="item.brand"
-              size="sm"
-            />
-            <span
-              class="text-sm truncate transition-colors"
-              :class="isOpen(item.id) ? 'text-white font-medium' : 'text-gray-400 group-hover:text-gray-200'"
-            >
-              {{ t(item.titleKey) }}
+          <span class="flex items-center gap-3 min-w-0">
+            <span class="w-10 shrink-0 flex justify-center">
+              <WalletTypeIcon
+                v-if="item.iconType === 'aqua_boltz' || item.iconType === 'blink' || item.iconType === 'blitz'"
+                :type="item.iconType"
+                :brand="item.brand"
+                size="sm"
+              />
+              <span
+                v-else
+                class="text-[10px] font-bold uppercase tracking-wide text-gray-500"
+              >{{ item.id === 'nwc' ? 'NWC' : 'LN' }}</span>
+            </span>
+            <span class="min-w-0">
+              <span
+                class="block text-sm truncate transition-colors"
+                :class="isOpen(item.id) ? 'text-white font-medium' : 'text-gray-300 group-hover:text-white'"
+              >
+                {{ t(item.titleKey) }}
+              </span>
+              <span class="block text-xs text-gray-500 truncate">
+                {{ t(item.subtitleKey) }}
+              </span>
             </span>
           </span>
           <svg

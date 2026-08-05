@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { routeLightningAddress } from '../utils/lightningAddressRouting';
+import { validateBlitzConnectionString } from '../utils/walletNwcHelpers';
+
+describe('validateBlitzConnectionString', () => {
+  it('accepts bare addresses, usernames and case-insensitive type values', () => {
+    expect(validateBlitzConnectionString('satoshi@blitzwalletapp.com')).toBe(true);
+    expect(validateBlitzConnectionString('type=blitz;ln-address=satoshi;')).toBe(true);
+    expect(validateBlitzConnectionString('type=BLITZ;ln-address=satoshi;')).toBe(true);
+  });
+
+  it('rejects non-blitz domains and missing addresses', () => {
+    expect(validateBlitzConnectionString('type=blitz;ln-address=user@otherwallet.example;')).toBe(false);
+    expect(validateBlitzConnectionString('type=blitz;server=https://x;')).toBe(false);
+    expect(validateBlitzConnectionString('satoshi@getalby.com')).toBe(false);
+  });
+});
 
 describe('routeLightningAddress', () => {
   it('routes blink.sv addresses to blink with a canonical secret', () => {

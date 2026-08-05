@@ -78,15 +78,14 @@ class StoreCreateRequest extends FormRequest
                             $validator->errors()->add('connection_string', $error);
                         }
                     }
-                } elseif ($walletType === 'blitz') {
+                } else {
+                    // blitz - the in_array gate above leaves no other value.
                     $validation = $connectionValidator->validate('blitz', $connectionString);
                     if (! $validation['valid']) {
                         foreach ($validation['errors'] as $error) {
                             $validator->errors()->add('connection_string', $error);
                         }
                     }
-                } elseif ($walletType === 'cashu') {
-                    // connection_string is prohibited by validation rules; no extra validation needed.
                 }
             }
         });

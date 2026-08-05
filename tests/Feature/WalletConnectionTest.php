@@ -199,6 +199,72 @@ class WalletConnectionTest extends TestCase
     }
 
     #[Test]
+    public function cashu_store_saving_blitz_sets_pending_reconfig_for_config_bot(): void
+    {
+        config(['services.btcpay.base_url' => 'https://btcpay.test']);
+
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+
+            if (str_contains($url, '/payment-methods/') && $request->method() === 'DELETE') {
+                return Http::response([], 204);
+            }
+
+            if (
+                $request->method() === 'DELETE'
+                && str_contains($url, '/lightning/BTC')
+                && ! str_contains($url, '/payment-methods/')
+            ) {
+                return Http::response([], 204);
+            }
+
+            if (str_contains($url, '/lightning/')) {
+                return Http::response(['message' => 'test: no lightning API in fake'], 422);
+            }
+
+            if (! str_contains($url, 'cashumelt/settings')) {
+                return Http::response(['message' => 'not found'], 404);
+            }
+            if ($request->method() === 'GET') {
+                return Http::response([
+                    'mintUrl' => 'https://mint.example/x',
+                    'lightningAddress' => 'merchant@example.com',
+                    'enabled' => true,
+                ], 200);
+            }
+            if ($request->method() === 'PUT') {
+                return Http::response(array_merge($request->data() ?? [], ['enabled' => false]), 200);
+            }
+
+            return Http::response('not found', 404);
+        });
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'wallet_type' => 'cashu',
+            'btcpay_store_id' => 'store-cashu-blitz-reconfig',
+        ]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'blitz',
+            'secret' => 'satoshi@blitzwalletapp.com',
+        ])->assertStatus(201)
+            ->assertJsonPath('data.type', 'blitz')
+            ->assertJsonPath('data.status', 'pending');
+
+        $store->refresh();
+        $this->assertSame('blitz', $store->wallet_type);
+
+        $this->assertDatabaseHas('wallet_connections', [
+            'store_id' => $store->id,
+            'type' => 'blitz',
+            'status' => 'pending',
+            'reconfig' => true,
+        ]);
+    }
+
+    #[Test]
     public function blitz_secret_without_ln_address_is_rejected(): void
     {
         $user = User::factory()->create();

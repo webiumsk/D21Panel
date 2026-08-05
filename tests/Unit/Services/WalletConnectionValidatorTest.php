@@ -240,7 +240,10 @@ class WalletConnectionValidatorTest extends TestCase
     {
         $this->assertTrue($this->validator->validate('blitz', 'satoshi@blitzwalletapp.com')['valid']);
         $this->assertTrue($this->validator->validate('blitz', 'type=blitz;ln-address=satoshi;')['valid']);
+        $this->assertTrue($this->validator->validate('blitz', 'type=BLITZ;ln-address=satoshi;')['valid']);
         $this->assertFalse($this->validator->validate('blitz', 'type=blitz;server=https://x;')['valid']);
         $this->assertFalse($this->validator->validate('blitz', 'satoshi@getalby.com')['valid']);
+        // Other domains are not Blitz secrets - they belong to the Cashu routing path.
+        $this->assertFalse($this->validator->validate('blitz', 'type=blitz;ln-address=user@otherwallet.example;')['valid']);
     }
 }

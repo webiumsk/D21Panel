@@ -150,10 +150,14 @@ export function validateBlitzConnectionString(connectionString: string): boolean
     if (eq === -1) continue;
     const key = part.slice(0, eq).trim().toLowerCase();
     const value = part.slice(eq + 1).trim();
-    if (key === 'type') typeVal = value;
+    if (key === 'type') typeVal = value.toLowerCase();
     if (key === 'ln-address' || key === 'lnaddress' || key === 'username') lnAddressVal = value;
   }
-  return typeVal === 'blitz' && !!lnAddressVal;
+  if (typeVal !== 'blitz' || !lnAddressVal) return false;
+  // Same domain gate as Blink: bare usernames default to blitzwalletapp.com,
+  // other domains belong to the Cashu path.
+  const address = lnAddressVal.includes('@') ? lnAddressVal : `${lnAddressVal}@blitzwalletapp.com`;
+  return isBareBlitzLightningAddress(address);
 }
 
 export function validateNwcUri(value: string): boolean {

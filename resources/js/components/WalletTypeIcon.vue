@@ -68,7 +68,7 @@ const iconSrc = computed(() => {
       ? '/img/wallets/bull-64.webp'
       : '/img/wallets/aqua-64.webp';
   }
-  if (props.type === 'blitz') return null;
+  if (props.type === 'blitz') return '/img/wallets/blitz-64.webp';
   if (props.type === 'cashu') return null;
   if (props.type === 'nwc') return null;
   return null;
@@ -88,23 +88,8 @@ const altText = computed(() => walletTypeLabel());
 
 const labelText = computed(() => walletTypeLabel());
 
-const imgSizeClass = computed(() => {
-  const isBull =
-    (props.type === 'aqua_boltz' || props.type === 'aqua_descriptor') &&
-    resolvedBrand.value === 'bull';
-  if (isBull) {
-    switch (props.size) {
-      case 'sm': return 'h-4 w-auto max-w-[4.5rem]';
-      case 'lg': return 'h-6 w-auto max-w-[5.5rem]';
-      default: return 'h-5 w-auto max-w-[5rem]';
-    }
-  }
-  switch (props.size) {
-    case 'sm': return 'w-5 h-5';
-    case 'lg': return 'w-10 h-10';
-    default: return 'w-6 h-6';
-  }
-});
+// All wallet logos are wide wordmarks - render them at a uniform w-10 regardless of size.
+const imgSizeClass = computed(() => 'w-10 h-auto');
 
 const sizeClass = computed(() => {
   switch (props.size) {

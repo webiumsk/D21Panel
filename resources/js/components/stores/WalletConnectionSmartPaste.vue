@@ -148,9 +148,16 @@ function setManualType(type: 'blink' | 'blitz' | 'nwc' | 'aqua_descriptor') {
       <button
         type="button"
         class="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-600 text-gray-300 hover:border-indigo-500/50"
-        @click="setManualType('nwc')"
+        @click="setManualType('blink')"
       >
-        {{ t('stores.wallet_detect_nwc') }}
+        {{ t('stores.wallet_detect_blink') }}
+      </button>
+      <button
+        type="button"
+        class="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-600 text-gray-300 hover:border-indigo-500/50"
+        @click="setManualType('blitz')"
+      >
+        {{ t('stores.wallet_detect_blitz') }}
       </button>
       <button
         type="button"
@@ -162,9 +169,9 @@ function setManualType(type: 'blink' | 'blitz' | 'nwc' | 'aqua_descriptor') {
       <button
         type="button"
         class="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-600 text-gray-300 hover:border-indigo-500/50"
-        @click="setManualType('blink')"
+        @click="setManualType('nwc')"
       >
-        {{ t('stores.wallet_detect_blink') }}
+        {{ t('stores.wallet_detect_nwc') }}
       </button>
     </div>
 
