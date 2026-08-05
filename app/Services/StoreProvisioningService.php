@@ -132,8 +132,8 @@ class StoreProvisioningService
      */
     protected function assertDescriptorAvailable(string $walletType, string $connectionString): void
     {
-        if ($walletType === 'blink') {
-            return; // Blink tokens are not unique per store
+        if ($walletType === 'blink' || $walletType === 'blitz') {
+            return; // Blink tokens and Blitz addresses are not unique per store
         }
 
         $duplicateCheck = $this->walletConnectionService->checkDescriptorDuplicate($connectionString, null);
@@ -338,7 +338,11 @@ class StoreProvisioningService
      */
     protected function createWalletConnection(Store $store, User $user, array $data): void
     {
-        $connectionType = $data['wallet_type'] === 'blink' ? 'blink' : 'aqua_descriptor';
+        $connectionType = match ($data['wallet_type']) {
+            'blink' => 'blink',
+            'blitz' => 'blitz',
+            default => 'aqua_descriptor',
+        };
 
         try {
             // For Aqua/Boltz descriptors, check for duplicates BEFORE creating the

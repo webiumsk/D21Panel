@@ -116,6 +116,46 @@ export function validateBlinkConnectionString(connectionString: string): boolean
   return !!serverVal && !!apiKeyVal && !!walletIdVal;
 }
 
+/** Lightning address at the blitzwalletapp.com domain - routes bare pastes to Blitz. */
+export function isBareBlitzLightningAddress(value: string): boolean {
+  return /^[^@\s;=]+@blitzwalletapp\.com$/i.test(value.trim());
+}
+
+/** Canonical BTCPay Blitz connection string (bare address shorthand → full form). */
+export function normalizeBlitzConnectionString(value: string): string {
+  const trimmed = value.trim();
+  if (isBareBlitzLightningAddress(trimmed)) {
+    return `type=blitz;ln-address=${trimmed};`;
+  }
+  return trimmed;
+}
+
+/**
+ * Blitz connection string - type=blitz;ln-address=<user[@domain]>; (aliases lnaddress,
+ * username; a bare username defaults to blitzwalletapp.com) or the bare address shorthand.
+ */
+export function validateBlitzConnectionString(connectionString: string): boolean {
+  const trimmed = connectionString.trim();
+  if (!trimmed) return false;
+  if (isBareBlitzLightningAddress(trimmed)) return true;
+  if (!trimmed.toLowerCase().includes('type=blitz')) return false;
+  const parts = trimmed
+    .split(';')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  let typeVal = '';
+  let lnAddressVal = '';
+  for (const part of parts) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim().toLowerCase();
+    const value = part.slice(eq + 1).trim();
+    if (key === 'type') typeVal = value;
+    if (key === 'ln-address' || key === 'lnaddress' || key === 'username') lnAddressVal = value;
+  }
+  return typeVal === 'blitz' && !!lnAddressVal;
+}
+
 export function validateNwcUri(value: string): boolean {
   if (isCashuWalletNwcUri(value)) {
     return false;

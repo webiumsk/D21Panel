@@ -29,16 +29,16 @@ class StoreCreateRequest extends FormRequest
             'default_currency' => ['required', 'string', 'max:10'], // Allow BTC, SATS, and 3-letter codes
             'timezone' => ['required', 'string', 'timezone'],
             'preferred_exchange' => ['nullable', 'string', 'max:255'],
-            // Omit on first-step create; set later when user picks Blink / Aqua / Cashu.
-            'wallet_type' => ['nullable', 'string', Rule::in(['blink', 'aqua_boltz', 'cashu', 'nwc'])],
+            // Omit on first-step create; set later when user picks Blink / Aqua / Cashu / Blitz.
+            'wallet_type' => ['nullable', 'string', Rule::in(['blink', 'aqua_boltz', 'cashu', 'nwc', 'blitz'])],
 
-            // Blink/Aqua wallet connection string (Blink token or Aqua descriptor).
+            // Blink/Aqua/Blitz wallet connection string (Blink token, Aqua descriptor, or Blitz address).
             'connection_string' => [
                 'nullable',
                 'string',
                 'max:2000',
-                // Only when configuring Blink or Aqua descriptor during create; Cashu uses mint/LN fields.
-                'prohibited_unless:wallet_type,blink,aqua_boltz',
+                // Only when configuring a connection during create; Cashu uses mint/LN fields.
+                'prohibited_unless:wallet_type,blink,aqua_boltz,blitz',
             ],
 
             // Cashu plugin settings.
@@ -54,7 +54,7 @@ class StoreCreateRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             // If connection_string is provided, validate it matches the wallet_type
-            if ($this->filled('connection_string') && in_array($this->wallet_type, ['blink', 'aqua_boltz'], true)) {
+            if ($this->filled('connection_string') && in_array($this->wallet_type, ['blink', 'aqua_boltz', 'blitz'], true)) {
                 $connectionString = $this->connection_string;
                 $walletType = $this->wallet_type;
 
@@ -75,6 +75,13 @@ class StoreCreateRequest extends FormRequest
                     if (! $validation['valid']) {
                         $errors = $validation['errors'] ?? ['Invalid descriptor format. Must be a valid Aqua wallet output descriptor (e.g., wpkh(), tr(), wsh(), or complex formats like ct(slip77(...),elsh(wpkh(...)))) and must not contain private keys.'];
                         foreach ($errors as $error) {
+                            $validator->errors()->add('connection_string', $error);
+                        }
+                    }
+                } elseif ($walletType === 'blitz') {
+                    $validation = $connectionValidator->validate('blitz', $connectionString);
+                    if (! $validation['valid']) {
+                        foreach ($validation['errors'] as $error) {
                             $validator->errors()->add('connection_string', $error);
                         }
                     }

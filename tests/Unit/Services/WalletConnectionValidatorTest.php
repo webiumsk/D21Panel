@@ -210,4 +210,37 @@ class WalletConnectionValidatorTest extends TestCase
 
         $this->assertSame('bull', $this->validator->detectAquaBrandFromDescriptor($descriptor));
     }
+
+    public function test_bare_blitz_lightning_address_detection(): void
+    {
+        $this->assertTrue($this->validator->isBareBlitzLightningAddress('satoshi@blitzwalletapp.com'));
+        $this->assertTrue($this->validator->isBareBlitzLightningAddress('Satoshi@BlitzWalletApp.com'));
+        $this->assertFalse($this->validator->isBareBlitzLightningAddress('satoshi@blink.sv'));
+        $this->assertFalse($this->validator->isBareBlitzLightningAddress('satoshi@getalby.com'));
+    }
+
+    public function test_blitz_connection_string_parsing_and_formatting(): void
+    {
+        $this->assertSame(
+            'type=blitz;ln-address=satoshi@blitzwalletapp.com;',
+            $this->validator->formatBtcpayBlitzConnectionString('satoshi@blitzwalletapp.com')
+        );
+        // Bare username defaults to the blitzwalletapp.com domain - mirrors the plugin.
+        $this->assertSame(
+            'type=blitz;ln-address=satoshi@blitzwalletapp.com;',
+            $this->validator->formatBtcpayBlitzConnectionString('type=blitz;ln-address=satoshi')
+        );
+        $this->assertSame(
+            'type=blitz;ln-address=satoshi@blitzwalletapp.com;',
+            $this->validator->formatBtcpayBlitzConnectionString('type=blitz;username=satoshi@blitzwalletapp.com;')
+        );
+    }
+
+    public function test_blitz_validation(): void
+    {
+        $this->assertTrue($this->validator->validate('blitz', 'satoshi@blitzwalletapp.com')['valid']);
+        $this->assertTrue($this->validator->validate('blitz', 'type=blitz;ln-address=satoshi;')['valid']);
+        $this->assertFalse($this->validator->validate('blitz', 'type=blitz;server=https://x;')['valid']);
+        $this->assertFalse($this->validator->validate('blitz', 'satoshi@getalby.com')['valid']);
+    }
 }

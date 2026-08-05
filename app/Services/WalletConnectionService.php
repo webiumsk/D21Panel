@@ -165,7 +165,7 @@ class WalletConnectionService
                 'wallet_type' => $storeWalletType,
             ]);
 
-            if (in_array($storeWalletType, ['blink', 'aqua_boltz', 'nwc'], true)) {
+            if (in_array($storeWalletType, ['blink', 'blitz', 'aqua_boltz', 'nwc'], true)) {
                 $merchant = $store->user;
                 $userApiKey = ($merchant && filled($merchant->btcpay_api_key ?? null))
                     ? $merchant->btcpay_api_key
@@ -521,6 +521,7 @@ class WalletConnectionService
         return match ($connectionType) {
             'aqua_descriptor' => 'aqua_boltz',
             'nwc' => 'nwc',
+            'blitz' => 'blitz',
             default => 'blink',
         };
     }
@@ -552,6 +553,26 @@ class WalletConnectionService
             }
 
             $btcpayString = $this->validator->formatBtcpayBlinkConnectionString($secret);
+            $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
+
+            return;
+        }
+
+        if ($type === 'blitz') {
+            try {
+                $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
+                    $store->btcpay_store_id,
+                    'BTC',
+                    $userApiKey
+                );
+            } catch (\Throwable $e) {
+                Log::info('Best-effort clear BTCPay Lightning before Blitz connect', [
+                    'store_id' => $store->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
+            $btcpayString = $this->validator->formatBtcpayBlitzConnectionString($secret);
             $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
 
             return;

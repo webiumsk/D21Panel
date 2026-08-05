@@ -18,35 +18,20 @@ const props = withDefaults(
 
 const { t } = useI18n();
 
-type GuideId = 'nwc' | 'blink' | 'aqua' | 'bull' | 'cashu';
+type GuideId = 'nwc' | 'blink' | 'blitz' | 'aqua' | 'bull' | 'cashu';
 
 const openIds = ref<GuideId[]>([]);
 
 const items: Array<{
   id: GuideId;
   titleKey: string;
-  iconType: 'nwc' | 'blink' | 'aqua_boltz' | 'cashu';
+  iconType: 'nwc' | 'blink' | 'blitz' | 'aqua_boltz' | 'cashu';
   brand?: AquaBoltzWalletBrand;
-  recommended?: boolean;
 }> = [
   {
-    id: 'aqua',
-    titleKey: 'stores.wallet_detect_aqua',
-    iconType: 'aqua_boltz',
-    brand: 'aqua',
-    recommended: true,
-  },
-  {
-    id: 'bull',
-    titleKey: 'stores.wallet_detect_bull',
-    iconType: 'aqua_boltz',
-    brand: 'bull',
-    recommended: true,
-  },
-  {
-    id: 'nwc',
-    titleKey: 'stores.wallet_detect_nwc',
-    iconType: 'nwc',
+    id: 'cashu',
+    titleKey: 'stores.wallet_detect_cashu_ln',
+    iconType: 'cashu',
   },
   {
     id: 'blink',
@@ -54,9 +39,26 @@ const items: Array<{
     iconType: 'blink',
   },
   {
-    id: 'cashu',
-    titleKey: 'stores.wallet_detect_cashu_ln',
-    iconType: 'cashu',
+    id: 'blitz',
+    titleKey: 'stores.wallet_detect_blitz',
+    iconType: 'blitz',
+  },
+  {
+    id: 'nwc',
+    titleKey: 'stores.wallet_detect_nwc',
+    iconType: 'nwc',
+  },
+  {
+    id: 'aqua',
+    titleKey: 'stores.wallet_detect_aqua',
+    iconType: 'aqua_boltz',
+    brand: 'aqua',
+  },
+  {
+    id: 'bull',
+    titleKey: 'stores.wallet_detect_bull',
+    iconType: 'aqua_boltz',
+    brand: 'bull',
   },
 ];
 
@@ -79,6 +81,7 @@ function guideIdFromDetection(
   if (!kind || kind === 'unknown') return null;
   if (kind === 'nwc') return 'nwc';
   if (kind === 'blink') return 'blink';
+  if (kind === 'blitz') return 'blitz';
   if (kind === 'cashu') return 'cashu';
   if (kind === 'aqua_descriptor') {
     return brand === 'bull' ? 'bull' : 'aqua';
@@ -126,12 +129,6 @@ watch(
               :class="isOpen(item.id) ? 'text-white font-medium' : 'text-gray-400 group-hover:text-gray-200'"
             >
               {{ t(item.titleKey) }}
-            </span>
-            <span
-              v-if="item.recommended"
-              class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
-            >
-              {{ t('stores.wallet_recommended_badge') }}
             </span>
           </span>
           <svg
@@ -215,6 +212,18 @@ watch(
                 {{ t('stores.blink_dashboard_link') }}
               </a>
             </p>
+          </template>
+
+          <!-- Blitz -->
+          <template v-else-if="item.id === 'blitz'">
+            <p>{{ t('stores.blitz_connection_description') }}</p>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">
+                {{ t('stores.wallet_guide_paste_label') }}
+              </p>
+              <p>{{ t('stores.wallet_guide_blitz_paste') }}</p>
+            </div>
+            <p class="text-amber-300/90">{{ t('stores.blitz_receive_only_note') }}</p>
           </template>
 
           <!-- Aqua -->

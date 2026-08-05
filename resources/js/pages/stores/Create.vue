@@ -218,55 +218,49 @@
           <div
             role="tablist"
             class="flex gap-6 border-b border-gray-700/60"
-            @keydown.left.prevent="focusLightningTab(lightningSetupTab === 'paste' ? 'samrock' : 'paste')"
-            @keydown.right.prevent="focusLightningTab(lightningSetupTab === 'paste' ? 'samrock' : 'paste')"
+            @keydown.left.prevent="focusAdjacentLightningTab(-1)"
+            @keydown.right.prevent="focusAdjacentLightningTab(1)"
           >
             <button
-              id="create-ln-tab-paste"
+              v-for="tab in lightningSetupTabs"
+              :id="`create-ln-tab-${tab.id}`"
+              :key="tab.id"
               type="button"
               role="tab"
-              aria-controls="create-ln-panel-paste"
-              :tabindex="lightningSetupTab === 'paste' ? 0 : -1"
-              :aria-selected="lightningSetupTab === 'paste'"
+              :aria-controls="`create-ln-panel-${tab.id}`"
+              :tabindex="lightningSetupTab === tab.id ? 0 : -1"
+              :aria-selected="lightningSetupTab === tab.id"
               class="pb-3 -mb-px text-sm font-medium border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-t-sm"
               :class="
-                lightningSetupTab === 'paste'
+                lightningSetupTab === tab.id
                   ? 'border-indigo-500 text-white'
                   : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-600'
               "
-              @click="lightningSetupTab = 'paste'"
+              @click="lightningSetupTab = tab.id"
             >
-              {{ t("stores.wallet_smart_paste_label") }}
-            </button>
-            <button
-              id="create-ln-tab-samrock"
-              type="button"
-              role="tab"
-              aria-controls="create-ln-panel-samrock"
-              :tabindex="lightningSetupTab === 'samrock' ? 0 : -1"
-              :aria-selected="lightningSetupTab === 'samrock'"
-              class="pb-3 -mb-px text-sm font-medium border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-t-sm"
-              :class="
-                lightningSetupTab === 'samrock'
-                  ? 'border-indigo-500 text-white'
-                  : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-600'
-              "
-              @click="lightningSetupTab = 'samrock'"
-            >
-              <span class="inline-flex items-center gap-2">
-                {{ t("create_store.tab_samrock") }}
-                <span
-                  class="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
-                >{{ t("stores.wallet_recommended_badge") }}</span>
-              </span>
+              {{ t(tab.labelKey) }}
             </button>
           </div>
 
           <div
-            id="create-ln-panel-paste"
-            v-show="lightningSetupTab === 'paste'"
+            id="create-ln-panel-ln"
+            v-show="lightningSetupTab === 'ln'"
             role="tabpanel"
-            aria-labelledby="create-ln-tab-paste"
+            aria-labelledby="create-ln-tab-ln"
+            class="bg-gray-900/50 rounded-xl p-6 border border-gray-700"
+          >
+            <LightningAddressQuickConnect
+              v-if="createdStoreId"
+              :store-id="createdStoreId"
+              @submitted="onQuickConnectSubmitted"
+            />
+          </div>
+
+          <div
+            id="create-ln-panel-advanced"
+            v-show="lightningSetupTab === 'advanced'"
+            role="tabpanel"
+            aria-labelledby="create-ln-tab-advanced"
             class="bg-gray-900/50 rounded-xl p-6 border border-gray-700 space-y-6"
           >
             <WalletConnectionSmartPaste
@@ -361,7 +355,7 @@
             v-show="lightningSetupTab === 'samrock'"
             role="tabpanel"
             aria-labelledby="create-ln-tab-samrock"
-            class="bg-gray-900/50 border border-indigo-500/30 rounded-2xl p-6 space-y-4"
+            class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 space-y-4"
           >
                   <h3 class="text-sm font-bold text-indigo-400 uppercase tracking-wider">
                     {{ t("stores.samrock_title") }}
@@ -472,7 +466,7 @@
                 {{ t("create_store.continue_to_store") }}
               </button>
             </template>
-            <template v-else>
+            <template v-else-if="lightningSetupTab === 'advanced'">
               <button
                 type="button"
                 @click="submitWalletConfiguration"
@@ -599,8 +593,10 @@ import { isValidAquaBoltzDescriptor } from "../../utils/aquaBoltzDescriptor";
 import { detectWalletConnectionInput, isValidCashuLightningAddress } from "../../utils/detectWalletConnectionInput";
 import {
   normalizeBlinkConnectionString,
+  normalizeBlitzConnectionString,
   normalizeNwcUri,
   validateBlinkConnectionString,
+  validateBlitzConnectionString,
   validateNwcUri,
 } from "../../utils/walletNwcHelpers";
 
@@ -610,6 +606,9 @@ const WalletConnectionSmartPaste = defineAsyncComponent(
 );
 const WalletConnectionTypeGuide = defineAsyncComponent(
   () => import("../../components/stores/WalletConnectionTypeGuide.vue"),
+);
+const LightningAddressQuickConnect = defineAsyncComponent(
+  () => import("../../components/stores/wallet-connection/LightningAddressQuickConnect.vue"),
 );
 
 const { t } = useI18n();
@@ -637,9 +636,15 @@ const botWaitFailureDetail = ref("");
 let botWaitCountdownInterval: ReturnType<typeof setInterval> | null = null;
 let botPollInterval: ReturnType<typeof setInterval> | null = null;
 
-/** Step 2: smart paste vs SamRock QR (SamRock = recommended Aqua path) */
-const lightningSetupTab = ref<"samrock" | "paste">("samrock");
-const connectionType = ref<"blink" | "nwc" | "aqua_descriptor">("aqua_descriptor");
+/** Step 2 tabs: Lightning address quick-connect (default) / Aqua-Bull SamRock / advanced strings. */
+type LightningSetupTabId = "ln" | "samrock" | "advanced";
+const lightningSetupTabs: ReadonlyArray<{ id: LightningSetupTabId; labelKey: string }> = [
+  { id: "ln", labelKey: "create_store.tab_lightning_address" },
+  { id: "samrock", labelKey: "create_store.tab_samrock" },
+  { id: "advanced", labelKey: "create_store.tab_advanced" },
+];
+const lightningSetupTab = ref<LightningSetupTabId>("ln");
+const connectionType = ref<"blink" | "blitz" | "nwc" | "aqua_descriptor">("aqua_descriptor");
 
 /** SamRock pairing (step 2, Aqua tab) - shared flow lives in useSamRockPairing */
 const {
@@ -673,6 +678,9 @@ function validatePasteConnection(): boolean {
   }
   if (connectionType.value === "blink") {
     return validateBlinkConnectionString(cs);
+  }
+  if (connectionType.value === "blitz") {
+    return validateBlitzConnectionString(cs);
   }
   if (connectionType.value === "nwc") {
     return validateNwcUri(cs);
@@ -716,7 +724,7 @@ watch(pasteDetection, (det) => {
 });
 
 const canProceedFromStep2 = computed(() => {
-  if (lightningSetupTab.value === "samrock") {
+  if (lightningSetupTab.value !== "advanced") {
     return false;
   }
 
@@ -790,11 +798,27 @@ function formatSamRockExpiry(iso: string) {
   }
 }
 
-function focusLightningTab(tab: "paste" | "samrock") {
-  lightningSetupTab.value = tab;
+function focusAdjacentLightningTab(direction: -1 | 1) {
+  const ids = lightningSetupTabs.map((tab) => tab.id);
+  const current = ids.indexOf(lightningSetupTab.value);
+  const next = ids[(current + direction + ids.length) % ids.length]!;
+  lightningSetupTab.value = next;
   void nextTick(() => {
-    document.getElementById(`create-ln-tab-${tab}`)?.focus();
+    document.getElementById(`create-ln-tab-${next}`)?.focus();
   });
+}
+
+/** QuickConnect saved the wallet - route by where the store landed. */
+async function onQuickConnectSubmitted(target: "blink" | "blitz" | "cashu") {
+  const sid = createdStoreId.value;
+  if (!sid) return;
+  await storesStore.fetchStore(sid);
+  if (target === "cashu") {
+    await router.push({ name: "stores-show", params: { id: sid }, query: { setup: "1" } });
+    return;
+  }
+  currentStep.value = 3;
+  startBotWaitSequence();
 }
 
 async function startSamRockPairing() {
@@ -886,7 +910,7 @@ function cancelBotWait() {
   stopBotWaitTimers();
   currentStep.value = 2;
   botWaitPhase.value = "polling";
-  lightningSetupTab.value = "paste";
+  lightningSetupTab.value = "ln";
 }
 
 async function submitStep1Create() {
@@ -946,7 +970,9 @@ async function submitWalletConfiguration() {
         ? normalizeNwcUri(rawSecret)
         : connectionType.value === "blink"
           ? normalizeBlinkConnectionString(rawSecret)
-          : rawSecret;
+          : connectionType.value === "blitz"
+            ? normalizeBlitzConnectionString(rawSecret)
+            : rawSecret;
 
     await walletApi.connection.create(sid, {
       type: connectionType.value,

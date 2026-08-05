@@ -155,6 +155,63 @@ class WalletConnectionTest extends TestCase
     }
 
     #[Test]
+    public function blitz_bare_address_creates_blitz_connection_and_sends_canonical_string_to_btcpay(): void
+    {
+        config(['services.btcpay.base_url' => 'https://btcpay.test']);
+
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+            if ($request->method() === 'POST' && str_contains($url, '/stores/blitz-store/lightning/BTC/connect')) {
+                return Http::response(['success' => true], 200);
+            }
+            if (str_contains($url, '/lightning/BTC')) {
+                return Http::response([], 200);
+            }
+
+            return Http::response(['message' => 'not found'], 404);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-blitz-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'blitz-store',
+        ]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'blitz',
+            'secret' => 'satoshi@blitzwalletapp.com',
+        ])->assertStatus(201)
+            ->assertJsonPath('data.type', 'blitz');
+
+        Http::assertSent(function (Request $request) {
+            return $request->method() === 'POST'
+                && str_contains($request->url(), '/stores/blitz-store/lightning/BTC/connect')
+                && ($request->data()['ConnectionString'] ?? null) === 'type=blitz;ln-address=satoshi@blitzwalletapp.com;';
+        });
+
+        $store->refresh();
+        $this->assertSame('blitz', $store->wallet_type);
+        $this->assertDatabaseHas('wallet_connections', [
+            'store_id' => $store->id,
+            'type' => 'blitz',
+            'status' => 'connected',
+        ]);
+    }
+
+    #[Test]
+    public function blitz_secret_without_ln_address_is_rejected(): void
+    {
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'blitz',
+            'secret' => 'type=blitz;something=else;',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['secret']);
+    }
+
+    #[Test]
     public function blink_ln_address_secret_with_empty_address_is_rejected(): void
     {
         $user = User::factory()->create();

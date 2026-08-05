@@ -17,7 +17,7 @@ export interface Store {
     archived?: boolean;
     default_currency?: string;
     timezone?: string;
-    wallet_type: 'blink' | 'aqua_boltz' | 'cashu' | 'nwc' | null;
+    wallet_type: 'blink' | 'blitz' | 'aqua_boltz' | 'cashu' | 'nwc' | null;
     /** Aqua vs Bull when wallet_type is aqua_boltz */
     wallet_brand?: AquaBoltzWalletBrand | null;
     blink_migration_alert?: BlinkMigrationAlert | null;
@@ -27,7 +27,7 @@ export interface Store {
     checklist_items?: ChecklistItem[];
     wallet_connection?: {
         id: string;
-        type: 'blink' | 'aqua_descriptor';
+        type: 'blink' | 'blitz' | 'aqua_descriptor' | 'nwc';
         status: 'pending' | 'needs_support' | 'connected';
         brand?: AquaBoltzWalletBrand | null;
         masked_secret?: string;
