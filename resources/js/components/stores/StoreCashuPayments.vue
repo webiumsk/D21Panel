@@ -500,13 +500,16 @@ async function fetchPayments() {
 async function retryPayment(quoteId: string) {
   if (!quoteId) return;
 
+  const sid = storeId();
   retryNotice.value = null;
   retryingQuoteIds.value.add(quoteId);
   retryingQuoteIds.value = new Set(retryingQuoteIds.value);
   try {
     const response = await api.post(
-      `/stores/${storeId()}/cashu/payments/${quoteId}/retry`,
+      `/stores/${sid}/cashu/payments/${quoteId}/retry`,
     );
+    // The store may have changed while the request was in flight.
+    if (storeId() !== sid) return;
     const d = response.data?.data ?? {};
     if (d.settled) {
       retryNotice.value = t("stores.cashu_retry_settled");
@@ -546,6 +549,8 @@ watch(
   () => {
     offset.value = 0;
     settlementState.value = "";
+    retryNotice.value = null;
+    retryingQuoteIds.value = new Set();
     fetchPayments();
   },
 );
