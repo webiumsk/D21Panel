@@ -63,7 +63,7 @@ export function useSamRockPairing(storeId: () => string) {
             const { status, error_message } = await walletApi.samrock.otpStatus(sid, otp);
             if (status === 'success') {
                 stopSamRockPolling();
-                await walletApi.samrock.complete(sid, {
+                const completeResult = await walletApi.samrock.complete(sid, {
                     otp,
                     fallback_lightning_address: pairingFallbackAddress,
                 });
@@ -71,6 +71,9 @@ export function useSamRockPairing(storeId: () => string) {
                 pairingStoreId = null;
                 revokeSamRockQr();
                 samrockPollStatus.value = t('stores.samrock_pairing_complete');
+                if (completeResult?.cashu_fallback_configured === false) {
+                    samrockErrorMessage.value = t('stores.samrock_fallback_failed');
+                }
                 await onComplete();
             } else if (status === 'error') {
                 stopSamRockPolling();

@@ -2354,6 +2354,7 @@
     "wallet_fallback_derived_note": "Lightning adresa z tohto pripojenia sa použije aj ako CashuMelt fallback.",
     "cashu_fallback_active_label": "CashuMelt fallback",
     "cashu_fallback_active_hint": "Beží súbežne s Lightning pripojením; checkout preferuje Lightning. Vysporiadania nájdete v Cashu vyrovnaniach.",
+    "samrock_fallback_failed": "Peňaženka spárovaná, ale CashuMelt fallback sa nepodarilo nakonfigurovať. Otvorte Wallet connection a uložte ho znova, alebo kontaktujte podporu.",
     "blitz_receive_only_note": "Iba príjem: obchod môže platby prijímať, ale nemôže z tejto peňaženky odosielať.",
     "blitz_invalid_connection": "Neplatné Blitz pripojenie. Použite vy{'@'}blitzwalletapp.com alebo type=blitz;ln-address=vy;",
     "blink_eu_legacy_notice": "Blink účty v EÚ sú non-custodial: pripojte sa cez type=blink;ln-address=vy{'@'}blink.sv; (len prijímanie). Formát s API kľúčom ďalej platí pre custodial účty mimo EÚ.",

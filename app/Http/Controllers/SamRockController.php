@@ -163,13 +163,16 @@ class SamRockController extends Controller
 
         $connection = $this->walletConnectionService->markSamRockConnected($store, $request->user());
 
+        $fallbackConfigured = true;
         try {
             $this->walletConnectionService->configureCashuFallback(
                 $store,
                 $validated['fallback_lightning_address'],
-                $userApiKey
+                $userApiKey,
+                $request->user()
             );
         } catch (\Throwable $e) {
+            $fallbackConfigured = false;
             Log::error('Could not configure CashuMelt fallback after SamRock pairing', [
                 'store_id' => $store->id,
                 'message' => $e->getMessage(),
@@ -182,11 +185,15 @@ class SamRockController extends Controller
             // Best-effort cleanup
         }
 
+        // Pairing succeeded either way; the flag tells the client whether the required
+        // CashuMelt fallback actually got configured (false-success would hide a missing
+        // payout fallback).
         return response()->json([
             'data' => [
                 'wallet_connection_id' => $connection->id,
                 'status' => $connection->status,
                 'configuration_source' => $connection->configuration_source,
+                'cashu_fallback_configured' => $fallbackConfigured,
             ],
         ]);
     }

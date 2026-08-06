@@ -74,6 +74,27 @@ class Store extends Model
     }
 
     /**
+     * Marks the store as a pure Cashu store: CashuMelt becomes the primary payment
+     * method, so any Lightning connection is dropped (when switching) and the
+     * parallel-fallback flags are cleared.
+     */
+    public function markAsPureCashu(bool $switchingFromLightning): void
+    {
+        if ($switchingFromLightning) {
+            $this->walletConnection()->delete();
+        }
+
+        if (($this->wallet_type ?? null) === null || $switchingFromLightning) {
+            $this->update([
+                'wallet_type' => 'cashu',
+                'cashu_fallback_enabled' => false,
+                'cashu_fallback_address' => null,
+            ]);
+            $this->refresh();
+        }
+    }
+
+    /**
      * Get the user that owns the store.
      */
     public function user(): BelongsTo

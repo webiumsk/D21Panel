@@ -278,6 +278,7 @@ export interface SamRockOtp {
 export interface SamRockCompleteResult extends SamRockOtp {
     status: string | null;
     error_message: string | null;
+    cashu_fallback_configured?: boolean;
 }
 
 // Wallet domain API - wallet connection, Cashu plugin settings, SamRock pairing.

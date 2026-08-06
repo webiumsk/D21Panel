@@ -1399,6 +1399,7 @@
     "wallet_fallback_derived_note": "La dirección Lightning de esta conexión también se usará como respaldo CashuMelt.",
     "cashu_fallback_active_label": "Respaldo CashuMelt",
     "cashu_fallback_active_hint": "Funciona en paralelo con la conexión Lightning; el checkout prefiere Lightning. Las liquidaciones aparecen en Liquidaciones Cashu.",
+    "samrock_fallback_failed": "Monedero emparejado, pero no se pudo configurar el respaldo CashuMelt. Abra la conexión del monedero y guárdelo de nuevo, o contacte con soporte.",
     "blitz_receive_only_note": "Solo recepción: la tienda puede aceptar pagos pero no enviar desde este monedero.",
     "blitz_invalid_connection": "Conexión Blitz no válida. Use usted{'@'}blitzwalletapp.com o type=blitz;ln-address=usted;",
     "blink_eu_legacy_notice": "Las cuentas Blink en la UE son non-custodial: conecte con type=blink;ln-address=usted{'@'}blink.sv; (solo recepción). El formato con clave API sigue funcionando para cuentas custodial fuera de la UE.",

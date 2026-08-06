@@ -195,7 +195,7 @@ class WalletConnectionService
 
                     if ($fallbackAddress !== null && $fallbackAddress !== '') {
                         try {
-                            $this->configureCashuFallback($store, $fallbackAddress, $userApiKey);
+                            $this->configureCashuFallback($store, $fallbackAddress, $userApiKey, $user);
                         } catch (\Throwable $e) {
                             Log::error('Could not configure CashuMelt fallback at BTCPay', [
                                 'store_id' => $store->id,
@@ -553,7 +553,7 @@ class WalletConnectionService
      * and records the state on the store. Checkout prefers the Lightning method; Cashu
      * stays available when Boltz/Spark are down.
      */
-    public function configureCashuFallback(Store $store, string $lightningAddress, string $userApiKey): void
+    public function configureCashuFallback(Store $store, string $lightningAddress, string $userApiKey, ?User $user = null): void
     {
         $mintUrl = config('services.cashu.default_mint_url');
         try {
@@ -575,6 +575,17 @@ class WalletConnectionService
             'cashu_fallback_enabled' => true,
             'cashu_fallback_address' => $lightningAddress,
         ])->save();
+
+        AuditLog::log(
+            'store.cashu_fallback_configured',
+            'store',
+            $store->id,
+            [
+                'lightning_address' => $lightningAddress,
+                'mint_url' => $mintUrl,
+            ],
+            $user?->id
+        );
 
         Log::info('CashuMelt parallel fallback configured', [
             'store_id' => $store->id,

@@ -39,7 +39,10 @@
 
         <!-- Cashu settlements (wallet_type=cashu) -->
         <div v-else-if="showCashu" class="max-w-7xl">
-          <StoreCashuPayments v-if="store.wallet_type === 'cashu'" :store="store" />
+          <StoreCashuPayments
+            v-if="store.wallet_type === 'cashu' || store.cashu_fallback_enabled"
+            :store="store"
+          />
           <div
             v-else
             class="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-6 py-5 text-sm text-amber-100"

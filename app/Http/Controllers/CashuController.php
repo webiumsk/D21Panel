@@ -94,19 +94,7 @@ class CashuController extends Controller
 
         try {
             $updated = DB::transaction(function () use ($store, $payload, $userApiKey, $switchingFromLightning) {
-                if ($switchingFromLightning) {
-                    $store->walletConnection()?->delete();
-                }
-
-                if (($store->wallet_type ?? null) === null || $switchingFromLightning) {
-                    // Pure Cashu store: CashuMelt is the primary method, not a fallback.
-                    $store->update([
-                        'wallet_type' => 'cashu',
-                        'cashu_fallback_enabled' => false,
-                        'cashu_fallback_address' => null,
-                    ]);
-                    $store->refresh();
-                }
+                $store->markAsPureCashu($switchingFromLightning);
 
                 return $this->cashuService->saveSettings($store->btcpay_store_id, $payload, $userApiKey);
             });

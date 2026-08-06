@@ -2353,6 +2353,7 @@
     "wallet_fallback_derived_note": "The Lightning address from this connection will also be used as the CashuMelt fallback.",
     "cashu_fallback_active_label": "CashuMelt fallback",
     "cashu_fallback_active_hint": "Runs in parallel with the Lightning connection; checkout prefers Lightning. Settlements appear under Cashu settlements.",
+    "samrock_fallback_failed": "Wallet paired, but the CashuMelt fallback could not be configured. Open Wallet connection and save it again, or contact support.",
     "blitz_receive_only_note": "Receive-only: the store can accept payments but cannot send from this wallet.",
     "blitz_invalid_connection": "Invalid Blitz connection. Use you{'@'}blitzwalletapp.com or type=blitz;ln-address=you;",
     "blink_eu_legacy_notice": "Blink accounts in the EU are non-custodial: connect with type=blink;ln-address=you{'@'}blink.sv; (receive-only). The API-key format keeps working for custodial accounts outside the EU.",

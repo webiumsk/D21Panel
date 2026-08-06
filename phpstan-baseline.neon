@@ -211,12 +211,6 @@ parameters:
 			path: app/Http/Controllers/CashuController.php
 
 		-
-			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Database\\Eloquent\\Relations\\HasOne\<App\\Models\\WalletConnection, App\\Models\\Store\>\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Controllers/CashuController.php
-
-		-
 			message: '#^Cannot call method startOfDay\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 2

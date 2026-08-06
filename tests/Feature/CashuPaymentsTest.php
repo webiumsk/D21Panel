@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\WalletConnection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -232,10 +233,10 @@ class CashuPaymentsTest extends TestCase
             'cashu_fallback_enabled' => true,
             'cashu_fallback_address' => 'fallback@example.com',
         ]);
-        \App\Models\WalletConnection::create([
+        WalletConnection::create([
             'store_id' => $store->id,
             'type' => 'blink',
-            'encrypted_secret' => \Illuminate\Support\Facades\Crypt::encryptString('type=blink;ln-address=x@blink.sv;'),
+            'encrypted_secret' => Crypt::encryptString('type=blink;ln-address=x@blink.sv;'),
             'status' => 'connected',
             'submitted_by_user_id' => $user->id,
         ]);
