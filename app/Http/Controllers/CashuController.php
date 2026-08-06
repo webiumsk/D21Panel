@@ -218,7 +218,7 @@ class CashuController extends Controller
     private function isLightningWalletTypeForCashuSwitch(?string $walletType): bool
     {
         return $walletType === null
-            || in_array($walletType, ['blink', 'blitz', 'aqua_boltz', 'nwc'], true);
+            || in_array($walletType, ['blink', 'blitz', 'flash', 'aqua_boltz', 'nwc'], true);
     }
 
     /**

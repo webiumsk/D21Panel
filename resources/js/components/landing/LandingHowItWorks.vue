@@ -188,9 +188,51 @@
                           {{ t("landing.blink_pros") }}
                         </p>
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Blitz & Flash Card: LN-address-only self-custodial wallets -->
+                <div
+                  class="relative group/card cursor-pointer transform md:-translate-x-6 transition-transform duration-500 hover:scale-105"
+                >
+                  <div
+                    class="bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl flex items-center gap-6 transition-all duration-300 group-hover/card:border-yellow-500/50 group-hover/card:bg-gray-800/80"
+                  >
+                    <div
+                      class="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-2 p-2 shadow-inner"
+                    >
+                      <img
+                        src="/img/wallets/blitz-64.webp"
+                        :alt="t('create_store.wallet_type_blitz')"
+                        class="h-5 w-auto max-w-[3.5rem] object-contain flex-shrink-0"
+                      />
+                      <img
+                        src="/img/wallets/flash-64.webp"
+                        :alt="t('create_store.wallet_type_flash')"
+                        class="h-5 w-auto max-w-[3.5rem] object-contain flex-shrink-0"
+                      />
+                    </div>
+                    <div>
+                      <h4
+                        class="mb-1 bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-indigo-300/90 text-2xl font-bold"
+                      >
+                        {{ t("landing.blitzflash_wallet_title") }}
+                      </h4>
+                      <p class="text-sm text-yellow-400 font-medium">
+                        {{ t("landing.blitzflash_wallet_tagline") }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- Hover Details -->
+                  <div
+                    class="absolute inset-0 bg-gray-900/95 backdrop-blur-xl rounded-2xl p-6 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col justify-center border border-yellow-500/50 z-20 pointer-events-none group-hover/card:pointer-events-auto shadow-[0_0_30px_rgba(234,179,8,0.3)]"
+                  >
+                    <div class="space-y-4">
                       <div>
                         <span
-                          class="text-red-400 font-bold text-xs uppercase tracking-wider flex items-center gap-2 mb-1"
+                          class="text-green-400 font-bold text-xs uppercase tracking-wider flex items-center gap-2 mb-1"
                         >
                           <svg
                             class="w-4 h-4"
@@ -202,13 +244,13 @@
                               stroke-linecap="round"
                               stroke-linejoin="round"
                               stroke-width="3"
-                              d="M6 18L18 6M6 6l12 12"
+                              d="M5 13l4 4L19 7"
                             ></path>
                           </svg>
-                          {{ t("landing.wallet_cons") }}
+                          {{ t("landing.wallet_pros") }}
                         </span>
                         <p class="text-gray-300 text-sm leading-relaxed">
-                          {{ t("landing.blink_cons") }}
+                          {{ t("landing.blitzflash_pros") }}
                         </p>
                       </div>
                     </div>

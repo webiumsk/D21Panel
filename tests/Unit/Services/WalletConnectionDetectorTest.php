@@ -81,6 +81,27 @@ class WalletConnectionDetectorTest extends TestCase
     }
 
     #[Test]
+    public function it_detects_bare_flash_address_as_flash_not_cashu(): void
+    {
+        $result = $this->detector->detect('satoshi@flashapp.me');
+
+        $this->assertSame('flash', $result['kind']);
+        $this->assertSame('flash', $result['connection_type']);
+        $this->assertSame('flash', $result['store_wallet_type']);
+        $this->assertSame('type=flash;ln-address=satoshi@flashapp.me;', $result['normalized_secret']);
+        $this->assertNull($result['cashu_lightning_address']);
+    }
+
+    #[Test]
+    public function it_detects_flash_connection_string_with_bare_username(): void
+    {
+        $result = $this->detector->detect('type=flash;ln-address=satoshi');
+
+        $this->assertSame('flash', $result['kind']);
+        $this->assertSame('type=flash;ln-address=satoshi@flashapp.me;', $result['normalized_secret']);
+    }
+
+    #[Test]
     public function it_routes_other_lightning_addresses_to_cashu_not_blitz(): void
     {
         $result = $this->detector->detect('satoshi@getalby.com');

@@ -25,7 +25,7 @@ class WalletConnectionStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', 'in:blink,aqua_descriptor,nwc,blitz'],
+            'type' => ['required', 'string', 'in:blink,aqua_descriptor,nwc,blitz,flash'],
             'secret' => ['required', 'string', 'min:10'],
             // Every store keeps at least one Lightning address as the CashuMelt fallback.
             // Optional only when it can be derived from the secret (blink/blitz ln-address).

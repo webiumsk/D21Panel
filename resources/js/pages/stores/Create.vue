@@ -648,9 +648,11 @@ import {
   fallbackAddressDerivableFromSecret,
   normalizeBlinkConnectionString,
   normalizeBlitzConnectionString,
+  normalizeFlashConnectionString,
   normalizeNwcUri,
   validateBlinkConnectionString,
   validateBlitzConnectionString,
+  validateFlashConnectionString,
   validateNwcUri,
 } from "../../utils/walletNwcHelpers";
 
@@ -698,7 +700,7 @@ const lightningSetupTabs: ReadonlyArray<{ id: LightningSetupTabId; labelKey: str
   { id: "advanced", labelKey: "create_store.tab_advanced" },
 ];
 const lightningSetupTab = ref<LightningSetupTabId>("ln");
-const connectionType = ref<"blink" | "blitz" | "nwc" | "aqua_descriptor">("aqua_descriptor");
+const connectionType = ref<"blink" | "blitz" | "flash" | "nwc" | "aqua_descriptor">("aqua_descriptor");
 
 /** SamRock pairing (step 2, Aqua tab) - shared flow lives in useSamRockPairing */
 const {
@@ -753,6 +755,9 @@ function validatePasteConnection(): boolean {
   }
   if (connectionType.value === "blitz") {
     return validateBlitzConnectionString(cs);
+  }
+  if (connectionType.value === "flash") {
+    return validateFlashConnectionString(cs);
   }
   if (connectionType.value === "nwc") {
     return validateNwcUri(cs);
@@ -881,7 +886,7 @@ function focusAdjacentLightningTab(direction: -1 | 1) {
 }
 
 /** QuickConnect saved the wallet - route by where the store landed. */
-async function onQuickConnectSubmitted(target: "blink" | "blitz" | "cashu") {
+async function onQuickConnectSubmitted(target: "blink" | "blitz" | "flash" | "cashu") {
   const sid = createdStoreId.value;
   if (!sid) return;
   await storesStore.fetchStore(sid);
@@ -1044,7 +1049,9 @@ async function submitWalletConfiguration() {
           ? normalizeBlinkConnectionString(rawSecret)
           : connectionType.value === "blitz"
             ? normalizeBlitzConnectionString(rawSecret)
-            : rawSecret;
+            : connectionType.value === "flash"
+              ? normalizeFlashConnectionString(rawSecret)
+              : rawSecret;
 
     await walletApi.connection.create(sid, {
       type: connectionType.value,

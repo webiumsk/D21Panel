@@ -5,6 +5,7 @@
 export type DetectedWalletKind =
   | 'blink'
   | 'blitz'
+  | 'flash'
   | 'nwc'
   | 'aqua_descriptor'
   | 'cashu'
@@ -15,8 +16,8 @@ export type AquaBoltzBrand = 'aqua' | 'bull';
 
 export type WalletConnectionDetection = {
   kind: DetectedWalletKind;
-  connectionType: 'blink' | 'blitz' | 'nwc' | 'aqua_descriptor' | null;
-  storeWalletType: 'blink' | 'blitz' | 'nwc' | 'aqua_boltz' | 'cashu' | null;
+  connectionType: 'blink' | 'blitz' | 'flash' | 'nwc' | 'aqua_descriptor' | null;
+  storeWalletType: 'blink' | 'blitz' | 'flash' | 'nwc' | 'aqua_boltz' | 'cashu' | null;
   brand: AquaBoltzBrand | null;
   normalizedSecret: string | null;
   cashuMintUrl: string | null;
@@ -30,10 +31,12 @@ import {
   extractNwcLud16,
   isBareBlinkLightningAddress,
   isBareBlitzLightningAddress,
+  isBareFlashLightningAddress,
   isCashuWalletNwcUri,
   looksLikeNwcUri,
   normalizeBlinkConnectionString,
   normalizeBlitzConnectionString,
+  normalizeFlashConnectionString,
   normalizeNwcUri,
 } from './walletNwcHelpers';
 
@@ -165,6 +168,20 @@ export function detectWalletConnectionInput(input: string): WalletConnectionDete
     };
   }
 
+  // Bare 'name@flashapp.me' or type=flash; strings - same precedence rule as Blink/Blitz.
+  if (trimmed.toLowerCase().includes('type=flash;') || isBareFlashLightningAddress(trimmed)) {
+    return {
+      kind: 'flash',
+      connectionType: 'flash',
+      storeWalletType: 'flash',
+      brand: null,
+      normalizedSecret: normalizeFlashConnectionString(trimmed),
+      cashuMintUrl: null,
+      cashuLightningAddress: null,
+      confidence: 'high',
+    };
+  }
+
   if (isValidAquaBoltzDescriptor(trimmed)) {
     return {
       kind: 'aqua_descriptor',
@@ -244,6 +261,7 @@ export function detectionLabelKey(
     nwc: 'stores.wallet_detect_nwc',
     blink: 'stores.wallet_detect_blink',
     blitz: 'stores.wallet_detect_blitz',
+    flash: 'stores.wallet_detect_flash',
     cashu: 'stores.wallet_detect_cashu',
     cashu_wallet_nwc: 'stores.wallet_detect_cashu_wallet_nwc',
     unknown: 'stores.wallet_detect_unknown',

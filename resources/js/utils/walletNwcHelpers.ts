@@ -160,6 +160,48 @@ export function validateBlitzConnectionString(connectionString: string): boolean
   return isBareBlitzLightningAddress(address);
 }
 
+/** Lightning address at the flashapp.me domain - routes bare pastes to Flash. */
+export function isBareFlashLightningAddress(value: string): boolean {
+  return /^[^@\s;=]+@flashapp\.me$/i.test(value.trim());
+}
+
+/** Canonical BTCPay Flash connection string (bare address shorthand → full form). */
+export function normalizeFlashConnectionString(value: string): string {
+  const trimmed = value.trim();
+  if (isBareFlashLightningAddress(trimmed)) {
+    return `type=flash;ln-address=${trimmed};`;
+  }
+  return trimmed;
+}
+
+/**
+ * Flash connection string - type=flash;ln-address=<user[@domain]>; (aliases lnaddress,
+ * username; a bare username defaults to flashapp.me) or the bare address shorthand.
+ */
+export function validateFlashConnectionString(connectionString: string): boolean {
+  const trimmed = connectionString.trim();
+  if (!trimmed) return false;
+  if (isBareFlashLightningAddress(trimmed)) return true;
+  if (!trimmed.toLowerCase().includes('type=flash')) return false;
+  const parts = trimmed
+    .split(';')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  let typeVal = '';
+  let lnAddressVal = '';
+  for (const part of parts) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim().toLowerCase();
+    const value = part.slice(eq + 1).trim();
+    if (key === 'type') typeVal = value.toLowerCase();
+    if (key === 'ln-address' || key === 'lnaddress' || key === 'username') lnAddressVal = value;
+  }
+  if (typeVal !== 'flash' || !lnAddressVal) return false;
+  const address = lnAddressVal.includes('@') ? lnAddressVal : `${lnAddressVal}@flashapp.me`;
+  return isBareFlashLightningAddress(address);
+}
+
 /**
  * Whether a connection secret already carries a Lightning address usable as the
  * CashuMelt fallback (blink/blitz ln-address forms). Backend derives it server-side;
@@ -167,9 +209,9 @@ export function validateBlitzConnectionString(connectionString: string): boolean
  */
 export function fallbackAddressDerivableFromSecret(secret: string): boolean {
   const s = secret.trim();
-  if (isBareBlinkLightningAddress(s) || isBareBlitzLightningAddress(s)) return true;
+  if (isBareBlinkLightningAddress(s) || isBareBlitzLightningAddress(s) || isBareFlashLightningAddress(s)) return true;
   const lower = s.toLowerCase();
-  if (!lower.includes('type=blink') && !lower.includes('type=blitz')) return false;
+  if (!lower.includes('type=blink') && !lower.includes('type=blitz') && !lower.includes('type=flash')) return false;
   return /(?:ln-?address|username)=[^;=\s]+/i.test(s);
 }
 

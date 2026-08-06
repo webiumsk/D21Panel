@@ -203,6 +203,48 @@ class WalletConnectionTest extends TestCase
     }
 
     #[Test]
+    public function flash_bare_address_creates_flash_connection_and_sends_canonical_string_to_btcpay(): void
+    {
+        config(['services.btcpay.base_url' => 'https://btcpay.test']);
+
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+            if ($request->method() === 'POST' && str_contains($url, '/stores/flash-store/lightning/BTC/connect')) {
+                return Http::response(['success' => true], 200);
+            }
+            if (str_contains($url, '/lightning/BTC') || str_contains($url, 'cashumelt/settings')) {
+                return Http::response([], 200);
+            }
+
+            return Http::response(['message' => 'not found'], 404);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-flash-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'flash-store',
+        ]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'flash',
+            'secret' => 'satoshi@flashapp.me',
+        ])->assertStatus(201)
+            ->assertJsonPath('data.type', 'flash');
+
+        Http::assertSent(function (Request $request) {
+            return $request->method() === 'POST'
+                && str_contains($request->url(), '/stores/flash-store/lightning/BTC/connect')
+                && ($request->data()['ConnectionString'] ?? null) === 'type=flash;ln-address=satoshi@flashapp.me;';
+        });
+
+        $store->refresh();
+        $this->assertSame('flash', $store->wallet_type);
+        // The address doubles as the CashuMelt fallback (derived, no explicit field).
+        $this->assertTrue((bool) $store->cashu_fallback_enabled);
+        $this->assertSame('satoshi@flashapp.me', $store->cashu_fallback_address);
+    }
+
+    #[Test]
     public function cashu_store_saving_blitz_sets_pending_reconfig_for_config_bot(): void
     {
         config(['services.btcpay.base_url' => 'https://btcpay.test']);
