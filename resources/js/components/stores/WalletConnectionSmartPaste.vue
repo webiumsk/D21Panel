@@ -11,7 +11,7 @@ import {
 const props = withDefaults(
   defineProps<{
     modelValue: string;
-    connectionType: 'blink' | 'blitz' | 'nwc' | 'aqua_descriptor';
+    connectionType: 'blink' | 'blitz' | 'flash' | 'nwc' | 'aqua_descriptor';
     inputId?: string;
     showTypeOverride?: boolean;
   }>(),
@@ -23,12 +23,12 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
-  'update:connectionType': [value: 'blink' | 'blitz' | 'nwc' | 'aqua_descriptor'];
+  'update:connectionType': [value: 'blink' | 'blitz' | 'flash' | 'nwc' | 'aqua_descriptor'];
   'detect-cashu': [payload: { mintUrl: string; lightningAddress: string | null }];
 }>();
 
 const { t } = useI18n();
-const manualType = ref<'blink' | 'blitz' | 'nwc' | 'aqua_descriptor' | null>(null);
+const manualType = ref<'blink' | 'blitz' | 'flash' | 'nwc' | 'aqua_descriptor' | null>(null);
 
 const detection = computed(() => detectWalletConnectionInput(props.modelValue));
 
@@ -37,6 +37,7 @@ const effectiveKind = computed((): DetectedWalletKind => {
     if (manualType.value === 'nwc') return 'nwc';
     if (manualType.value === 'blink') return 'blink';
     if (manualType.value === 'blitz') return 'blitz';
+    if (manualType.value === 'flash') return 'flash';
     return 'aqua_descriptor';
   }
   return detection.value.kind;
@@ -75,7 +76,7 @@ function onInput(event: Event) {
   emit('update:modelValue', (event.target as HTMLTextAreaElement).value);
 }
 
-function setManualType(type: 'blink' | 'blitz' | 'nwc' | 'aqua_descriptor') {
+function setManualType(type: 'blink' | 'blitz' | 'flash' | 'nwc' | 'aqua_descriptor') {
   manualType.value = type;
   emit('update:connectionType', type);
 }
@@ -132,7 +133,9 @@ function setManualType(type: 'blink' | 'blitz' | 'nwc' | 'aqua_descriptor') {
                   ? 'cashu'
                   : effectiveKind === 'blitz'
                     ? 'blitz'
-                    : 'blink'
+                    : effectiveKind === 'flash'
+                      ? 'flash'
+                      : 'blink'
           "
           :brand="detection.brand ?? undefined"
           size="sm"
@@ -158,6 +161,13 @@ function setManualType(type: 'blink' | 'blitz' | 'nwc' | 'aqua_descriptor') {
         @click="setManualType('blitz')"
       >
         {{ t('stores.wallet_detect_blitz') }}
+      </button>
+      <button
+        type="button"
+        class="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-600 text-gray-300 hover:border-indigo-500/50"
+        @click="setManualType('flash')"
+      >
+        {{ t('stores.wallet_detect_flash') }}
       </button>
       <button
         type="button"

@@ -5,6 +5,7 @@
  *
  * - *@blink.sv            → Blink   (type=blink;ln-address=...; receive-only)
  * - *@blitzwalletapp.com  → Blitz   (type=blitz;ln-address=...; receive-only)
+ * - *@flashapp.me         → Flash   (type=flash;ln-address=...; receive-only)
  * - any other LN address  → CashuMelt (default mint + this address as payout)
  */
 
@@ -12,11 +13,13 @@ import { isValidCashuLightningAddress } from './detectWalletConnectionInput';
 import {
   isBareBlinkLightningAddress,
   isBareBlitzLightningAddress,
+  isBareFlashLightningAddress,
   normalizeBlinkConnectionString,
   normalizeBlitzConnectionString,
+  normalizeFlashConnectionString,
 } from './walletNwcHelpers';
 
-export type LightningAddressTarget = 'blink' | 'blitz' | 'cashu';
+export type LightningAddressTarget = 'blink' | 'blitz' | 'flash' | 'cashu';
 
 export type LightningAddressRoute = {
   target: LightningAddressTarget;
@@ -52,6 +55,14 @@ export function routeLightningAddress(input: string): LightningAddressRoute | nu
       target: 'blitz',
       address,
       connectionSecret: normalizeBlitzConnectionString(address),
+    };
+  }
+
+  if (isBareFlashLightningAddress(address)) {
+    return {
+      target: 'flash',
+      address,
+      connectionSecret: normalizeFlashConnectionString(address),
     };
   }
 

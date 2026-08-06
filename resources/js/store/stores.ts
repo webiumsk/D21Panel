@@ -17,7 +17,7 @@ export interface Store {
     archived?: boolean;
     default_currency?: string;
     timezone?: string;
-    wallet_type: 'blink' | 'blitz' | 'aqua_boltz' | 'cashu' | 'nwc' | null;
+    wallet_type: 'blink' | 'blitz' | 'flash' | 'aqua_boltz' | 'cashu' | 'nwc' | null;
     cashu_fallback_enabled?: boolean;
     cashu_fallback_address?: string | null;
     /** Aqua vs Bull when wallet_type is aqua_boltz */
@@ -29,7 +29,7 @@ export interface Store {
     checklist_items?: ChecklistItem[];
     wallet_connection?: {
         id: string;
-        type: 'blink' | 'blitz' | 'aqua_descriptor' | 'nwc';
+        type: 'blink' | 'blitz' | 'flash' | 'aqua_descriptor' | 'nwc';
         status: 'pending' | 'needs_support' | 'connected';
         brand?: AquaBoltzWalletBrand | null;
         masked_secret?: string;

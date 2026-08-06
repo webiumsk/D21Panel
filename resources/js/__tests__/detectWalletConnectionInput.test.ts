@@ -37,6 +37,16 @@ describe('detectWalletConnectionInput', () => {
     expect(result.kind).toBe('blitz');
   });
 
+  it('detects bare flashapp.me address as flash, not cashu', () => {
+    const result = detectWalletConnectionInput('satoshi@flashapp.me');
+    expect(result.kind).toBe('flash');
+    expect(result.normalizedSecret).toBe('type=flash;ln-address=satoshi@flashapp.me;');
+  });
+
+  it('detects type=flash; connection strings', () => {
+    expect(detectWalletConnectionInput('type=flash;ln-address=satoshi;').kind).toBe('flash');
+  });
+
   it('detects any other Lightning address as cashu', () => {
     const result = detectWalletConnectionInput('satoshi@getalby.com');
     expect(result.kind).toBe('cashu');

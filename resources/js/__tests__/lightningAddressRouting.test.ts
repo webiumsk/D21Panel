@@ -35,6 +35,15 @@ describe('routeLightningAddress', () => {
     });
   });
 
+  it('routes flashapp.me addresses to flash with a canonical secret', () => {
+    const route = routeLightningAddress('satoshi@flashapp.me');
+    expect(route).toEqual({
+      target: 'flash',
+      address: 'satoshi@flashapp.me',
+      connectionSecret: 'type=flash;ln-address=satoshi@flashapp.me;',
+    });
+  });
+
   it('routes any other Lightning address to cashu without a connection secret', () => {
     const route = routeLightningAddress('satoshi@getalby.com');
     expect(route).toEqual({
@@ -52,6 +61,7 @@ describe('routeLightningAddress', () => {
   it('is case-insensitive on the routed domains', () => {
     expect(routeLightningAddress('Satoshi@Blink.SV')?.target).toBe('blink');
     expect(routeLightningAddress('Satoshi@BlitzWalletApp.com')?.target).toBe('blitz');
+    expect(routeLightningAddress('Satoshi@FlashApp.ME')?.target).toBe('flash');
   });
 
   it('rejects invalid Lightning addresses', () => {

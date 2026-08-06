@@ -265,6 +265,105 @@ class WalletConnectionValidator
     }
 
     /**
+     * The Flash plugin defaults a bare username to the flashapp.me domain - mirror that.
+     */
+    public function normalizeFlashLnAddress(string $value): string
+    {
+        $value = trim($value);
+
+        return str_contains($value, '@') ? $value : $value.'@flashapp.me';
+    }
+
+    /**
+     * Lightning address at the flashapp.me domain. Gates bare pastes the same
+     * way blink.sv/blitzwalletapp.com do.
+     */
+    public function isBareFlashLightningAddress(string $value): bool
+    {
+        return (bool) preg_match('/^[^@\s;=]+@flashapp\.me$/i', trim($value));
+    }
+
+    /**
+     * Parse a Flash connection secret: a bare you@flashapp.me address or
+     * type=flash;ln-address=<user[@domain]>; (aliases: lnaddress, username -
+     * the plugin reads only ln-address, receive-only, no api key).
+     *
+     * @return array{type: string|null, ln_address: string|null, errors: array<int, string>}
+     */
+    public function parseFlashConnectionString(string $connectionString): array
+    {
+        $trimmed = trim($connectionString);
+        $result = ['type' => null, 'ln_address' => null, 'errors' => []];
+
+        if ($trimmed === '') {
+            $result['errors'][] = 'Empty Flash connection string.';
+
+            return $result;
+        }
+
+        if ($this->isBareFlashLightningAddress($trimmed)) {
+            $result['type'] = 'flash';
+            $result['ln_address'] = $trimmed;
+
+            return $result;
+        }
+
+        if (! str_contains(strtolower($trimmed), 'type=flash')) {
+            $result['errors'][] = 'Not a Flash connection string.';
+
+            return $result;
+        }
+
+        $kv = [];
+        foreach (array_filter(array_map('trim', explode(';', $trimmed))) as $pair) {
+            if (! str_contains($pair, '=')) {
+                continue;
+            }
+            [$key, $value] = explode('=', $pair, 2);
+            $kv[strtolower(trim($key))] = trim($value);
+        }
+
+        $result['type'] = strtolower($kv['type'] ?? '');
+        if ($result['type'] !== 'flash') {
+            $result['errors'][] = 'Connection string type must be flash.';
+
+            return $result;
+        }
+
+        $lnAddress = $kv['ln-address'] ?? $kv['lnaddress'] ?? $kv['username'] ?? null;
+        if ($lnAddress === null || $lnAddress === '') {
+            $result['errors'][] = "The key 'ln-address' (your Flash Wallet Lightning address or username) is required for flash connection strings.";
+
+            return $result;
+        }
+
+        $normalized = $this->normalizeFlashLnAddress($lnAddress);
+        if (! $this->isBareFlashLightningAddress($normalized)) {
+            $result['errors'][] = 'Flash ln-address must be a flashapp.me address (or a bare username).';
+
+            return $result;
+        }
+
+        $result['ln_address'] = $normalized;
+
+        return $result;
+    }
+
+    /**
+     * Canonical BTCPay connection string for a Flash secret (expands the bare
+     * address and username shorthands).
+     */
+    public function formatBtcpayFlashConnectionString(string $secret): string
+    {
+        $parsed = $this->parseFlashConnectionString($secret);
+        if (empty($parsed['errors']) && $parsed['ln_address']) {
+            return 'type=flash;ln-address='.$parsed['ln_address'].';';
+        }
+
+        return trim($secret);
+    }
+
+    /**
      * Lightning address contained in a connection secret, when the secret has one:
      * blink ln-address variant and blitz secrets carry it, everything else does not.
      * Used to default the CashuMelt fallback address.
@@ -282,6 +381,12 @@ class WalletConnectionValidator
 
         if ($type === 'blitz') {
             $parsed = $this->parseBlitzConnectionString($secret);
+
+            return empty($parsed['errors']) ? ($parsed['ln_address'] ?: null) : null;
+        }
+
+        if ($type === 'flash') {
+            $parsed = $this->parseFlashConnectionString($secret);
 
             return empty($parsed['errors']) ? ($parsed['ln_address'] ?: null) : null;
         }
@@ -569,6 +674,12 @@ class WalletConnectionValidator
             $parsed = $this->parseBlitzConnectionString($value);
             if (! empty($parsed['errors'])) {
                 $errors[] = 'Invalid Blitz connection. Expected your Blitz Wallet Lightning address (you@blitzwalletapp.com) or type=blitz;ln-address=you;';
+            }
+        } elseif ($type === 'flash') {
+            $returnType = 'flash';
+            $parsed = $this->parseFlashConnectionString($value);
+            if (! empty($parsed['errors'])) {
+                $errors[] = 'Invalid Flash connection. Expected your Flash Wallet Lightning address (you@flashapp.me) or type=flash;ln-address=you;';
             }
         } else {
             Log::error('Unsupported wallet connection type', [

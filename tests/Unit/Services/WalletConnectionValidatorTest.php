@@ -236,6 +236,48 @@ class WalletConnectionValidatorTest extends TestCase
         );
     }
 
+    public function test_bare_flash_lightning_address_detection(): void
+    {
+        $this->assertTrue($this->validator->isBareFlashLightningAddress('satoshi@flashapp.me'));
+        $this->assertTrue($this->validator->isBareFlashLightningAddress('Satoshi@FlashApp.me'));
+        $this->assertFalse($this->validator->isBareFlashLightningAddress('satoshi@blitzwalletapp.com'));
+        $this->assertFalse($this->validator->isBareFlashLightningAddress('satoshi@getalby.com'));
+    }
+
+    public function test_flash_connection_string_parsing_and_formatting(): void
+    {
+        $this->assertSame(
+            'type=flash;ln-address=satoshi@flashapp.me;',
+            $this->validator->formatBtcpayFlashConnectionString('satoshi@flashapp.me')
+        );
+        $this->assertSame(
+            'type=flash;ln-address=satoshi@flashapp.me;',
+            $this->validator->formatBtcpayFlashConnectionString('type=flash;ln-address=satoshi')
+        );
+    }
+
+    public function test_flash_validation(): void
+    {
+        $this->assertTrue($this->validator->validate('flash', 'satoshi@flashapp.me')['valid']);
+        $this->assertTrue($this->validator->validate('flash', 'type=FLASH;ln-address=satoshi;')['valid']);
+        $this->assertFalse($this->validator->validate('flash', 'type=flash;server=https://x;')['valid']);
+        $this->assertFalse($this->validator->validate('flash', 'satoshi@getalby.com')['valid']);
+        $this->assertFalse($this->validator->validate('flash', 'type=flash;ln-address=user@otherwallet.example;')['valid']);
+    }
+
+    public function test_derive_lightning_address_from_secret(): void
+    {
+        $this->assertSame('satoshi@blink.sv',
+            $this->validator->deriveLightningAddressFromSecret('blink', 'type=blink;ln-address=satoshi@blink.sv;'));
+        $this->assertSame('satoshi@blitzwalletapp.com',
+            $this->validator->deriveLightningAddressFromSecret('blitz', 'satoshi@blitzwalletapp.com'));
+        $this->assertSame('satoshi@flashapp.me',
+            $this->validator->deriveLightningAddressFromSecret('flash', 'type=flash;ln-address=satoshi;'));
+        $this->assertNull($this->validator->deriveLightningAddressFromSecret('blink',
+            'type=blink;server=https://api.blink.sv/graphql;api-key=k;wallet-id=w'));
+        $this->assertNull($this->validator->deriveLightningAddressFromSecret('nwc', 'nostr+walletconnect:abc'));
+    }
+
     public function test_blitz_validation(): void
     {
         $this->assertTrue($this->validator->validate('blitz', 'satoshi@blitzwalletapp.com')['valid']);

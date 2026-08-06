@@ -36,7 +36,7 @@ import type { AquaBoltzWalletBrand } from '../utils/aquaBoltzWalletBrand';
 const props = withDefaults(
   defineProps<{
     /** store.wallet_type or connection.type */
-    type: 'blink' | 'blitz' | 'aqua_boltz' | 'cashu' | 'nwc' | 'aqua_descriptor' | null | undefined;
+    type: 'blink' | 'blitz' | 'flash' | 'aqua_boltz' | 'cashu' | 'nwc' | 'aqua_descriptor' | null | undefined;
     /** When type is aqua_boltz / aqua_descriptor: which wallet logo to show */
     brand?: AquaBoltzWalletBrand | null | undefined;
     size?: 'sm' | 'md' | 'lg';
@@ -69,6 +69,7 @@ const iconSrc = computed(() => {
       : '/img/wallets/aqua-64.webp';
   }
   if (props.type === 'blitz') return '/img/wallets/blitz-64.webp';
+  if (props.type === 'flash') return '/img/wallets/flash-64.webp';
   if (props.type === 'cashu') return null;
   if (props.type === 'nwc') return null;
   return null;
@@ -79,6 +80,7 @@ function walletTypeLabel(): string {
   if (props.type === 'nwc') return t('create_store.wallet_type_nwc');
   if (props.type === 'blink') return t('create_store.wallet_type_blink');
   if (props.type === 'blitz') return t('create_store.wallet_type_blitz');
+  if (props.type === 'flash') return t('create_store.wallet_type_flash');
   if (props.type === 'cashu') return t('create_store.wallet_type_cashu');
   if (resolvedBrand.value === 'bull') return t('create_store.wallet_type_bull');
   return t('create_store.wallet_type_aqua');

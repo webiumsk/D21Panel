@@ -18,7 +18,7 @@ const props = withDefaults(
 
 const { t } = useI18n();
 
-type GuideId = 'nwc' | 'blink' | 'blitz' | 'aqua' | 'bull' | 'cashu';
+type GuideId = 'nwc' | 'blink' | 'blitz' | 'flash' | 'aqua' | 'bull' | 'cashu';
 
 const openIds = ref<GuideId[]>([]);
 
@@ -29,7 +29,7 @@ const items: Array<{
   id: GuideId;
   titleKey: string;
   subtitleKey: string;
-  iconType: 'nwc' | 'blink' | 'blitz' | 'aqua_boltz' | 'cashu';
+  iconType: 'nwc' | 'blink' | 'blitz' | 'flash' | 'aqua_boltz' | 'cashu';
   brand?: AquaBoltzWalletBrand;
 }> = [
   {
@@ -43,6 +43,12 @@ const items: Array<{
     titleKey: 'stores.wallet_detect_blitz',
     subtitleKey: 'stores.wallet_guide_sub_blitz',
     iconType: 'blitz',
+  },
+  {
+    id: 'flash',
+    titleKey: 'stores.wallet_detect_flash',
+    subtitleKey: 'stores.wallet_guide_sub_flash',
+    iconType: 'flash',
   },
   {
     id: 'aqua',
@@ -92,6 +98,7 @@ function guideIdFromDetection(
   if (kind === 'nwc') return 'nwc';
   if (kind === 'blink') return 'blink';
   if (kind === 'blitz') return 'blitz';
+  if (kind === 'flash') return 'flash';
   if (kind === 'cashu') return 'cashu';
   if (kind === 'aqua_descriptor') {
     return brand === 'bull' ? 'bull' : 'aqua';
@@ -130,7 +137,7 @@ watch(
           <span class="flex items-center gap-3 min-w-0">
             <span class="w-10 shrink-0 flex justify-center">
               <WalletTypeIcon
-                v-if="item.iconType === 'aqua_boltz' || item.iconType === 'blink' || item.iconType === 'blitz'"
+                v-if="item.iconType === 'aqua_boltz' || item.iconType === 'blink' || item.iconType === 'blitz' || item.iconType === 'flash'"
                 :type="item.iconType"
                 :brand="item.brand"
                 size="sm"
@@ -245,6 +252,18 @@ watch(
               <p>{{ t('stores.wallet_guide_blitz_paste') }}</p>
             </div>
             <p class="text-amber-300/90">{{ t('stores.blitz_receive_only_note') }}</p>
+          </template>
+
+          <!-- Flash -->
+          <template v-else-if="item.id === 'flash'">
+            <p>{{ t('stores.flash_connection_description') }}</p>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">
+                {{ t('stores.wallet_guide_paste_label') }}
+              </p>
+              <p>{{ t('stores.wallet_guide_flash_paste') }}</p>
+            </div>
+            <p class="text-amber-300/90">{{ t('stores.flash_receive_only_note') }}</p>
           </template>
 
           <!-- Aqua -->

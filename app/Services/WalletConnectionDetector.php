@@ -86,6 +86,19 @@ class WalletConnectionDetector
             ];
         }
 
+        if ($this->looksLikeFlash($trimmed)) {
+            return [
+                'kind' => 'flash',
+                'connection_type' => 'flash',
+                'store_wallet_type' => 'flash',
+                'brand' => null,
+                'normalized_secret' => $this->validator->formatBtcpayFlashConnectionString($trimmed),
+                'cashu_mint_url' => null,
+                'cashu_lightning_address' => null,
+                'confidence' => 'high',
+            ];
+        }
+
         if ($this->looksLikeDescriptor($trimmed)) {
             $body = $this->validator->stripDescriptorChecksum($trimmed);
 
@@ -150,6 +163,15 @@ class WalletConnectionDetector
         }
 
         return $this->validator->isBareBlitzLightningAddress($value);
+    }
+
+    protected function looksLikeFlash(string $value): bool
+    {
+        if (str_contains(strtolower($value), 'type=flash;')) {
+            return true;
+        }
+
+        return $this->validator->isBareFlashLightningAddress($value);
     }
 
     protected function looksLikeDescriptor(string $value): bool
