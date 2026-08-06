@@ -9,6 +9,7 @@ use App\Models\WalletConnection;
 use App\Services\Auth\SensitiveActionAuthorization;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\LightningService;
+use App\Services\LnAddressLud21Prober;
 use App\Services\WalletConnectionService;
 use App\Services\WalletConnectionValidator;
 use Illuminate\Contracts\Encryption\DecryptException;
@@ -39,7 +40,10 @@ class WalletConnectionController extends Controller
             return response()->json(['data' => null]);
         }
 
-        $brand = app(WalletConnectionValidator::class)->resolveAquaBoltzBrand($connection);
+        $validator = app(WalletConnectionValidator::class);
+        $brand = $connection->type === 'lnaddress'
+            ? $validator->resolveLnAddressBrand($connection)
+            : $validator->resolveAquaBoltzBrand($connection);
 
         return response()->json([
             'data' => [
@@ -96,6 +100,22 @@ class WalletConnectionController extends Controller
                 'masked_secret' => $connection->masked_secret,
             ],
         ]);
+    }
+
+    /**
+     * Probe an unknown Lightning-address domain for LUD-21 verify support -
+     * QuickConnect decides between a native lnaddress connection and the
+     * CashuMelt path based on the result.
+     */
+    public function lnaddressProbe(Request $request, LnAddressLud21Prober $prober)
+    {
+        $request->validate([
+            'address' => ['required', 'string', 'max:320', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
+        ]);
+
+        $result = $prober->probe($request->string('address')->toString());
+
+        return response()->json(['data' => $result]);
     }
 
     /**

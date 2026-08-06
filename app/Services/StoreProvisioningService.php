@@ -132,8 +132,8 @@ class StoreProvisioningService
      */
     protected function assertDescriptorAvailable(string $walletType, string $connectionString): void
     {
-        if (in_array($walletType, ['blink', 'blitz', 'flash'], true)) {
-            return; // Blink tokens and Blitz/Flash addresses are not unique per store
+        if (in_array($walletType, ['blink', 'blitz', 'flash', 'lnaddress'], true)) {
+            return; // Blink tokens and Lightning addresses are not unique per store
         }
 
         $duplicateCheck = $this->walletConnectionService->checkDescriptorDuplicate($connectionString, null);
@@ -342,6 +342,7 @@ class StoreProvisioningService
             'blink' => 'blink',
             'blitz' => 'blitz',
             'flash' => 'flash',
+            'lnaddress' => 'lnaddress',
             default => 'aqua_descriptor',
         };
 

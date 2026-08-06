@@ -485,6 +485,7 @@
           <WalletConnectionTypeGuide
             :highlight-kind="pasteDetection.kind === 'unknown' ? null : pasteDetection.kind"
             :highlight-brand="pasteDetection.brand"
+            :highlight-ln-address-brand="pasteDetection.lnAddressBrand"
           />
 
           <div class="flex justify-between pt-4">
@@ -655,6 +656,10 @@ import {
   validateFlashConnectionString,
   validateNwcUri,
 } from "../../utils/walletNwcHelpers";
+import {
+  normalizeLnAddressConnectionString,
+  validateLnAddressConnectionString,
+} from "../../utils/lnAddressWalletBrands";
 
 /** Async so edit wallet page bundles guide + smart paste in its route chunk (not a shared stale chunk). */
 const WalletConnectionSmartPaste = defineAsyncComponent(
@@ -700,7 +705,7 @@ const lightningSetupTabs: ReadonlyArray<{ id: LightningSetupTabId; labelKey: str
   { id: "advanced", labelKey: "create_store.tab_advanced" },
 ];
 const lightningSetupTab = ref<LightningSetupTabId>("ln");
-const connectionType = ref<"blink" | "blitz" | "flash" | "nwc" | "aqua_descriptor">("aqua_descriptor");
+const connectionType = ref<"blink" | "blitz" | "flash" | "lnaddress" | "nwc" | "aqua_descriptor">("aqua_descriptor");
 
 /** SamRock pairing (step 2, Aqua tab) - shared flow lives in useSamRockPairing */
 const {
@@ -758,6 +763,9 @@ function validatePasteConnection(): boolean {
   }
   if (connectionType.value === "flash") {
     return validateFlashConnectionString(cs);
+  }
+  if (connectionType.value === "lnaddress") {
+    return validateLnAddressConnectionString(cs);
   }
   if (connectionType.value === "nwc") {
     return validateNwcUri(cs);
@@ -886,7 +894,7 @@ function focusAdjacentLightningTab(direction: -1 | 1) {
 }
 
 /** QuickConnect saved the wallet - route by where the store landed. */
-async function onQuickConnectSubmitted(target: "blink" | "blitz" | "flash" | "cashu") {
+async function onQuickConnectSubmitted(target: "blink" | "lnaddress" | "cashu") {
   const sid = createdStoreId.value;
   if (!sid) return;
   await storesStore.fetchStore(sid);
@@ -1051,7 +1059,9 @@ async function submitWalletConfiguration() {
             ? normalizeBlitzConnectionString(rawSecret)
             : connectionType.value === "flash"
               ? normalizeFlashConnectionString(rawSecret)
-              : rawSecret;
+              : connectionType.value === "lnaddress"
+                ? normalizeLnAddressConnectionString(rawSecret)
+                : rawSecret;
 
     await walletApi.connection.create(sid, {
       type: connectionType.value,

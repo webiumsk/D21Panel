@@ -23,45 +23,50 @@ describe('routeLightningAddress', () => {
       target: 'blink',
       address: 'satoshi@blink.sv',
       connectionSecret: 'type=blink;ln-address=satoshi@blink.sv;',
+      brand: null,
     });
   });
 
-  it('routes blitzwalletapp.com addresses to blitz with a canonical secret', () => {
-    const route = routeLightningAddress('satoshi@blitzwalletapp.com');
-    expect(route).toEqual({
-      target: 'blitz',
+  it('routes curated LUD-21 domains to lnaddress with the wallet brand', () => {
+    expect(routeLightningAddress('satoshi@blitzwalletapp.com')).toEqual({
+      target: 'lnaddress',
       address: 'satoshi@blitzwalletapp.com',
-      connectionSecret: 'type=blitz;ln-address=satoshi@blitzwalletapp.com;',
+      connectionSecret: 'type=lnaddress;ln-address=satoshi@blitzwalletapp.com;',
+      brand: 'blitz',
     });
-  });
-
-  it('routes flashapp.me addresses to flash with a canonical secret', () => {
-    const route = routeLightningAddress('satoshi@flashapp.me');
-    expect(route).toEqual({
-      target: 'flash',
+    expect(routeLightningAddress('satoshi@flashapp.me')).toEqual({
+      target: 'lnaddress',
       address: 'satoshi@flashapp.me',
-      connectionSecret: 'type=flash;ln-address=satoshi@flashapp.me;',
+      connectionSecret: 'type=lnaddress;ln-address=satoshi@flashapp.me;',
+      brand: 'flash',
+    });
+    expect(routeLightningAddress('satoshi@coinos.io')).toEqual({
+      target: 'lnaddress',
+      address: 'satoshi@coinos.io',
+      connectionSecret: 'type=lnaddress;ln-address=satoshi@coinos.io;',
+      brand: 'coinos',
     });
   });
 
-  it('routes any other Lightning address to cashu without a connection secret', () => {
+  it('routes unknown domains to probe (server-side LUD-21 check decides)', () => {
     const route = routeLightningAddress('satoshi@getalby.com');
     expect(route).toEqual({
-      target: 'cashu',
+      target: 'probe',
       address: 'satoshi@getalby.com',
       connectionSecret: null,
+      brand: null,
     });
   });
 
-  it('routes cashu-wallet LN domains (coinos, minibits) to cashu', () => {
-    expect(routeLightningAddress('x@coinos.io')?.target).toBe('cashu');
+  it('routes known Cashu wallet domains (minibits) straight to cashu', () => {
     expect(routeLightningAddress('x@minibits.cash')?.target).toBe('cashu');
   });
 
   it('is case-insensitive on the routed domains', () => {
     expect(routeLightningAddress('Satoshi@Blink.SV')?.target).toBe('blink');
-    expect(routeLightningAddress('Satoshi@BlitzWalletApp.com')?.target).toBe('blitz');
-    expect(routeLightningAddress('Satoshi@FlashApp.ME')?.target).toBe('flash');
+    expect(routeLightningAddress('Satoshi@BlitzWalletApp.com')?.target).toBe('lnaddress');
+    expect(routeLightningAddress('Satoshi@FlashApp.ME')?.target).toBe('lnaddress');
+    expect(routeLightningAddress('Satoshi@Coinos.IO')?.target).toBe('lnaddress');
   });
 
   it('rejects invalid Lightning addresses', () => {

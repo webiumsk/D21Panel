@@ -143,7 +143,7 @@
                   >
                     <WalletTypeIcon
                       :type="connection.type"
-                      :brand="connection.type === 'aqua_descriptor' ? (connection.brand ?? undefined) : undefined"
+                      :brand="connection.type === 'aqua_descriptor' || connection.type === 'lnaddress' ? (connection.brand ?? undefined) : undefined"
                       size="lg"
                     />
                   </span>
@@ -266,7 +266,7 @@
                 >
                   <WalletTypeIcon
                     :type="connection.type"
-                    :brand="connection.type === 'aqua_descriptor' ? (connection.brand ?? undefined) : undefined"
+                    :brand="connection.type === 'aqua_descriptor' || connection.type === 'lnaddress' ? (connection.brand ?? undefined) : undefined"
                     size="lg"
                   />
                 </span>

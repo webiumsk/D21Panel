@@ -137,6 +137,26 @@ class StoreChecklistService
                     'order' => 3,
                 ],
             ],
+            'lnaddress' => [
+                'connect_wallet' => [
+                    'key' => 'connect_wallet',
+                    'description' => 'Confirm the Lightning address connection is active (Wallet connection - status should show configured or pending → connected)',
+                    'link' => null,
+                    'order' => 1,
+                ],
+                'enable_lightning' => [
+                    'key' => 'enable_lightning',
+                    'description' => 'Confirm Lightning is enabled for this store once configuration has finished',
+                    'link' => null,
+                    'order' => 2,
+                ],
+                'test_invoice' => [
+                    'key' => 'test_invoice',
+                    'description' => 'Create a small test invoice or PoS payment to verify payouts arrive in your wallet',
+                    'link' => null,
+                    'order' => 3,
+                ],
+            ],
             'nwc' => [
                 'connect_nwc' => [
                     'key' => 'connect_nwc',

@@ -245,6 +245,150 @@ class WalletConnectionTest extends TestCase
     }
 
     #[Test]
+    public function lnaddress_bare_curated_address_creates_lnaddress_connection_with_brand(): void
+    {
+        config(['services.btcpay.base_url' => 'https://btcpay.test']);
+
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+            if ($request->method() === 'POST' && str_contains($url, '/stores/lnaddr-store/lightning/BTC/connect')) {
+                return Http::response(['success' => true], 200);
+            }
+            if (str_contains($url, '/lightning/BTC') || str_contains($url, 'cashumelt/settings')) {
+                return Http::response([], 200);
+            }
+
+            return Http::response(['message' => 'not found'], 404);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-lnaddr-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'lnaddr-store',
+        ]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'lnaddress',
+            'secret' => 'type=lnaddress;ln-address=merchant@coinos.io;',
+        ])->assertStatus(201)
+            ->assertJsonPath('data.type', 'lnaddress');
+
+        Http::assertSent(function (Request $request) {
+            return $request->method() === 'POST'
+                && str_contains($request->url(), '/stores/lnaddr-store/lightning/BTC/connect')
+                && ($request->data()['ConnectionString'] ?? null) === 'type=lnaddress;ln-address=merchant@coinos.io;';
+        });
+
+        $store->refresh();
+        $this->assertSame('lnaddress', $store->wallet_type);
+        // The address doubles as the CashuMelt fallback (derived, no explicit field).
+        $this->assertTrue((bool) $store->cashu_fallback_enabled);
+        $this->assertSame('merchant@coinos.io', $store->cashu_fallback_address);
+
+        // The masked show endpoint derives the curated brand from the secret.
+        $this->actingAs($user)->getJson("/api/stores/{$store->id}/wallet-connection")
+            ->assertOk()
+            ->assertJsonPath('data.type', 'lnaddress')
+            ->assertJsonPath('data.brand', 'coinos');
+    }
+
+    #[Test]
+    public function lnaddress_rejects_bare_username_without_domain(): void
+    {
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-lnaddr-key2']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'lnaddr-store-2',
+        ]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'lnaddress',
+            'secret' => 'type=lnaddress;ln-address=satoshi;',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['secret']);
+    }
+
+    #[Test]
+    public function lnaddress_probe_reports_lud21_support_from_the_wallets_lnurl_server(): void
+    {
+        Http::fake([
+            'https://lud21wallet.example/.well-known/lnurlp/alice' => Http::response([
+                'tag' => 'payRequest',
+                'callback' => 'https://lud21wallet.example/pay/lnurl/alice',
+                'minSendable' => 1000,
+                'maxSendable' => 10000000000,
+            ], 200),
+            'https://lud21wallet.example/pay/lnurl/alice*' => Http::response([
+                'pr' => 'lnbc10n1invoice',
+                'verify' => 'https://lud21wallet.example/verify/abc',
+            ], 200),
+        ]);
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'alice@lud21wallet.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', true)
+            ->assertJsonPath('data.reason', 'ok');
+    }
+
+    #[Test]
+    public function lnaddress_probe_reports_missing_lud21_when_callback_has_no_verify(): void
+    {
+        Http::fake([
+            'https://plainwallet.example/.well-known/lnurlp/bob' => Http::response([
+                'tag' => 'payRequest',
+                'callback' => 'https://plainwallet.example/pay/lnurl/bob',
+                'minSendable' => 1000,
+                'maxSendable' => 10000000000,
+            ], 200),
+            'https://plainwallet.example/pay/lnurl/bob*' => Http::response([
+                'pr' => 'lnbc10n1invoice',
+            ], 200),
+        ]);
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'bob@plainwallet.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', false)
+            ->assertJsonPath('data.reason', 'no_verify');
+    }
+
+    #[Test]
+    public function lnaddress_probe_reports_unreachable_domains(): void
+    {
+        Http::fake([
+            '*' => Http::response(['message' => 'not found'], 404),
+        ]);
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'ghost@deadwallet.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', false)
+            ->assertJsonPath('data.reason', 'unreachable');
+    }
+
+    #[Test]
+    public function lnaddress_probe_requires_store_ownership(): void
+    {
+        $owner = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $owner->id]);
+        $other = User::factory()->create();
+
+        $this->actingAs($other)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'alice@lud21wallet.example',
+        ])->assertStatus(403);
+    }
+
+    #[Test]
     public function cashu_store_saving_blitz_sets_pending_reconfig_for_config_bot(): void
     {
         config(['services.btcpay.base_url' => 'https://btcpay.test']);

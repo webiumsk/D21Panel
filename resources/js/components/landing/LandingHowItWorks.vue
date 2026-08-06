@@ -207,12 +207,17 @@
                       <img
                         src="/img/wallets/blitz-64.webp"
                         :alt="t('create_store.wallet_type_blitz')"
-                        class="h-5 w-auto max-w-[3.5rem] object-contain flex-shrink-0"
+                        class="h-4 w-auto max-w-[3.5rem] object-contain flex-shrink-0"
                       />
                       <img
                         src="/img/wallets/flash-64.webp"
                         :alt="t('create_store.wallet_type_flash')"
-                        class="h-5 w-auto max-w-[3.5rem] object-contain flex-shrink-0"
+                        class="h-4 w-auto max-w-[3.5rem] object-contain flex-shrink-0"
+                      />
+                      <img
+                        src="/img/wallets/coinos-64.webp"
+                        :alt="t('create_store.wallet_type_coinos')"
+                        class="h-4 w-auto max-w-[3.5rem] object-contain flex-shrink-0"
                       />
                     </div>
                     <div>

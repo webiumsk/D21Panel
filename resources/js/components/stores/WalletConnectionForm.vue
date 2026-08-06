@@ -406,6 +406,7 @@
           walletPasteDetection.kind === 'unknown' ? null : walletPasteDetection.kind
         "
         :highlight-brand="walletPasteDetection.brand"
+        :highlight-ln-address-brand="walletPasteDetection.lnAddressBrand"
       />
 
       <div
@@ -499,6 +500,11 @@ import {
   validateNwcUri,
 } from "../../utils/walletNwcHelpers";
 import {
+  normalizeLnAddressConnectionString,
+  validateLnAddressConnectionString,
+  type LnAddressWalletBrand,
+} from "../../utils/lnAddressWalletBrands";
+import {
   detectWalletBrandFromDescriptor,
   type AquaBoltzWalletBrand,
 } from "../../utils/aquaBoltzWalletBrand";
@@ -506,9 +512,9 @@ import {
 interface Props {
   storeId: string;
   existingConnection?: WalletConnectionDetails | null;
-  walletType?: "blink" | "blitz" | "flash" | "aqua_boltz" | "cashu" | "nwc" | string | null | undefined;
+  walletType?: "blink" | "blitz" | "flash" | "lnaddress" | "aqua_boltz" | "cashu" | "nwc" | string | null | undefined;
   /** When wallet_type is aqua_boltz: Aqua vs Bull (from API) */
-  walletBrand?: AquaBoltzWalletBrand | null | undefined;
+  walletBrand?: AquaBoltzWalletBrand | LnAddressWalletBrand | null | undefined;
   /** After create-store redirect: auto-open SamRock QR flow */
   autoSamrock?: boolean;
   /** CashuMelt parallel fallback payout address, when configured on the store. */
@@ -563,7 +569,7 @@ const showWalletSetupForm = computed(() => {
   if (isCashuFlow.value) return false;
   const wt = props.walletType;
   if (wt === "cashu") return switchToLightningIntent.value;
-  if (wt === "aqua_boltz" || wt === "blink" || wt === "blitz" || wt === "flash" || wt === "nwc") return true;
+  if (wt === "aqua_boltz" || wt === "blink" || wt === "blitz" || wt === "flash" || wt === "lnaddress" || wt === "nwc") return true;
   if (isUnsetWalletType.value) return true;
   return false;
 });
@@ -578,7 +584,7 @@ const showWalletSetupTabs = computed(
 );
 
 const showAquaDescriptorWarnings = computed(() => {
-  if (props.walletType === "nwc" || props.walletType === "blink" || props.walletType === "blitz" || props.walletType === "flash") return false;
+  if (props.walletType === "nwc" || props.walletType === "blink" || props.walletType === "blitz" || props.walletType === "flash" || props.walletType === "lnaddress") return false;
   if (props.walletType === "aqua_boltz") return true;
   return form.type === "aqua_descriptor";
 });
@@ -603,6 +609,12 @@ const walletTypeLabel = computed(() => {
   if (w === "blink") return t("create_store.wallet_type_blink");
   if (w === "blitz") return t("create_store.wallet_type_blitz");
   if (w === "flash") return t("create_store.wallet_type_flash");
+  if (w === "lnaddress") {
+    if (props.walletBrand === "blitz") return t("create_store.wallet_type_blitz");
+    if (props.walletBrand === "flash") return t("create_store.wallet_type_flash");
+    if (props.walletBrand === "coinos") return t("create_store.wallet_type_coinos");
+    return t("create_store.wallet_type_lnaddress");
+  }
   if (w === "cashu") return t("create_store.wallet_type_cashu");
   if (w === "nwc") return t("create_store.wallet_type_nwc");
   return String(w);
@@ -614,7 +626,7 @@ const router = useRouter();
 
 type ViewMode = "readonly" | "password" | "editing" | "create";
 
-type WalletConnectionFormType = "blink" | "blitz" | "flash" | "aqua_descriptor" | "nwc";
+type WalletConnectionFormType = "blink" | "blitz" | "flash" | "lnaddress" | "aqua_descriptor" | "nwc";
 
 function defaultWalletConnectionType(
   walletType: Props["walletType"],
@@ -627,6 +639,7 @@ function defaultWalletConnectionType(
   if (walletType === "blink") return "blink";
   if (walletType === "blitz") return "blitz";
   if (walletType === "flash") return "flash";
+  if (walletType === "lnaddress") return "lnaddress";
   return "aqua_descriptor";
 }
 
@@ -959,6 +972,13 @@ async function handleTestConnection() {
     };
     return;
   }
+  if (form.type === "lnaddress" && !validateLnAddressConnectionString(form.secret)) {
+    testResult.value = {
+      success: false,
+      message: t("stores.lnaddress_invalid_connection"),
+    };
+    return;
+  }
   if (form.type === "aqua_descriptor" && !validateDescriptor(form.secret)) {
     testResult.value = {
       success: false,
@@ -1015,6 +1035,9 @@ function formatConnectionStringForApi(value: string, type: string): string {
   if (type === "flash") {
     return normalizeFlashConnectionString(value);
   }
+  if (type === "lnaddress") {
+    return normalizeLnAddressConnectionString(value);
+  }
   if (type !== "nwc") {
     return value.trim();
   }
@@ -1064,6 +1087,11 @@ async function handleSubmit() {
     submitting.value = false;
     return;
   }
+  if (form.type === "lnaddress" && !validateLnAddressConnectionString(form.secret)) {
+    errors.secret = t("stores.lnaddress_invalid_connection");
+    submitting.value = false;
+    return;
+  }
   if (form.type === "aqua_descriptor" && !validateDescriptor(form.secret)) {
     errors.secret = t("create_store.invalid_descriptor_format");
     submitting.value = false;
@@ -1096,7 +1124,9 @@ async function handleSubmit() {
             ? normalizeBlitzConnectionString(form.secret)
             : form.type === "flash"
               ? normalizeFlashConnectionString(form.secret)
-              : form.secret.trim();
+              : form.type === "lnaddress"
+                ? normalizeLnAddressConnectionString(form.secret)
+                : form.secret.trim();
 
     await walletApi.connection.create(props.storeId, {
       type: form.type,

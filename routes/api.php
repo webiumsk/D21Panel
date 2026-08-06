@@ -932,6 +932,9 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
         ->middleware([EnsureStoreOwnership::class, AuditLog::class.':wallet_connection.created']);
     Route::post('/stores/{store}/wallet-connection/check-duplicate', [WalletConnectionController::class, 'checkDuplicate'])
         ->middleware([EnsureStoreOwnership::class]);
+    // Server-side LUD-21 verify probe for unknown Lightning-address domains
+    Route::post('/stores/{store}/wallet-connection/lnaddress-probe', [WalletConnectionController::class, 'lnaddressProbe'])
+        ->middleware([EnsureStoreOwnership::class, 'throttle:10,1']);
     // Endpoint for checking duplicates when creating new stores (no store ID yet)
     Route::post('/wallet-connection/check-duplicate', [WalletConnectionController::class, 'checkDuplicateNew']);
     Route::post('/stores/{store}/wallet-connection/test', [WalletConnectionController::class, 'testConnection'])

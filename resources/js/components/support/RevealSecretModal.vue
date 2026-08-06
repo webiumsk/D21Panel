@@ -58,7 +58,7 @@
                                 <span class="ml-2 inline-flex items-center gap-1.5">
                                     <WalletTypeIcon
                                       :type="connection.type"
-                                      :brand="connection.type === 'aqua_descriptor' ? (connection.brand ?? undefined) : undefined"
+                                      :brand="connection.type === 'aqua_descriptor' || connection.type === 'lnaddress' ? (connection.brand ?? undefined) : undefined"
                                       size="sm"
                                       :show-label="true"
                                     />

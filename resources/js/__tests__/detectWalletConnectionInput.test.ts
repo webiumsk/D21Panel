@@ -24,26 +24,38 @@ describe('detectWalletConnectionInput', () => {
     expect(result.normalizedSecret).toBe('type=blink;ln-address=satoshi@blink.sv;');
   });
 
-  it('detects bare blitzwalletapp.com address as blitz, not cashu', () => {
-    const result = detectWalletConnectionInput('satoshi@blitzwalletapp.com');
-    expect(result.kind).toBe('blitz');
-    expect(result.connectionType).toBe('blitz');
-    expect(result.storeWalletType).toBe('blitz');
-    expect(result.normalizedSecret).toBe('type=blitz;ln-address=satoshi@blitzwalletapp.com;');
+  it('detects bare curated-domain addresses as lnaddress with the wallet brand', () => {
+    const blitz = detectWalletConnectionInput('satoshi@blitzwalletapp.com');
+    expect(blitz.kind).toBe('lnaddress');
+    expect(blitz.connectionType).toBe('lnaddress');
+    expect(blitz.storeWalletType).toBe('lnaddress');
+    expect(blitz.lnAddressBrand).toBe('blitz');
+    expect(blitz.normalizedSecret).toBe('type=lnaddress;ln-address=satoshi@blitzwalletapp.com;');
+
+    const flash = detectWalletConnectionInput('satoshi@flashapp.me');
+    expect(flash.kind).toBe('lnaddress');
+    expect(flash.lnAddressBrand).toBe('flash');
+    expect(flash.normalizedSecret).toBe('type=lnaddress;ln-address=satoshi@flashapp.me;');
+
+    const coinos = detectWalletConnectionInput('satoshi@coinos.io');
+    expect(coinos.kind).toBe('lnaddress');
+    expect(coinos.lnAddressBrand).toBe('coinos');
+    expect(coinos.normalizedSecret).toBe('type=lnaddress;ln-address=satoshi@coinos.io;');
   });
 
-  it('detects type=blitz; connection strings', () => {
+  it('detects type=lnaddress; connection strings with any domain', () => {
+    const result = detectWalletConnectionInput('type=lnaddress;ln-address=satoshi@anywallet.example;');
+    expect(result.kind).toBe('lnaddress');
+    expect(result.lnAddressBrand).toBeNull();
+    expect(result.normalizedSecret).toBe('type=lnaddress;ln-address=satoshi@anywallet.example;');
+  });
+
+  it('keeps legacy type=blitz; connection strings on the blitz kind', () => {
     const result = detectWalletConnectionInput('type=blitz;ln-address=satoshi;');
     expect(result.kind).toBe('blitz');
   });
 
-  it('detects bare flashapp.me address as flash, not cashu', () => {
-    const result = detectWalletConnectionInput('satoshi@flashapp.me');
-    expect(result.kind).toBe('flash');
-    expect(result.normalizedSecret).toBe('type=flash;ln-address=satoshi@flashapp.me;');
-  });
-
-  it('detects type=flash; connection strings', () => {
+  it('keeps legacy type=flash; connection strings on the flash kind', () => {
     expect(detectWalletConnectionInput('type=flash;ln-address=satoshi;').kind).toBe('flash');
   });
 

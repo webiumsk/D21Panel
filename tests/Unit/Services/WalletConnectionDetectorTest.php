@@ -60,14 +60,15 @@ class WalletConnectionDetectorTest extends TestCase
     }
 
     #[Test]
-    public function it_detects_bare_blitz_address_as_blitz_not_cashu(): void
+    public function it_detects_bare_blitz_address_as_lnaddress_with_blitz_brand(): void
     {
         $result = $this->detector->detect('satoshi@blitzwalletapp.com');
 
-        $this->assertSame('blitz', $result['kind']);
-        $this->assertSame('blitz', $result['connection_type']);
-        $this->assertSame('blitz', $result['store_wallet_type']);
-        $this->assertSame('type=blitz;ln-address=satoshi@blitzwalletapp.com;', $result['normalized_secret']);
+        $this->assertSame('lnaddress', $result['kind']);
+        $this->assertSame('lnaddress', $result['connection_type']);
+        $this->assertSame('lnaddress', $result['store_wallet_type']);
+        $this->assertSame('blitz', $result['brand']);
+        $this->assertSame('type=lnaddress;ln-address=satoshi@blitzwalletapp.com;', $result['normalized_secret']);
         $this->assertNull($result['cashu_lightning_address']);
     }
 
@@ -81,15 +82,36 @@ class WalletConnectionDetectorTest extends TestCase
     }
 
     #[Test]
-    public function it_detects_bare_flash_address_as_flash_not_cashu(): void
+    public function it_detects_bare_flash_address_as_lnaddress_with_flash_brand(): void
     {
         $result = $this->detector->detect('satoshi@flashapp.me');
 
-        $this->assertSame('flash', $result['kind']);
-        $this->assertSame('flash', $result['connection_type']);
-        $this->assertSame('flash', $result['store_wallet_type']);
-        $this->assertSame('type=flash;ln-address=satoshi@flashapp.me;', $result['normalized_secret']);
+        $this->assertSame('lnaddress', $result['kind']);
+        $this->assertSame('lnaddress', $result['connection_type']);
+        $this->assertSame('lnaddress', $result['store_wallet_type']);
+        $this->assertSame('flash', $result['brand']);
+        $this->assertSame('type=lnaddress;ln-address=satoshi@flashapp.me;', $result['normalized_secret']);
         $this->assertNull($result['cashu_lightning_address']);
+    }
+
+    #[Test]
+    public function it_detects_bare_coinos_address_as_lnaddress_with_coinos_brand(): void
+    {
+        $result = $this->detector->detect('merchant@coinos.io');
+
+        $this->assertSame('lnaddress', $result['kind']);
+        $this->assertSame('coinos', $result['brand']);
+        $this->assertSame('type=lnaddress;ln-address=merchant@coinos.io;', $result['normalized_secret']);
+    }
+
+    #[Test]
+    public function it_detects_lnaddress_connection_string_with_any_domain(): void
+    {
+        $result = $this->detector->detect('type=lnaddress;ln-address=satoshi@anywallet.example;');
+
+        $this->assertSame('lnaddress', $result['kind']);
+        $this->assertNull($result['brand']);
+        $this->assertSame('type=lnaddress;ln-address=satoshi@anywallet.example;', $result['normalized_secret']);
     }
 
     #[Test]
@@ -134,11 +156,11 @@ class WalletConnectionDetectorTest extends TestCase
     #[Test]
     public function it_detects_cashu_lightning_address_only(): void
     {
-        $result = $this->detector->detect('merchant@coinos.io');
+        $result = $this->detector->detect('merchant@minibits.cash');
 
         $this->assertSame('cashu', $result['kind']);
         $this->assertNull($result['cashu_mint_url']);
-        $this->assertSame('merchant@coinos.io', $result['cashu_lightning_address']);
+        $this->assertSame('merchant@minibits.cash', $result['cashu_lightning_address']);
     }
 
     #[Test]
