@@ -255,6 +255,9 @@ class WalletConnectionTest extends TestCase
             if ($request->method() === 'POST' && str_contains($url, '/stores/lnaddr-store/lightning/BTC/connect')) {
                 return Http::response(['success' => true], 200);
             }
+            if ($request->method() === 'PUT' && str_ends_with($url, '/api/v1/stores/lnaddr-store')) {
+                return Http::response(['id' => 'lnaddr-store'], 200);
+            }
             if (str_contains($url, '/lightning/BTC') || str_contains($url, 'cashumelt/settings')) {
                 return Http::response([], 200);
             }
@@ -285,6 +288,15 @@ class WalletConnectionTest extends TestCase
         // The address doubles as the CashuMelt fallback (derived, no explicit field).
         $this->assertTrue((bool) $store->cashu_fallback_enabled);
         $this->assertSame('merchant@coinos.io', $store->cashu_fallback_address);
+
+        // The parallel fallback flips the store to lazy payment methods, so the Cashu
+        // mint quote is only created when the Cashu method actually activates in
+        // checkout (Lightning failed / customer picked the tab) - not on every invoice.
+        Http::assertSent(function (Request $request) {
+            return $request->method() === 'PUT'
+                && str_ends_with($request->url(), '/api/v1/stores/lnaddr-store')
+                && ($request->data()['lazyPaymentMethods'] ?? null) === true;
+        });
 
         // The masked show endpoint derives the curated brand from the secret.
         $this->actingAs($user)->getJson("/api/stores/{$store->id}/wallet-connection")

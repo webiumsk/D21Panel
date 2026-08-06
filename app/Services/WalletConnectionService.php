@@ -14,6 +14,7 @@ use App\Notifications\WalletConnectionReadyNotification;
 use App\Services\BtcPay\BoltzService;
 use App\Services\BtcPay\CashuService;
 use App\Services\BtcPay\LightningService;
+use App\Services\BtcPay\StoreService;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -27,6 +28,7 @@ class WalletConnectionService
         protected CashuService $cashuService,
         protected LightningService $lightningService,
         protected BoltzService $boltzService,
+        protected StoreService $storeService,
     ) {}
 
     /**
@@ -577,6 +579,21 @@ class WalletConnectionService
             'cashu_fallback_enabled' => true,
             'cashu_fallback_address' => $lightningAddress,
         ])->save();
+
+        // Lazy payment methods: the Cashu prompt (and its mint quote + settlement
+        // record) is created only when the method actually gets activated in checkout -
+        // i.e. when the Lightning method fails or the customer picks the Cashu tab -
+        // instead of on every invoice. Without this, every Lightning-paid invoice
+        // leaves an orphaned PENDING settlement record behind.
+        try {
+            $this->storeService->updateStore($store->btcpay_store_id, ['lazyPaymentMethods' => true], $userApiKey);
+        } catch (\Throwable $e) {
+            Log::warning('Could not enable lazy payment methods for the parallel Cashu fallback', [
+                'store_id' => $store->id,
+                'btcpay_store_id' => $store->btcpay_store_id,
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         AuditLog::log(
             'store.cashu_fallback_configured',
