@@ -116,7 +116,7 @@ class WalletConnectionService
         // Switching Aqua/Boltz → Blink while still "pending" must also use reconfig: BTCPay may already
         // have a Boltz connection string; the first-setup wizard does not replace it.
         $cameFromCashu = ($store->wallet_type ?? null) === 'cashu';
-        $blinkBotUseReconfigPath = in_array($type, ['blink', 'blitz', 'flash'], true)
+        $blinkBotUseReconfigPath = in_array($type, ['blink', 'blitz', 'flash', 'lnaddress'], true)
             && ($wasConnected || $cameFromCashu || $hadAquaDescriptor);
 
         Log::info('Checking for existing wallet connection', [
@@ -144,7 +144,7 @@ class WalletConnectionService
                     'configuration_source' => null,
                     'encrypted_secret' => Crypt::encryptString($secret),
                     'status' => $initialStatus,
-                    'reconfig' => in_array($type, ['blink', 'blitz', 'flash'], true) ? $blinkBotUseReconfigPath : $wasConnected,
+                    'reconfig' => in_array($type, ['blink', 'blitz', 'flash', 'lnaddress'], true) ? $blinkBotUseReconfigPath : $wasConnected,
                     'bot_failure_message' => null,
                     'bot_failed_at' => null,
                     'secret_updated_at' => now(),
@@ -172,7 +172,7 @@ class WalletConnectionService
                 'wallet_type' => $storeWalletType,
             ]);
 
-            if (in_array($storeWalletType, ['blink', 'blitz', 'flash', 'aqua_boltz', 'nwc'], true)) {
+            if (in_array($storeWalletType, ['blink', 'blitz', 'flash', 'lnaddress', 'aqua_boltz', 'nwc'], true)) {
                 $merchant = $store->user;
                 $userApiKey = ($merchant && filled($merchant->btcpay_api_key ?? null))
                     ? $merchant->btcpay_api_key
@@ -359,6 +359,7 @@ class WalletConnectionService
                     'blink' => 'Blink',
                     'blitz' => 'Blitz Wallet',
                     'flash' => 'Flash Wallet',
+                    'lnaddress' => 'LN Address',
                     'nwc' => 'NWC',
                     default => 'Aqua/Bull (Boltz)',
                 };
@@ -602,6 +603,7 @@ class WalletConnectionService
             'nwc' => 'nwc',
             'blitz' => 'blitz',
             'flash' => 'flash',
+            'lnaddress' => 'lnaddress',
             default => 'blink',
         };
     }
@@ -618,7 +620,16 @@ class WalletConnectionService
             return;
         }
 
-        if ($type === 'blink') {
+        // Lightning-address style connections share one flow: best-effort clear of
+        // the existing BTCPay Lightning config, then connect with the canonical string.
+        $lnFlows = [
+            'blink' => ['label' => 'Blink', 'format' => fn (string $s): string => $this->validator->formatBtcpayBlinkConnectionString($s)],
+            'blitz' => ['label' => 'Blitz', 'format' => fn (string $s): string => $this->validator->formatBtcpayBlitzConnectionString($s)],
+            'flash' => ['label' => 'Flash', 'format' => fn (string $s): string => $this->validator->formatBtcpayFlashConnectionString($s)],
+            'lnaddress' => ['label' => 'LN address', 'format' => fn (string $s): string => $this->validator->formatBtcpayLnAddressConnectionString($s)],
+        ];
+
+        if (isset($lnFlows[$type])) {
             try {
                 $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
                     $store->btcpay_store_id,
@@ -626,53 +637,13 @@ class WalletConnectionService
                     $userApiKey
                 );
             } catch (\Throwable $e) {
-                Log::info('Best-effort clear BTCPay Lightning before Blink connect', [
+                Log::info("Best-effort clear BTCPay Lightning before {$lnFlows[$type]['label']} connect", [
                     'store_id' => $store->id,
                     'message' => $e->getMessage(),
                 ]);
             }
 
-            $btcpayString = $this->validator->formatBtcpayBlinkConnectionString($secret);
-            $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
-
-            return;
-        }
-
-        if ($type === 'blitz') {
-            try {
-                $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
-                    $store->btcpay_store_id,
-                    'BTC',
-                    $userApiKey
-                );
-            } catch (\Throwable $e) {
-                Log::info('Best-effort clear BTCPay Lightning before Blitz connect', [
-                    'store_id' => $store->id,
-                    'message' => $e->getMessage(),
-                ]);
-            }
-
-            $btcpayString = $this->validator->formatBtcpayBlitzConnectionString($secret);
-            $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
-
-            return;
-        }
-
-        if ($type === 'flash') {
-            try {
-                $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
-                    $store->btcpay_store_id,
-                    'BTC',
-                    $userApiKey
-                );
-            } catch (\Throwable $e) {
-                Log::info('Best-effort clear BTCPay Lightning before Flash connect', [
-                    'store_id' => $store->id,
-                    'message' => $e->getMessage(),
-                ]);
-            }
-
-            $btcpayString = $this->validator->formatBtcpayFlashConnectionString($secret);
+            $btcpayString = $lnFlows[$type]['format']($secret);
             $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
 
             return;

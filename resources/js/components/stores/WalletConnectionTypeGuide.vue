@@ -4,21 +4,25 @@ import { useI18n } from 'vue-i18n';
 import WalletTypeIcon from '../WalletTypeIcon.vue';
 import type { DetectedWalletKind } from '../../utils/detectWalletConnectionInput';
 import type { AquaBoltzWalletBrand } from '../../utils/aquaBoltzWalletBrand';
+import type { LnAddressWalletBrand } from '../../utils/lnAddressWalletBrands';
 
 const props = withDefaults(
   defineProps<{
     highlightKind?: DetectedWalletKind | null;
     highlightBrand?: AquaBoltzWalletBrand | null;
+    /** Curated wallet brand when highlightKind is lnaddress. */
+    highlightLnAddressBrand?: LnAddressWalletBrand | null;
   }>(),
   {
     highlightKind: null,
     highlightBrand: null,
+    highlightLnAddressBrand: null,
   },
 );
 
 const { t } = useI18n();
 
-type GuideId = 'nwc' | 'blink' | 'blitz' | 'flash' | 'aqua' | 'bull' | 'cashu';
+type GuideId = 'nwc' | 'blink' | 'blitz' | 'flash' | 'coinos' | 'aqua' | 'bull' | 'cashu';
 
 const openIds = ref<GuideId[]>([]);
 
@@ -29,8 +33,8 @@ const items: Array<{
   id: GuideId;
   titleKey: string;
   subtitleKey: string;
-  iconType: 'nwc' | 'blink' | 'blitz' | 'flash' | 'aqua_boltz' | 'cashu';
-  brand?: AquaBoltzWalletBrand;
+  iconType: 'nwc' | 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'aqua_boltz' | 'cashu';
+  brand?: AquaBoltzWalletBrand | LnAddressWalletBrand;
 }> = [
   {
     id: 'blink',
@@ -49,6 +53,13 @@ const items: Array<{
     titleKey: 'stores.wallet_detect_flash',
     subtitleKey: 'stores.wallet_guide_sub_flash',
     iconType: 'flash',
+  },
+  {
+    id: 'coinos',
+    titleKey: 'stores.wallet_detect_coinos',
+    subtitleKey: 'stores.wallet_guide_sub_coinos',
+    iconType: 'lnaddress',
+    brand: 'coinos',
   },
   {
     id: 'aqua',
@@ -93,12 +104,21 @@ function toggle(id: GuideId): void {
 function guideIdFromDetection(
   kind: DetectedWalletKind | null | undefined,
   brand: AquaBoltzWalletBrand | null | undefined,
+  lnAddressBrand: LnAddressWalletBrand | null | undefined,
 ): GuideId | null {
   if (!kind || kind === 'unknown') return null;
   if (kind === 'nwc') return 'nwc';
   if (kind === 'blink') return 'blink';
   if (kind === 'blitz') return 'blitz';
   if (kind === 'flash') return 'flash';
+  if (kind === 'lnaddress') {
+    // Bare curated addresses detect as lnaddress; open the matching wallet's guide.
+    // Unbranded lnaddress input (unknown domain) matches no specific guide.
+    if (lnAddressBrand === 'blitz') return 'blitz';
+    if (lnAddressBrand === 'flash') return 'flash';
+    if (lnAddressBrand === 'coinos') return 'coinos';
+    return null;
+  }
   if (kind === 'cashu') return 'cashu';
   if (kind === 'aqua_descriptor') {
     return brand === 'bull' ? 'bull' : 'aqua';
@@ -107,9 +127,9 @@ function guideIdFromDetection(
 }
 
 watch(
-  () => [props.highlightKind, props.highlightBrand] as const,
-  ([kind, brand]) => {
-    const id = guideIdFromDetection(kind, brand);
+  () => [props.highlightKind, props.highlightBrand, props.highlightLnAddressBrand] as const,
+  ([kind, brand, lnAddressBrand]) => {
+    const id = guideIdFromDetection(kind, brand, lnAddressBrand);
     if (id && !isOpen(id)) {
       openIds.value = [...openIds.value, id];
     }
@@ -137,7 +157,7 @@ watch(
           <span class="flex items-center gap-3 min-w-0">
             <span class="w-10 shrink-0 flex justify-center">
               <WalletTypeIcon
-                v-if="item.iconType === 'aqua_boltz' || item.iconType === 'blink' || item.iconType === 'blitz' || item.iconType === 'flash'"
+                v-if="item.iconType === 'aqua_boltz' || item.iconType === 'blink' || item.iconType === 'blitz' || item.iconType === 'flash' || item.iconType === 'lnaddress'"
                 :type="item.iconType"
                 :brand="item.brand"
                 size="sm"
@@ -266,6 +286,26 @@ watch(
             <p class="text-amber-300/90">{{ t('stores.flash_receive_only_note') }}</p>
           </template>
 
+          <!-- Coinos (native lnaddress connection) -->
+          <template v-else-if="item.id === 'coinos'">
+            <p>{{ t('stores.coinos_connection_description') }}</p>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">
+                {{ t('stores.wallet_guide_paste_label') }}
+              </p>
+              <p>{{ t('stores.wallet_guide_coinos_paste') }}</p>
+            </div>
+            <p class="text-amber-300/90">{{ t('stores.coinos_receive_only_note') }}</p>
+            <p>
+              <a
+                href="https://coinos.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-indigo-400 hover:text-indigo-300 underline font-medium"
+              >coinos.io</a>
+            </p>
+          </template>
+
           <!-- Aqua -->
           <template v-else-if="item.id === 'aqua'">
             <p>{{ t('stores.aqua_connection_description') }}</p>
@@ -346,15 +386,6 @@ watch(
               </p>
             </div>
             <p class="text-amber-200/95">{{ t('stores.cashu_beta_notice_short') }}</p>
-            <p>
-              <span>{{ t('stores.cashu_lightning_address_coinos_prefix') }}</span>
-              <a
-                href="https://coinos.io"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-indigo-400 hover:text-indigo-300 underline font-medium"
-              >coinos.io</a>
-            </p>
           </template>
         </div>
       </div>

@@ -3,30 +3,36 @@
  * The primary onboarding path: the merchant types one Lightning address and we
  * pick the backend for them - no connection strings.
  *
- * - *@blink.sv            → Blink   (type=blink;ln-address=...; receive-only)
- * - *@blitzwalletapp.com  → Blitz   (type=blitz;ln-address=...; receive-only)
- * - *@flashapp.me         → Flash   (type=flash;ln-address=...; receive-only)
- * - any other LN address  → CashuMelt (default mint + this address as payout)
+ * - *@blink.sv               → Blink     (type=blink;ln-address=...; receive-only)
+ * - curated LUD-21 domains   → lnaddress (Blitz, Flash, Coinos - type=lnaddress;...)
+ * - known Cashu wallet (minibits) → CashuMelt directly
+ * - any other LN address     → probe (server-side LUD-21 check decides lnaddress vs Cashu)
  */
 
 import { isValidCashuLightningAddress } from './detectWalletConnectionInput';
 import {
   isBareBlinkLightningAddress,
-  isBareBlitzLightningAddress,
-  isBareFlashLightningAddress,
   normalizeBlinkConnectionString,
-  normalizeBlitzConnectionString,
-  normalizeFlashConnectionString,
+  CASHU_WALLET_LN_DOMAINS,
 } from './walletNwcHelpers';
+import {
+  isCuratedLnAddressBareAddress,
+  lnAddressBrandForAddress,
+  lnAddressDomain,
+  normalizeLnAddressConnectionString,
+  type LnAddressWalletBrand,
+} from './lnAddressWalletBrands';
 
-export type LightningAddressTarget = 'blink' | 'blitz' | 'flash' | 'cashu';
+export type LightningAddressTarget = 'blink' | 'lnaddress' | 'cashu' | 'probe';
 
 export type LightningAddressRoute = {
   target: LightningAddressTarget;
   /** The address as typed, trimmed. */
   address: string;
-  /** Connection secret for blink/blitz targets; null for cashu (uses settings API). */
+  /** Connection secret for blink/lnaddress targets; null for cashu/probe. */
   connectionSecret: string | null;
+  /** Curated wallet brand for lnaddress targets (blitz/flash/coinos), else null. */
+  brand: LnAddressWalletBrand | null;
 };
 
 /**
@@ -47,24 +53,27 @@ export function routeLightningAddress(input: string): LightningAddressRoute | nu
       target: 'blink',
       address,
       connectionSecret: normalizeBlinkConnectionString(address),
+      brand: null,
     };
   }
 
-  if (isBareBlitzLightningAddress(address)) {
+  if (isCuratedLnAddressBareAddress(address)) {
     return {
-      target: 'blitz',
+      target: 'lnaddress',
       address,
-      connectionSecret: normalizeBlitzConnectionString(address),
+      connectionSecret: normalizeLnAddressConnectionString(address),
+      brand: lnAddressBrandForAddress(address),
     };
   }
 
-  if (isBareFlashLightningAddress(address)) {
-    return {
-      target: 'flash',
-      address,
-      connectionSecret: normalizeFlashConnectionString(address),
-    };
+  const domain = lnAddressDomain(address);
+  if (
+    domain &&
+    CASHU_WALLET_LN_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`))
+  ) {
+    return { target: 'cashu', address, connectionSecret: null, brand: null };
   }
 
-  return { target: 'cashu', address, connectionSecret: null };
+  // Unknown domain - the server-side LUD-21 probe decides lnaddress vs Cashu.
+  return { target: 'probe', address, connectionSecret: null, brand: null };
 }

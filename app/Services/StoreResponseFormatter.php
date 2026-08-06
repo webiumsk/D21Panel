@@ -126,7 +126,9 @@ class StoreResponseFormatter
             'submitted_by_user_id' => $walletConnection->submitted_by_user_id,
         ];
 
-        $brand = $this->validator->resolveAquaBoltzBrand($walletConnection);
+        $brand = $walletConnection->type === 'lnaddress'
+            ? $this->validator->resolveLnAddressBrand($walletConnection)
+            : $this->validator->resolveAquaBoltzBrand($walletConnection);
         if ($brand !== null) {
             $payload['brand'] = $brand;
         }
@@ -135,11 +137,17 @@ class StoreResponseFormatter
     }
 
     /**
-     * @return 'aqua'|'bull'|null
+     * @return 'aqua'|'bull'|'blitz'|'flash'|'coinos'|null
      */
     protected function walletBrandPayload(Store $store, ?WalletConnection $walletConnection): ?string
     {
-        if (($store->wallet_type ?? null) !== 'aqua_boltz') {
+        $walletType = $store->wallet_type ?? null;
+
+        if ($walletType === 'lnaddress') {
+            return $this->validator->resolveLnAddressBrand($walletConnection);
+        }
+
+        if ($walletType !== 'aqua_boltz') {
             return null;
         }
 

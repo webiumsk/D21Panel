@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Models\User;
 use App\Models\WalletConnection;
 use App\Services\BtcPay\BoltzService;
+use App\Services\LnAddressLud21Prober;
 use App\Services\WalletConnectionValidator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -242,6 +243,306 @@ class WalletConnectionTest extends TestCase
         // The address doubles as the CashuMelt fallback (derived, no explicit field).
         $this->assertTrue((bool) $store->cashu_fallback_enabled);
         $this->assertSame('satoshi@flashapp.me', $store->cashu_fallback_address);
+    }
+
+    #[Test]
+    public function lnaddress_bare_curated_address_creates_lnaddress_connection_with_brand(): void
+    {
+        config(['services.btcpay.base_url' => 'https://btcpay.test']);
+
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+            if ($request->method() === 'POST' && str_contains($url, '/stores/lnaddr-store/lightning/BTC/connect')) {
+                return Http::response(['success' => true], 200);
+            }
+            if (str_contains($url, '/lightning/BTC') || str_contains($url, 'cashumelt/settings')) {
+                return Http::response([], 200);
+            }
+
+            return Http::response(['message' => 'not found'], 404);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-lnaddr-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'lnaddr-store',
+        ]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'lnaddress',
+            'secret' => 'type=lnaddress;ln-address=merchant@coinos.io;',
+        ])->assertStatus(201)
+            ->assertJsonPath('data.type', 'lnaddress');
+
+        Http::assertSent(function (Request $request) {
+            return $request->method() === 'POST'
+                && str_contains($request->url(), '/stores/lnaddr-store/lightning/BTC/connect')
+                && ($request->data()['ConnectionString'] ?? null) === 'type=lnaddress;ln-address=merchant@coinos.io;';
+        });
+
+        $store->refresh();
+        $this->assertSame('lnaddress', $store->wallet_type);
+        // The address doubles as the CashuMelt fallback (derived, no explicit field).
+        $this->assertTrue((bool) $store->cashu_fallback_enabled);
+        $this->assertSame('merchant@coinos.io', $store->cashu_fallback_address);
+
+        // The masked show endpoint derives the curated brand from the secret.
+        $this->actingAs($user)->getJson("/api/stores/{$store->id}/wallet-connection")
+            ->assertOk()
+            ->assertJsonPath('data.type', 'lnaddress')
+            ->assertJsonPath('data.brand', 'coinos');
+    }
+
+    #[Test]
+    public function lnaddress_rejects_bare_username_without_domain(): void
+    {
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-lnaddr-key2']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'lnaddr-store-2',
+        ]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'lnaddress',
+            'secret' => 'type=lnaddress;ln-address=satoshi;',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['secret']);
+    }
+
+    /**
+     * Test domains do not resolve in DNS - stub the prober's resolver. A host
+     * mapped to null "resolves privately" (refused); unmapped hosts get a
+     * public address so the HTTP fakes drive the outcome.
+     *
+     * @param  array<string, list<string>|null>  $map
+     */
+    private function fakeProberDns(array $map = []): void
+    {
+        $this->app->bind(LnAddressLud21Prober::class, function () use ($map) {
+            return new class($map) extends LnAddressLud21Prober
+            {
+                /** @param array<string, list<string>|null> $map */
+                public function __construct(private array $map) {}
+
+                protected function resolvePublicIps(string $host): ?array
+                {
+                    return array_key_exists($host, $this->map) ? $this->map[$host] : ['198.51.100.7'];
+                }
+            };
+        });
+    }
+
+    #[Test]
+    public function lnaddress_probe_reports_lud21_support_from_the_wallets_lnurl_server(): void
+    {
+        $this->fakeProberDns();
+
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+            if ($url === 'https://lud21wallet.example/.well-known/lnurlp/alice') {
+                return Http::response([
+                    'tag' => 'payRequest',
+                    'callback' => 'https://lud21wallet.example/pay/lnurl/alice',
+                    'minSendable' => 1000,
+                    'maxSendable' => 10000000000,
+                ], 200);
+            }
+            if (str_starts_with($url, 'https://lud21wallet.example/pay/lnurl/alice')) {
+                // The probe must request an invoice with a clamped msat amount.
+                parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+                $amount = $query['amount'] ?? null;
+                if (! is_numeric($amount) || (int) $amount < 1000 || (int) $amount > 10000000000) {
+                    return Http::response(['status' => 'ERROR', 'reason' => 'bad amount'], 400);
+                }
+
+                return Http::response([
+                    'pr' => 'lnbc10n1invoice',
+                    'verify' => 'https://lud21wallet.example/verify/abc',
+                ], 200);
+            }
+
+            return Http::response(['message' => 'not found'], 404);
+        });
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'alice@lud21wallet.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', true)
+            ->assertJsonPath('data.reason', 'ok');
+    }
+
+    #[Test]
+    public function lnaddress_probe_reports_missing_lud21_when_callback_has_no_verify(): void
+    {
+        $this->fakeProberDns();
+
+        Http::fake([
+            'https://plainwallet.example/.well-known/lnurlp/bob' => Http::response([
+                'tag' => 'payRequest',
+                'callback' => 'https://plainwallet.example/pay/lnurl/bob',
+                'minSendable' => 1000,
+                'maxSendable' => 10000000000,
+            ], 200),
+            'https://plainwallet.example/pay/lnurl/bob*' => Http::response([
+                'pr' => 'lnbc10n1invoice',
+            ], 200),
+        ]);
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'bob@plainwallet.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', false)
+            ->assertJsonPath('data.reason', 'no_verify');
+    }
+
+    #[Test]
+    public function lnaddress_probe_reports_unreachable_domains(): void
+    {
+        $this->fakeProberDns();
+
+        Http::fake([
+            '*' => Http::response(['message' => 'not found'], 404),
+        ]);
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'ghost@deadwallet.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', false)
+            ->assertJsonPath('data.reason', 'unreachable');
+    }
+
+    #[Test]
+    public function lnaddress_probe_does_not_follow_lnurl_redirects(): void
+    {
+        $this->fakeProberDns();
+
+        Http::fake([
+            'https://redirecting.example/.well-known/lnurlp/eve' => Http::response(
+                null,
+                302,
+                ['Location' => 'https://internal.example/steal']
+            ),
+            '*' => Http::response(['message' => 'not found'], 404),
+        ]);
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'eve@redirecting.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', false)
+            ->assertJsonPath('data.reason', 'unreachable');
+
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'internal.example'));
+    }
+
+    #[Test]
+    public function lnaddress_probe_refuses_callbacks_on_private_hosts(): void
+    {
+        // Callback host "resolves" to a private address -> the probe must not call it.
+        $this->fakeProberDns(['internal.example' => null]);
+
+        Http::fake([
+            'https://evilwallet.example/.well-known/lnurlp/mallory' => Http::response([
+                'tag' => 'payRequest',
+                'callback' => 'https://internal.example/pay/lnurl/mallory',
+                'minSendable' => 1000,
+                'maxSendable' => 10000000000,
+            ], 200),
+            '*' => Http::response(['message' => 'not found'], 404),
+        ]);
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'mallory@evilwallet.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', false)
+            ->assertJsonPath('data.reason', 'invalid_lnurlp');
+
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'internal.example'));
+    }
+
+    #[Test]
+    public function lnaddress_probe_refuses_ip_literal_callbacks(): void
+    {
+        $this->fakeProberDns();
+
+        Http::fake([
+            'https://looper.example/.well-known/lnurlp/carol' => Http::response([
+                'tag' => 'payRequest',
+                'callback' => 'https://192.168.1.1/pay/lnurl/carol',
+                'minSendable' => 1000,
+                'maxSendable' => 10000000000,
+            ], 200),
+            '*' => Http::response(['message' => 'not found'], 404),
+        ]);
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'carol@looper.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', false)
+            ->assertJsonPath('data.reason', 'invalid_lnurlp');
+
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '192.168.1.1'));
+    }
+
+    #[Test]
+    public function lnaddress_probe_requires_store_ownership(): void
+    {
+        Http::fake();
+
+        $owner = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $owner->id]);
+        $other = User::factory()->create();
+
+        $this->actingAs($other)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'alice@lud21wallet.example',
+        ])->assertStatus(403);
+
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function lnaddress_accepts_a_short_but_valid_lightning_address(): void
+    {
+        config(['services.btcpay.base_url' => 'https://btcpay.test']);
+
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+            if (str_contains($url, '/lightning/BTC') || str_contains($url, 'cashumelt/settings')) {
+                return Http::response(['success' => true], 200);
+            }
+
+            return Http::response(['message' => 'not found'], 404);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-short-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'short-store',
+        ]);
+
+        // 7 chars - valid user@domain, but below the generic min:10 of other types.
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'lnaddress',
+            'secret' => 'a@bc.io',
+        ])->assertStatus(201)
+            ->assertJsonPath('data.type', 'lnaddress');
     }
 
     #[Test]

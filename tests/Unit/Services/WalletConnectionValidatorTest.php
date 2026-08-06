@@ -265,6 +265,59 @@ class WalletConnectionValidatorTest extends TestCase
         $this->assertFalse($this->validator->validate('flash', 'type=flash;ln-address=user@otherwallet.example;')['valid']);
     }
 
+    public function test_lnaddress_parsing_accepts_any_full_address_and_rejects_bare_usernames(): void
+    {
+        $parsed = $this->validator->parseLnAddressConnectionString('merchant@anywallet.example');
+        $this->assertEmpty($parsed['errors']);
+        $this->assertSame('merchant@anywallet.example', $parsed['ln_address']);
+
+        $parsed = $this->validator->parseLnAddressConnectionString('type=lnaddress;ln-address=merchant@coinos.io;');
+        $this->assertEmpty($parsed['errors']);
+        $this->assertSame('merchant@coinos.io', $parsed['ln_address']);
+
+        // No default domain for the universal type - a bare username is an error.
+        $parsed = $this->validator->parseLnAddressConnectionString('type=lnaddress;ln-address=merchant;');
+        $this->assertNotEmpty($parsed['errors']);
+    }
+
+    public function test_lnaddress_formatting_expands_bare_addresses(): void
+    {
+        $this->assertSame(
+            'type=lnaddress;ln-address=merchant@coinos.io;',
+            $this->validator->formatBtcpayLnAddressConnectionString('merchant@coinos.io')
+        );
+        $this->assertSame(
+            'type=lnaddress;ln-address=merchant@coinos.io;',
+            $this->validator->formatBtcpayLnAddressConnectionString('type=lnaddress;ln-address=merchant@coinos.io;')
+        );
+    }
+
+    public function test_lnaddress_validation(): void
+    {
+        $this->assertTrue($this->validator->validate('lnaddress', 'merchant@anywallet.example')['valid']);
+        $this->assertTrue($this->validator->validate('lnaddress', 'type=LNADDRESS;ln-address=merchant@coinos.io;')['valid']);
+        $this->assertFalse($this->validator->validate('lnaddress', 'type=lnaddress;ln-address=merchant;')['valid']);
+        $this->assertFalse($this->validator->validate('lnaddress', 'type=blitz;ln-address=merchant;')['valid']);
+    }
+
+    public function test_lnaddress_brand_mapping_is_curated_and_case_insensitive(): void
+    {
+        $this->assertSame('blitz', $this->validator->lnAddressBrandForAddress('a@blitzwalletapp.com'));
+        $this->assertSame('flash', $this->validator->lnAddressBrandForAddress('a@FlashApp.ME'));
+        $this->assertSame('coinos', $this->validator->lnAddressBrandForAddress('a@coinos.io'));
+        $this->assertNull($this->validator->lnAddressBrandForAddress('a@getalby.com'));
+        $this->assertNull($this->validator->lnAddressBrandForAddress('not-an-address'));
+    }
+
+    public function test_lnaddress_secret_derives_the_cashu_fallback_address(): void
+    {
+        $this->assertSame(
+            'merchant@anywallet.example',
+            $this->validator->deriveLightningAddressFromSecret('lnaddress', 'type=lnaddress;ln-address=merchant@anywallet.example;')
+        );
+        $this->assertNull($this->validator->deriveLightningAddressFromSecret('lnaddress', 'type=lnaddress;ln-address=merchant;'));
+    }
+
     public function test_derive_lightning_address_from_secret(): void
     {
         $this->assertSame('satoshi@blink.sv',

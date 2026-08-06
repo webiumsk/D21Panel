@@ -149,7 +149,7 @@ export interface CreateStorePayload {
     default_currency: string;
     timezone: string;
     /** Omit on first-step create; configure wallet in a follow-up step. */
-    wallet_type?: 'blink' | 'blitz' | 'flash' | 'aqua_boltz' | 'cashu' | null;
+    wallet_type?: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'aqua_boltz' | 'cashu' | null;
     preferred_exchange?: string;
     connection_string?: string;
     mint_url?: string;
@@ -175,7 +175,7 @@ export const storesApi = {
         const { data } = await api.delete<{ message?: string; btcpay_deleted?: boolean }>(`/stores/${storeId}`);
         return data;
     },
-    async setWalletType(storeId: string, walletType: 'blink' | 'blitz' | 'flash' | 'aqua_boltz' | 'cashu' | 'nwc'): Promise<Store> {
+    async setWalletType(storeId: string, walletType: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'aqua_boltz' | 'cashu' | 'nwc'): Promise<Store> {
         const { data } = await api.patch<ApiEnvelope<Store>>(`/stores/${storeId}/wallet-type`, { wallet_type: walletType });
         return data.data;
     },
@@ -227,10 +227,10 @@ export const storesApi = {
 
 export interface WalletConnectionDetails {
     id: string;
-    type: 'blink' | 'blitz' | 'flash' | 'aqua_boltz' | 'cashu' | 'nwc' | 'aqua_descriptor';
+    type: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'aqua_boltz' | 'cashu' | 'nwc' | 'aqua_descriptor';
     status: string;
     configuration_source?: string | null;
-    brand?: 'aqua' | 'bull' | null;
+    brand?: 'aqua' | 'bull' | 'blitz' | 'flash' | 'coinos' | null;
     masked_secret?: string | null;
     submitted_at?: string | null;
     secret_updated_at?: string | null;
@@ -300,6 +300,14 @@ export const walletApi = {
         async test(storeId: string, payload: { connection_string: string; crypto_code: string }): Promise<{ success?: boolean; message?: string; requires_manual_config?: boolean }> {
             const { data } = await api.post<{ success?: boolean; message?: string; requires_manual_config?: boolean }>(`/stores/${storeId}/wallet-connection/test`, payload);
             return data;
+        },
+        /** Server-side LUD-21 verify probe for unknown Lightning-address domains. */
+        async lnaddressProbe(storeId: string, address: string): Promise<{ lud21: boolean; reason: string }> {
+            const { data } = await api.post<ApiEnvelope<{ lud21: boolean; reason: string }>>(
+                `/stores/${storeId}/wallet-connection/lnaddress-probe`,
+                { address },
+            );
+            return data.data;
         },
     },
     cashu: {

@@ -4,6 +4,7 @@ import { storesApi, type CreateStorePayload } from '../services/api';
 import type { BtcPayApp, StoreDashboardStats } from '../types/btcpay';
 
 import type { AquaBoltzWalletBrand } from '../utils/aquaBoltzWalletBrand';
+import type { LnAddressWalletBrand } from '../utils/lnAddressWalletBrands';
 
 export interface BlinkMigrationAlert {
     active: boolean;
@@ -17,11 +18,11 @@ export interface Store {
     archived?: boolean;
     default_currency?: string;
     timezone?: string;
-    wallet_type: 'blink' | 'blitz' | 'flash' | 'aqua_boltz' | 'cashu' | 'nwc' | null;
+    wallet_type: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'aqua_boltz' | 'cashu' | 'nwc' | null;
     cashu_fallback_enabled?: boolean;
     cashu_fallback_address?: string | null;
     /** Aqua vs Bull when wallet_type is aqua_boltz */
-    wallet_brand?: AquaBoltzWalletBrand | null;
+    wallet_brand?: AquaBoltzWalletBrand | LnAddressWalletBrand | null;
     blink_migration_alert?: BlinkMigrationAlert | null;
     created_at: string;
     updated_at: string;
@@ -29,9 +30,9 @@ export interface Store {
     checklist_items?: ChecklistItem[];
     wallet_connection?: {
         id: string;
-        type: 'blink' | 'blitz' | 'flash' | 'aqua_descriptor' | 'nwc';
+        type: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'aqua_descriptor' | 'nwc';
         status: 'pending' | 'needs_support' | 'connected';
-        brand?: AquaBoltzWalletBrand | null;
+        brand?: AquaBoltzWalletBrand | LnAddressWalletBrand | null;
         masked_secret?: string;
         submitted_at?: string;
     };

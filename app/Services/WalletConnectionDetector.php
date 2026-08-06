@@ -71,8 +71,7 @@ class WalletConnectionDetector
             ];
         }
 
-        // type=blitz; strings and the bare 'name@blitzwalletapp.com' shorthand -
-        // must win over the Cashu Lightning-address heuristic, same as Blink.
+        // Legacy type=blitz; strings keep the blitz kind.
         if ($this->looksLikeBlitz($trimmed)) {
             return [
                 'kind' => 'blitz',
@@ -93,6 +92,24 @@ class WalletConnectionDetector
                 'store_wallet_type' => 'flash',
                 'brand' => null,
                 'normalized_secret' => $this->validator->formatBtcpayFlashConnectionString($trimmed),
+                'cashu_mint_url' => null,
+                'cashu_lightning_address' => null,
+                'confidence' => 'high',
+            ];
+        }
+
+        // type=lnaddress; strings and bare addresses at curated LUD-21 domains
+        // (Coinos, ...) - must win over the Cashu Lightning-address heuristic.
+        // Legacy type=blitz/flash strings keep their own kinds above.
+        if ($this->looksLikeLnAddress($trimmed)) {
+            return [
+                'kind' => 'lnaddress',
+                'connection_type' => 'lnaddress',
+                'store_wallet_type' => 'lnaddress',
+                'brand' => $this->validator->lnAddressBrandForAddress(
+                    $this->validator->deriveLightningAddressFromSecret('lnaddress', $trimmed) ?? ''
+                ),
+                'normalized_secret' => $this->validator->formatBtcpayLnAddressConnectionString($trimmed),
                 'cashu_mint_url' => null,
                 'cashu_lightning_address' => null,
                 'confidence' => 'high',
@@ -156,22 +173,31 @@ class WalletConnectionDetector
         return empty($parsed['errors']) && ($parsed['type'] ?? null) === 'blink';
     }
 
+    /**
+     * Legacy type=blitz; strings only - bare blitzwalletapp.com addresses now
+     * detect as lnaddress (curated domain).
+     */
     protected function looksLikeBlitz(string $value): bool
     {
-        if (str_contains(strtolower($value), 'type=blitz;')) {
-            return true;
-        }
-
-        return $this->validator->isBareBlitzLightningAddress($value);
+        return str_contains(strtolower($value), 'type=blitz;');
     }
 
+    /**
+     * Legacy type=flash; strings only - bare flashapp.me addresses now detect
+     * as lnaddress (curated domain).
+     */
     protected function looksLikeFlash(string $value): bool
     {
-        if (str_contains(strtolower($value), 'type=flash;')) {
+        return str_contains(strtolower($value), 'type=flash;');
+    }
+
+    protected function looksLikeLnAddress(string $value): bool
+    {
+        if (str_contains(strtolower($value), 'type=lnaddress;')) {
             return true;
         }
 
-        return $this->validator->isBareFlashLightningAddress($value);
+        return $this->validator->isCuratedLnAddressBareAddress($value);
     }
 
     protected function looksLikeDescriptor(string $value): bool

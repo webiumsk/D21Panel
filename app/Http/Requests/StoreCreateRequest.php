@@ -30,15 +30,15 @@ class StoreCreateRequest extends FormRequest
             'timezone' => ['required', 'string', 'timezone'],
             'preferred_exchange' => ['nullable', 'string', 'max:255'],
             // Omit on first-step create; set later when user picks Blink / Aqua / Cashu / Blitz.
-            'wallet_type' => ['nullable', 'string', Rule::in(['blink', 'aqua_boltz', 'cashu', 'nwc', 'blitz', 'flash'])],
+            'wallet_type' => ['nullable', 'string', Rule::in(['blink', 'aqua_boltz', 'cashu', 'nwc', 'blitz', 'flash', 'lnaddress'])],
 
-            // Blink/Aqua/Blitz wallet connection string (Blink token, Aqua descriptor, or Blitz address).
+            // Blink/Aqua/Blitz/LN-address wallet connection string.
             'connection_string' => [
                 'nullable',
                 'string',
                 'max:2000',
                 // Only when configuring a connection during create; Cashu uses mint/LN fields.
-                'prohibited_unless:wallet_type,blink,aqua_boltz,blitz,flash',
+                'prohibited_unless:wallet_type,blink,aqua_boltz,blitz,flash,lnaddress',
             ],
 
             // Optional CashuMelt fallback address for Lightning wallet types.
@@ -57,7 +57,7 @@ class StoreCreateRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             // If connection_string is provided, validate it matches the wallet_type
-            if ($this->filled('connection_string') && in_array($this->wallet_type, ['blink', 'aqua_boltz', 'blitz', 'flash'], true)) {
+            if ($this->filled('connection_string') && in_array($this->wallet_type, ['blink', 'aqua_boltz', 'blitz', 'flash', 'lnaddress'], true)) {
                 $connectionString = $this->connection_string;
                 $walletType = $this->wallet_type;
 
@@ -82,7 +82,7 @@ class StoreCreateRequest extends FormRequest
                         }
                     }
                 } else {
-                    // blitz or flash - the in_array gate above leaves no other values.
+                    // blitz, flash or lnaddress - the in_array gate above leaves no other values.
                     $validation = $connectionValidator->validate($walletType, $connectionString);
                     if (! $validation['valid']) {
                         foreach ($validation['errors'] as $error) {

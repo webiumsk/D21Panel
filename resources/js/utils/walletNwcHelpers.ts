@@ -1,3 +1,5 @@
+import { lnAddressDomain } from './lnAddressWalletBrands';
+
 /** Domains/hosts that indicate NWC from a Cashu ecash wallet, not BTCPay store Lightning. */
 const CASHU_WALLET_NWC_MARKERS = [
   'minibits',
@@ -7,9 +9,13 @@ const CASHU_WALLET_NWC_MARKERS = [
   'mint.coinos',
 ] as const;
 
-const CASHU_WALLET_LN_DOMAINS = [
+/**
+ * LN address domains that stay on the Cashu path. coinos.io is intentionally
+ * absent - Coinos addresses connect natively via lnaddress (the NWC markers
+ * above still reject Coinos NWC URIs).
+ */
+export const CASHU_WALLET_LN_DOMAINS = [
   'minibits.cash',
-  'coinos.io',
 ] as const;
 
 export function normalizeNwcUri(value: string): string {
@@ -209,9 +215,17 @@ export function validateFlashConnectionString(connectionString: string): boolean
  */
 export function fallbackAddressDerivableFromSecret(secret: string): boolean {
   const s = secret.trim();
-  if (isBareBlinkLightningAddress(s) || isBareBlitzLightningAddress(s) || isBareFlashLightningAddress(s)) return true;
+  // Any bare full Lightning address is derivable - the lnaddress type accepts
+  // every user@domain, matching WalletConnectionValidator::deriveLightningAddressFromSecret.
+  if (lnAddressDomain(s) !== null) return true;
   const lower = s.toLowerCase();
-  if (!lower.includes('type=blink') && !lower.includes('type=blitz') && !lower.includes('type=flash')) return false;
+  if (
+    !lower.includes('type=blink') &&
+    !lower.includes('type=blitz') &&
+    !lower.includes('type=flash') &&
+    !lower.includes('type=lnaddress')
+  )
+    return false;
   return /(?:ln-?address|username)=[^;=\s]+/i.test(s);
 }
 
