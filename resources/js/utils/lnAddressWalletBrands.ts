@@ -77,6 +77,17 @@ export function lnAddressFromConnectionSecret(secret: string): string | null {
     return lnAddressDomain(trimmed) ? trimmed : null;
   }
   if (!validateLnAddressConnectionString(trimmed)) return null;
-  const match = trimmed.match(/(?:ln-?address|username)=([^;=\s]+)/i);
-  return match?.[1] ?? null;
+  // Alias precedence mirrors the PHP parser: ln-address, then lnaddress,
+  // then username - regardless of their order inside the secret.
+  const values: Partial<Record<'ln-address' | 'lnaddress' | 'username', string>> = {};
+  for (const part of trimmed.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim().toLowerCase();
+    const value = part.slice(eq + 1).trim();
+    if ((key === 'ln-address' || key === 'lnaddress' || key === 'username') && value) {
+      values[key] = value;
+    }
+  }
+  return values['ln-address'] ?? values['lnaddress'] ?? values['username'] ?? null;
 }

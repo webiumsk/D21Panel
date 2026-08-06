@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -17,6 +18,9 @@ class LnAddressLud21Prober
 
     private const MIN_PROBE_MSAT = 1000;
 
+    /** LUD-21 support is a property of the wallet's domain - cache briefly. */
+    private const CACHE_TTL_SECONDS = 300;
+
     /**
      * @return array{lud21: bool, reason: string}
      *                                            reason: 'ok'|'invalid_address'|'unreachable'|'invalid_lnurlp'|'no_verify'
@@ -29,7 +33,21 @@ class LnAddressLud21Prober
         }
 
         [, $user, $domain] = $matches;
-        $lnurlpUrl = 'https://'.strtolower($domain).'/.well-known/lnurlp/'.rawurlencode($user);
+        $domain = strtolower($domain);
+
+        return Cache::remember(
+            'lnaddress-lud21-probe:'.$domain,
+            self::CACHE_TTL_SECONDS,
+            fn (): array => $this->probeUncached($user, $domain)
+        );
+    }
+
+    /**
+     * @return array{lud21: bool, reason: string}
+     */
+    protected function probeUncached(string $user, string $domain): array
+    {
+        $lnurlpUrl = 'https://'.$domain.'/.well-known/lnurlp/'.rawurlencode($user);
 
         if (! $this->isSafeUrl($lnurlpUrl)) {
             return ['lud21' => false, 'reason' => 'invalid_address'];
@@ -66,9 +84,9 @@ class LnAddressLud21Prober
     }
 
     /**
-     * SSRF guard mirroring the plugin's safe-HTTP rules: https only, no
-     * userinfo, no custom port, a dotted hostname (no IP literals) that does
-     * not resolve to a private or reserved address.
+     * Syntactic SSRF guard mirroring the plugin's safe-HTTP rules: https only,
+     * no userinfo, no custom port, a dotted hostname (no IP literals). DNS is
+     * checked separately per request via resolvePublicIps().
      */
     protected function isSafeUrl(string $url): bool
     {
@@ -95,12 +113,37 @@ class LnAddressLud21Prober
             return false;
         }
 
-        $ip = gethostbyname($host);
-        if ($ip !== $host && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
-            return false;
+        return true;
+    }
+
+    /**
+     * All public addresses the host resolves to (A and AAAA), or null when
+     * resolution fails, returns nothing, or ANY resolved address is private,
+     * reserved, loopback or link-local. The result is pinned into the request
+     * (CURLOPT_RESOLVE), so the connection cannot re-resolve elsewhere.
+     *
+     * @return list<string>|null
+     */
+    protected function resolvePublicIps(string $host): ?array
+    {
+        $records = @dns_get_record($host, DNS_A | DNS_AAAA);
+        if ($records === false || $records === []) {
+            return null;
         }
 
-        return true;
+        $ips = [];
+        foreach ($records as $record) {
+            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
+            if (! is_string($ip) || $ip === '') {
+                continue;
+            }
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+                return null;
+            }
+            $ips[] = $ip;
+        }
+
+        return $ips === [] ? null : array_values(array_unique($ips));
     }
 
     /**
@@ -108,13 +151,25 @@ class LnAddressLud21Prober
      */
     protected function getJson(string $url): ?array
     {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $ips = $this->resolvePublicIps($host);
+        if ($ips === null) {
+            Log::info('LUD-21 probe refused: host does not resolve to public addresses only', ['url_host' => $host]);
+
+            return null;
+        }
+
         try {
             $response = Http::timeout(self::TIMEOUT_SECONDS)
-                ->withOptions(['allow_redirects' => false])
+                ->withOptions([
+                    'allow_redirects' => false,
+                    // Pin the connection to the addresses validated above (DNS rebinding guard).
+                    'curl' => [CURLOPT_RESOLVE => [$host.':443:'.implode(',', $ips)]],
+                ])
                 ->acceptJson()
                 ->get($url);
         } catch (\Throwable $e) {
-            Log::info('LUD-21 probe request failed', ['url_host' => parse_url($url, PHP_URL_HOST), 'message' => $e->getMessage()]);
+            Log::info('LUD-21 probe request failed', ['url_host' => $host, 'message' => $e->getMessage()]);
 
             return null;
         }

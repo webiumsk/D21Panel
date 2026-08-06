@@ -26,7 +26,10 @@ class WalletConnectionStoreRequest extends FormRequest
     {
         return [
             'type' => ['required', 'string', 'in:blink,aqua_descriptor,nwc,blitz,flash,lnaddress'],
-            'secret' => ['required', 'string', 'min:10'],
+            // lnaddress accepts any full user@domain address (shortest valid form
+            // is 6 chars, e.g. a@b.co) - the type-specific validator below is the
+            // real gate; the generic minimum stays for the other secret shapes.
+            'secret' => ['required', 'string', $this->input('type') === 'lnaddress' ? 'min:6' : 'min:10'],
             // Every store keeps at least one Lightning address as the CashuMelt fallback.
             // Optional only when it can be derived from the secret (blink/blitz ln-address).
             'fallback_lightning_address' => ['nullable', 'string', 'max:320', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],

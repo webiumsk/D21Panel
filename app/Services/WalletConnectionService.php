@@ -620,7 +620,16 @@ class WalletConnectionService
             return;
         }
 
-        if ($type === 'blink') {
+        // Lightning-address style connections share one flow: best-effort clear of
+        // the existing BTCPay Lightning config, then connect with the canonical string.
+        $lnFlows = [
+            'blink' => ['label' => 'Blink', 'format' => fn (string $s): string => $this->validator->formatBtcpayBlinkConnectionString($s)],
+            'blitz' => ['label' => 'Blitz', 'format' => fn (string $s): string => $this->validator->formatBtcpayBlitzConnectionString($s)],
+            'flash' => ['label' => 'Flash', 'format' => fn (string $s): string => $this->validator->formatBtcpayFlashConnectionString($s)],
+            'lnaddress' => ['label' => 'LN address', 'format' => fn (string $s): string => $this->validator->formatBtcpayLnAddressConnectionString($s)],
+        ];
+
+        if (isset($lnFlows[$type])) {
             try {
                 $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
                     $store->btcpay_store_id,
@@ -628,73 +637,13 @@ class WalletConnectionService
                     $userApiKey
                 );
             } catch (\Throwable $e) {
-                Log::info('Best-effort clear BTCPay Lightning before Blink connect', [
+                Log::info("Best-effort clear BTCPay Lightning before {$lnFlows[$type]['label']} connect", [
                     'store_id' => $store->id,
                     'message' => $e->getMessage(),
                 ]);
             }
 
-            $btcpayString = $this->validator->formatBtcpayBlinkConnectionString($secret);
-            $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
-
-            return;
-        }
-
-        if ($type === 'blitz') {
-            try {
-                $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
-                    $store->btcpay_store_id,
-                    'BTC',
-                    $userApiKey
-                );
-            } catch (\Throwable $e) {
-                Log::info('Best-effort clear BTCPay Lightning before Blitz connect', [
-                    'store_id' => $store->id,
-                    'message' => $e->getMessage(),
-                ]);
-            }
-
-            $btcpayString = $this->validator->formatBtcpayBlitzConnectionString($secret);
-            $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
-
-            return;
-        }
-
-        if ($type === 'flash') {
-            try {
-                $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
-                    $store->btcpay_store_id,
-                    'BTC',
-                    $userApiKey
-                );
-            } catch (\Throwable $e) {
-                Log::info('Best-effort clear BTCPay Lightning before Flash connect', [
-                    'store_id' => $store->id,
-                    'message' => $e->getMessage(),
-                ]);
-            }
-
-            $btcpayString = $this->validator->formatBtcpayFlashConnectionString($secret);
-            $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
-
-            return;
-        }
-
-        if ($type === 'lnaddress') {
-            try {
-                $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
-                    $store->btcpay_store_id,
-                    'BTC',
-                    $userApiKey
-                );
-            } catch (\Throwable $e) {
-                Log::info('Best-effort clear BTCPay Lightning before LN address connect', [
-                    'store_id' => $store->id,
-                    'message' => $e->getMessage(),
-                ]);
-            }
-
-            $btcpayString = $this->validator->formatBtcpayLnAddressConnectionString($secret);
+            $btcpayString = $lnFlows[$type]['format']($secret);
             $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
 
             return;

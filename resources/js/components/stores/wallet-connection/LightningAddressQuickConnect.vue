@@ -126,11 +126,16 @@ const errorMessage = ref("");
 /** Result of the server-side LUD-21 probe for the current address. */
 const probeState = ref<"idle" | "lnaddress" | "cashu">("idle");
 
+/** Bumped on every address edit so an in-flight probe can detect it is stale. */
+let addressRevision = 0;
+
 const route = computed(() => routeLightningAddress(address.value));
 
-// A new address invalidates the previous probe verdict.
+// A new address invalidates the previous probe verdict and its consent.
 watch(address, () => {
+  addressRevision += 1;
   probeState.value = "idle";
+  cashuConsent.value = false;
 });
 
 /**
@@ -161,9 +166,15 @@ async function submit() {
     let target = effectiveTarget.value;
 
     if (target === "probe") {
+      const revision = addressRevision;
       probing.value = true;
       try {
         const probe = await walletApi.connection.lnaddressProbe(props.storeId, r.address);
+        // The address changed while the probe was in flight - drop the stale
+        // verdict instead of applying it to the new address.
+        if (revision !== addressRevision) {
+          return;
+        }
         probeState.value = probe.lud21 ? "lnaddress" : "cashu";
         target = probeState.value;
       } finally {

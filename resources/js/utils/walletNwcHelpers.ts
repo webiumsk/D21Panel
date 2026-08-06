@@ -1,4 +1,4 @@
-import { isCuratedLnAddressBareAddress } from './lnAddressWalletBrands';
+import { lnAddressDomain } from './lnAddressWalletBrands';
 
 /** Domains/hosts that indicate NWC from a Cashu ecash wallet, not BTCPay store Lightning. */
 const CASHU_WALLET_NWC_MARKERS = [
@@ -215,13 +215,9 @@ export function validateFlashConnectionString(connectionString: string): boolean
  */
 export function fallbackAddressDerivableFromSecret(secret: string): boolean {
   const s = secret.trim();
-  if (
-    isBareBlinkLightningAddress(s) ||
-    isBareBlitzLightningAddress(s) ||
-    isBareFlashLightningAddress(s) ||
-    isCuratedLnAddressBareAddress(s)
-  )
-    return true;
+  // Any bare full Lightning address is derivable - the lnaddress type accepts
+  // every user@domain, matching WalletConnectionValidator::deriveLightningAddressFromSecret.
+  if (lnAddressDomain(s) !== null) return true;
   const lower = s.toLowerCase();
   if (
     !lower.includes('type=blink') &&
