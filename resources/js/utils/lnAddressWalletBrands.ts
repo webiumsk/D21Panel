@@ -1,6 +1,6 @@
 /**
  * Curated LN address domains → wallet brand for the universal lnaddress
- * connection type (BTCPay "Satflux LN Address" plugin, LUD-21 verify).
+ * connection type (BTCPay "LN Address Connect" plugin, LUD-21 verify).
  * Branding only - any domain whose LNURL server supports LUD-21 works; unknown
  * domains go through the server-side probe endpoint first.
  * Mirrors WalletConnectionValidator::LN_ADDRESS_WALLET_BRANDS.

@@ -149,7 +149,7 @@
                                     </ol>
                                     <p class="mt-2 text-xs text-gray-500">
                                         Connection string format: <code class="bg-gray-100 px-1 py-0.5 rounded">type=lnaddress;ln-address=user&#64;domain.com;</code>
-                                        Receive-only; settlement is detected via the wallet's LUD-21 <code class="bg-gray-100 px-1 py-0.5 rounded">verify</code> endpoint (requires the Satflux LN Address plugin).
+                                        Receive-only; settlement is detected via the wallet's LUD-21 <code class="bg-gray-100 px-1 py-0.5 rounded">verify</code> endpoint (requires the LN Address Connect plugin).
                                     </p>
                                 </div>
                                 <div v-else class="space-y-2 text-sm text-gray-700">
