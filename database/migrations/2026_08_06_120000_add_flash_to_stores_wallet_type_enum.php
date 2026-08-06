@@ -51,7 +51,16 @@ return new class extends Migration
     {
         $driver = DB::getDriverName();
 
-        DB::table('stores')->where('wallet_type', 'flash')->update(['wallet_type' => 'blink']);
+        // Refuse to roll back over live Flash data - silently remapping flash -> blink
+        // would change store behavior. Migrate the stores off Flash first.
+        $flashStores = DB::table('stores')->where('wallet_type', 'flash')->count();
+        $flashConnections = DB::table('wallet_connections')->where('type', 'flash')->count();
+        if ($flashStores > 0 || $flashConnections > 0) {
+            throw new RuntimeException(
+                "Cannot roll back the flash wallet_type migration: {$flashStores} store(s) and "
+                ."{$flashConnections} wallet connection(s) still use Flash. Reassign them first."
+            );
+        }
 
         if ($driver === 'sqlite') {
             return;

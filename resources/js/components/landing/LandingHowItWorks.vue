@@ -192,9 +192,11 @@
                   </div>
                 </div>
 
-                <!-- Blitz & Flash Card: LN-address-only self-custodial wallets -->
+                <!-- Blitz & Flash Card: LN-address-only self-custodial wallets.
+                     Focusable so the details overlay also opens via keyboard/touch, not only hover. -->
                 <div
-                  class="relative group/card cursor-pointer transform md:-translate-x-6 transition-transform duration-500 hover:scale-105"
+                  tabindex="0"
+                  class="relative group/card cursor-pointer transform md:-translate-x-6 transition-transform duration-500 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/60 rounded-2xl"
                 >
                   <div
                     class="bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-xl flex items-center gap-6 transition-all duration-300 group-hover/card:border-yellow-500/50 group-hover/card:bg-gray-800/80"
@@ -227,7 +229,7 @@
 
                   <!-- Hover Details -->
                   <div
-                    class="absolute inset-0 bg-gray-900/95 backdrop-blur-xl rounded-2xl p-6 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col justify-center border border-yellow-500/50 z-20 pointer-events-none group-hover/card:pointer-events-auto shadow-[0_0_30px_rgba(234,179,8,0.3)]"
+                    class="absolute inset-0 bg-gray-900/95 backdrop-blur-xl rounded-2xl p-6 opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 transition-opacity duration-300 flex flex-col justify-center border border-yellow-500/50 z-20 pointer-events-none group-hover/card:pointer-events-auto group-focus-within/card:pointer-events-auto shadow-[0_0_30px_rgba(234,179,8,0.3)]"
                   >
                     <div class="space-y-4">
                       <div>
