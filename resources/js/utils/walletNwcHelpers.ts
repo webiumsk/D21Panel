@@ -160,6 +160,19 @@ export function validateBlitzConnectionString(connectionString: string): boolean
   return isBareBlitzLightningAddress(address);
 }
 
+/**
+ * Whether a connection secret already carries a Lightning address usable as the
+ * CashuMelt fallback (blink/blitz ln-address forms). Backend derives it server-side;
+ * this only gates whether the UI must ask for a separate fallback address.
+ */
+export function fallbackAddressDerivableFromSecret(secret: string): boolean {
+  const s = secret.trim();
+  if (isBareBlinkLightningAddress(s) || isBareBlitzLightningAddress(s)) return true;
+  const lower = s.toLowerCase();
+  if (!lower.includes('type=blink') && !lower.includes('type=blitz')) return false;
+  return /(?:ln-?address|username)=[^;=\s]+/i.test(s);
+}
+
 export function validateNwcUri(value: string): boolean {
   if (isCashuWalletNwcUri(value)) {
     return false;

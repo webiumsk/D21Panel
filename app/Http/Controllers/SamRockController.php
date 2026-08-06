@@ -9,6 +9,7 @@ use App\Services\WalletConnectionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 
 class SamRockController extends Controller
 {
@@ -133,6 +134,8 @@ class SamRockController extends Controller
 
         $validated = $request->validate([
             'otp' => ['required', 'string'],
+            // Every store keeps a Lightning address as the CashuMelt payout fallback.
+            'fallback_lightning_address' => ['required', 'string', 'max:320', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
         ]);
 
         $userApiKey = $store->user->getBtcPayApiKeyOrFail();
@@ -160,17 +163,37 @@ class SamRockController extends Controller
 
         $connection = $this->walletConnectionService->markSamRockConnected($store, $request->user());
 
+        $fallbackConfigured = true;
+        try {
+            $this->walletConnectionService->configureCashuFallback(
+                $store,
+                $validated['fallback_lightning_address'],
+                $userApiKey,
+                $request->user()
+            );
+        } catch (\Throwable $e) {
+            $fallbackConfigured = false;
+            Log::error('Could not configure CashuMelt fallback after SamRock pairing', [
+                'store_id' => $store->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
         try {
             $this->samRockService->deleteOtp($store->btcpay_store_id, $validated['otp'], $userApiKey);
         } catch (BtcPayException) {
             // Best-effort cleanup
         }
 
+        // Pairing succeeded either way; the flag tells the client whether the required
+        // CashuMelt fallback actually got configured (false-success would hide a missing
+        // payout fallback).
         return response()->json([
             'data' => [
                 'wallet_connection_id' => $connection->id,
                 'status' => $connection->status,
                 'configuration_source' => $connection->configuration_source,
+                'cashu_fallback_configured' => $fallbackConfigured,
             ],
         ]);
     }

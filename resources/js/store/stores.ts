@@ -18,6 +18,8 @@ export interface Store {
     default_currency?: string;
     timezone?: string;
     wallet_type: 'blink' | 'blitz' | 'aqua_boltz' | 'cashu' | 'nwc' | null;
+    cashu_fallback_enabled?: boolean;
+    cashu_fallback_address?: string | null;
     /** Aqua vs Bull when wallet_type is aqua_boltz */
     wallet_brand?: AquaBoltzWalletBrand | null;
     blink_migration_alert?: BlinkMigrationAlert | null;

@@ -33,6 +33,11 @@ return [
         'tax_secret_key' => env('STRIPE_TAX_SECRET_KEY'),
     ],
 
+    'cashu' => [
+        // Default mint for CashuMelt fallback configuration (LN-address-only onboarding).
+        'default_mint_url' => env('CASHU_DEFAULT_MINT_URL', 'https://mint.minibits.cash/Bitcoin'),
+    ],
+
     'btcpay' => [
         // Greenfield API (server-to-server). May be an internal Docker URL.
         'base_url' => env('BTCPAY_BASE_URL', 'http://127.0.0.1:14142'),

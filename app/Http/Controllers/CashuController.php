@@ -47,7 +47,7 @@ class CashuController extends Controller
     {
         $wt = $store->wallet_type ?? null;
 
-        if ($this->isLightningWalletTypeForCashuSwitch($wt)) {
+        if ($this->isLightningWalletTypeForCashuSwitch($wt) && ! $store->cashu_fallback_enabled) {
             return response()->json([
                 'data' => $this->emptyCashuSettingsPayload(),
             ]);
@@ -94,14 +94,7 @@ class CashuController extends Controller
 
         try {
             $updated = DB::transaction(function () use ($store, $payload, $userApiKey, $switchingFromLightning) {
-                if ($switchingFromLightning) {
-                    $store->walletConnection()?->delete();
-                }
-
-                if (($store->wallet_type ?? null) === null || $switchingFromLightning) {
-                    $store->update(['wallet_type' => 'cashu']);
-                    $store->refresh();
-                }
+                $store->markAsPureCashu($switchingFromLightning);
 
                 return $this->cashuService->saveSettings($store->btcpay_store_id, $payload, $userApiKey);
             });
@@ -212,9 +205,11 @@ class CashuController extends Controller
 
     protected function ensureCashuStore(Store $store): void
     {
-        if (($store->wallet_type ?? null) !== 'cashu') {
-            abort(404, 'Cashu wallet is not configured for this store.');
+        if (($store->wallet_type ?? null) === 'cashu' || $store->cashu_fallback_enabled) {
+            return;
         }
+
+        abort(404, 'Cashu wallet is not configured for this store.');
     }
 
     /**
@@ -223,7 +218,7 @@ class CashuController extends Controller
     private function isLightningWalletTypeForCashuSwitch(?string $walletType): bool
     {
         return $walletType === null
-            || in_array($walletType, ['blink', 'aqua_boltz', 'nwc'], true);
+            || in_array($walletType, ['blink', 'blitz', 'aqua_boltz', 'nwc'], true);
     }
 
     /**

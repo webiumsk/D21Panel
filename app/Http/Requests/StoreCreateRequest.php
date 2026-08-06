@@ -41,6 +41,9 @@ class StoreCreateRequest extends FormRequest
                 'prohibited_unless:wallet_type,blink,aqua_boltz,blitz',
             ],
 
+            // Optional CashuMelt fallback address for Lightning wallet types.
+            'fallback_lightning_address' => ['nullable', 'string', 'max:320', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
+
             // Cashu plugin settings.
             'mint_url' => ['required_if:wallet_type,cashu', 'string', 'url', 'starts_with:https://'],
             'lightning_address' => ['required_if:wallet_type,cashu', 'string', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],

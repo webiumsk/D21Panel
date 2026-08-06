@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\WalletConnection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -163,6 +164,96 @@ class CashuPaymentsTest extends TestCase
         $response->assertJsonPath('data.items.1.retry_count', 0);
         $response->assertJsonPath('data.items.1.needs_manual_review', false);
         $response->assertJsonPath('data.items.1.failure_reason_code', null);
+    }
+
+    public function test_list_payments_allowed_for_cashu_fallback_store(): void
+    {
+        $baseUrl = rtrim(config('services.btcpay.base_url'), '/');
+        $btcpaySid = 'store-fallback-payments';
+
+        Http::fake(function (Request $request) use ($baseUrl, $btcpaySid) {
+            if (! str_contains($request->url(), "{$baseUrl}/api/v1/stores/{$btcpaySid}/plugins/cashumelt/payments")) {
+                return Http::response(['error' => 'unexpected URL'], 500);
+            }
+
+            return Http::response(['total' => 0, 'offset' => 0, 'limit' => 50, 'items' => []], 200);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-key']);
+        // Lightning-primary store with CashuMelt running as the parallel fallback.
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'wallet_type' => 'blink',
+            'btcpay_store_id' => $btcpaySid,
+            'cashu_fallback_enabled' => true,
+            'cashu_fallback_address' => 'fallback@example.com',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson("/api/stores/{$store->id}/cashu/payments")->assertOk();
+    }
+
+    public function test_list_payments_still_404_without_cashu_or_fallback(): void
+    {
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'wallet_type' => 'blink',
+            'btcpay_store_id' => 'store-no-cashu',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson("/api/stores/{$store->id}/cashu/payments")->assertNotFound();
+    }
+
+    public function test_switching_to_pure_cashu_resets_fallback_flags(): void
+    {
+        $baseUrl = rtrim(config('services.btcpay.base_url'), '/');
+        $btcpaySid = 'store-fallback-to-cashu';
+
+        Http::fake(function (Request $request) use ($baseUrl, $btcpaySid) {
+            $url = $request->url();
+            if (str_contains($url, "{$baseUrl}/api/v1/stores/{$btcpaySid}/plugins/cashumelt/settings")) {
+                return Http::response(array_merge($request->data() ?? [], ['enabled' => true]), 200);
+            }
+            if (str_contains($url, '/payment-methods/') || str_contains($url, '/lightning/')) {
+                return Http::response([], 200);
+            }
+
+            return Http::response(['message' => 'not found'], 404);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'wallet_type' => 'blink',
+            'btcpay_store_id' => $btcpaySid,
+            'cashu_fallback_enabled' => true,
+            'cashu_fallback_address' => 'fallback@example.com',
+        ]);
+        WalletConnection::create([
+            'store_id' => $store->id,
+            'type' => 'blink',
+            'encrypted_secret' => Crypt::encryptString('type=blink;ln-address=x@blink.sv;'),
+            'status' => 'connected',
+            'submitted_by_user_id' => $user->id,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->putJson("/api/stores/{$store->id}/cashu/settings", [
+            'mint_url' => 'https://mint.example/x',
+            'lightning_address' => 'merchant@example.com',
+            'enabled' => true,
+        ])->assertOk();
+
+        $store->refresh();
+        $this->assertSame('cashu', $store->wallet_type);
+        // Pure Cashu store: CashuMelt is primary, not a fallback.
+        $this->assertFalse((bool) $store->cashu_fallback_enabled);
+        $this->assertNull($store->cashu_fallback_address);
     }
 
     public function test_retry_payment_passes_through_retry_after_seconds(): void

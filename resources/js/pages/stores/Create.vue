@@ -270,6 +270,37 @@
             />
 
             <div
+              v-if="form.connection_string.trim() && !cashuDetectedFromPaste"
+              class="max-w-md"
+            >
+              <template v-if="advancedFallbackDerivable">
+                <p class="text-sm text-gray-500">
+                  {{ t("stores.wallet_fallback_derived_note") }}
+                </p>
+              </template>
+              <template v-else>
+                <label
+                  for="create-advanced-fallback"
+                  class="block text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider"
+                >
+                  {{ t("stores.wallet_fallback_address_label") }}
+                </label>
+                <input
+                  id="create-advanced-fallback"
+                  v-model="advancedFallbackAddress"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  class="block w-full rounded-xl border-gray-600 bg-gray-900/50 text-white placeholder-gray-600 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-3"
+                  :placeholder="t('stores.ln_quick_address_placeholder')"
+                />
+                <p class="mt-2 text-sm text-gray-500 leading-relaxed">
+                  {{ t("stores.wallet_fallback_address_hint") }}
+                </p>
+              </template>
+            </div>
+
+            <div
               v-if="cashuDetectedFromPaste"
               class="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-4"
             >
@@ -365,11 +396,32 @@
                     {{ samrockErrorMessage }}
                   </p>
 
-                  <div v-if="!samrockOtp && !samrockBusy" class="flex flex-wrap gap-3">
+                  <div v-if="!samrockOtp && !samrockBusy" class="space-y-4">
+                    <div class="max-w-md">
+                      <label
+                        for="create-samrock-fallback"
+                        class="block text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider"
+                      >
+                        {{ t("stores.wallet_fallback_address_label") }}
+                      </label>
+                      <input
+                        id="create-samrock-fallback"
+                        v-model="samrockFallbackAddress"
+                        type="text"
+                        autocomplete="off"
+                        spellcheck="false"
+                        class="block w-full rounded-xl border-gray-600 bg-gray-900/50 text-white placeholder-gray-600 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-3"
+                        :placeholder="t('stores.ln_quick_address_placeholder')"
+                      />
+                      <p class="mt-2 text-sm text-gray-500 leading-relaxed">
+                        {{ t("stores.wallet_fallback_address_hint") }}
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
                     <button
                       type="button"
                       class="px-6 py-3 rounded-xl text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50"
-                      :disabled="samrockBusy || !createdStoreId"
+                      :disabled="samrockBusy || !createdStoreId || !samrockFallbackValid"
                       @click="startSamRockPairing"
                     >
                       {{ t("stores.samrock_generate_qr") }}
@@ -382,6 +434,7 @@
                     >
                       {{ t("stores.samrock_try_again") }}
                     </button>
+                    </div>
                   </div>
 
                   <div v-else-if="samrockBusy && !samrockQrObjectUrl" class="flex items-center gap-3 py-6 text-gray-400">
@@ -592,6 +645,7 @@ import { DEFAULT_CASHU_MINT_URL } from "../../constants/cashu";
 import { isValidAquaBoltzDescriptor } from "../../utils/aquaBoltzDescriptor";
 import { detectWalletConnectionInput, isValidCashuLightningAddress } from "../../utils/detectWalletConnectionInput";
 import {
+  fallbackAddressDerivableFromSecret,
   normalizeBlinkConnectionString,
   normalizeBlitzConnectionString,
   normalizeNwcUri,
@@ -658,6 +712,24 @@ const {
   startSamRockPairing: startSamRockPairingCore,
 } = useSamRockPairing(() => createdStoreId.value ?? "");
 const samrockWalletReady = ref(false);
+
+/** CashuMelt parallel fallback: every store keeps at least one Lightning address. */
+const samrockFallbackAddress = ref("");
+const advancedFallbackAddress = ref("");
+
+const samrockFallbackValid = computed(() =>
+  isValidCashuLightningAddress(samrockFallbackAddress.value),
+);
+
+const advancedFallbackDerivable = computed(() =>
+  fallbackAddressDerivableFromSecret(form.value.connection_string ?? ""),
+);
+
+const advancedFallbackOk = computed(
+  () =>
+    advancedFallbackDerivable.value ||
+    isValidCashuLightningAddress(advancedFallbackAddress.value),
+);
 
 const form = ref({
   name: "",
@@ -732,7 +804,7 @@ const canProceedFromStep2 = computed(() => {
     return validateCashuFields();
   }
 
-  return validatePasteConnection();
+  return validatePasteConnection() && advancedFallbackOk.value;
 });
 
 // Common timezones - you can expand this list
@@ -823,7 +895,7 @@ async function onQuickConnectSubmitted(target: "blink" | "blitz" | "cashu") {
 
 async function startSamRockPairing() {
   const sid = createdStoreId.value;
-  if (!sid) return;
+  if (!sid || !samrockFallbackValid.value) return;
 
   try {
     await storesApi.setWalletType(sid, "aqua_boltz");
@@ -839,7 +911,7 @@ async function startSamRockPairing() {
   await startSamRockPairingCore(async () => {
     samrockWalletReady.value = true;
     await storesStore.fetchStore(sid);
-  });
+  }, samrockFallbackAddress.value);
 }
 
 function stopBotWaitTimers() {
@@ -977,6 +1049,9 @@ async function submitWalletConfiguration() {
     await walletApi.connection.create(sid, {
       type: connectionType.value,
       secret,
+      fallback_lightning_address: advancedFallbackDerivable.value
+        ? undefined
+        : advancedFallbackAddress.value.trim(),
     });
 
     await storesStore.fetchStore(sid);

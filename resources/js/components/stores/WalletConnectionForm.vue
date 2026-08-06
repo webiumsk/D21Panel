@@ -18,6 +18,7 @@
         :wallet-brand="readonlyAquaWalletBrand"
         :revealing="revealing"
         :password-error="passwordError"
+        :cashu-fallback-address="cashuFallbackAddress"
         @change="startWalletConnectionEdit"
         @cancel="$emit('cancel')"
       />
@@ -140,6 +141,37 @@
           input-id="wallet-connection-smart-paste"
           @detect-cashu="onDetectCashuFromPaste"
         />
+
+        <div v-if="form.secret.trim()" class="max-w-md">
+          <template v-if="advancedFallbackDerivable">
+            <p class="text-sm text-gray-500">
+              {{ t("stores.wallet_fallback_derived_note") }}
+            </p>
+          </template>
+          <template v-else>
+            <label
+              for="wallet-advanced-fallback"
+              class="block text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider"
+            >
+              {{ t("stores.wallet_fallback_address_label") }}
+            </label>
+            <input
+              id="wallet-advanced-fallback"
+              v-model="advancedFallbackAddress"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              class="block w-full rounded-xl border-gray-600 bg-gray-900/50 text-white placeholder-gray-600 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-3"
+              :placeholder="t('stores.ln_quick_address_placeholder')"
+            />
+            <p class="mt-2 text-sm text-gray-500 leading-relaxed">
+              {{ t("stores.wallet_fallback_address_hint") }}
+            </p>
+            <p v-if="errors.fallback_lightning_address" class="mt-2 text-sm text-red-400">
+              {{ errors.fallback_lightning_address }}
+            </p>
+          </template>
+        </div>
 
         <div
           v-if="
@@ -267,11 +299,32 @@
           {{ samrockErrorMessage }}
         </p>
 
-        <div v-if="!samrockOtp && !samrockBusy" class="flex flex-wrap gap-3">
+        <div v-if="!samrockOtp && !samrockBusy" class="space-y-4">
+          <div class="max-w-md">
+            <label
+              for="wallet-samrock-fallback"
+              class="block text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider"
+            >
+              {{ t("stores.wallet_fallback_address_label") }}
+            </label>
+            <input
+              id="wallet-samrock-fallback"
+              v-model="samrockFallbackAddress"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              class="block w-full rounded-xl border-gray-600 bg-gray-900/50 text-white placeholder-gray-600 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-3"
+              :placeholder="t('stores.ln_quick_address_placeholder')"
+            />
+            <p class="mt-2 text-sm text-gray-500 leading-relaxed">
+              {{ t("stores.wallet_fallback_address_hint") }}
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3">
           <button
             type="button"
             class="px-6 py-3 rounded-xl text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50"
-            :disabled="samrockBusy"
+            :disabled="samrockBusy || !samrockFallbackValid"
             @click="startSamRockPairing"
           >
             {{ t("stores.samrock_generate_qr") }}
@@ -287,6 +340,7 @@
           >
             {{ t("stores.samrock_try_again") }}
           </button>
+          </div>
         </div>
 
         <div
@@ -431,8 +485,9 @@ import WalletConnectionSmartPaste from "./WalletConnectionSmartPaste.vue";
 import LightningAddressQuickConnect from "./wallet-connection/LightningAddressQuickConnect.vue";
 import WalletConnectionTypeGuide from "./WalletConnectionTypeGuide.vue";
 import { isValidAquaBoltzDescriptor } from "../../utils/aquaBoltzDescriptor";
-import { detectWalletConnectionInput } from "../../utils/detectWalletConnectionInput";
+import { detectWalletConnectionInput, isValidCashuLightningAddress } from "../../utils/detectWalletConnectionInput";
 import {
+  fallbackAddressDerivableFromSecret,
   isCashuWalletNwcUri,
   normalizeBlinkConnectionString,
   normalizeBlitzConnectionString,
@@ -454,6 +509,8 @@ interface Props {
   walletBrand?: AquaBoltzWalletBrand | null | undefined;
   /** After create-store redirect: auto-open SamRock QR flow */
   autoSamrock?: boolean;
+  /** CashuMelt parallel fallback payout address, when configured on the store. */
+  cashuFallbackAddress?: string | null;
 }
 
 const props = defineProps<Props>();
@@ -467,6 +524,24 @@ const walletSetupTabsList: ReadonlyArray<{ id: WalletSetupTabId; labelKey: strin
   { id: "advanced", labelKey: "create_store.tab_advanced" },
 ];
 const walletSetupTab = ref<WalletSetupTabId>("ln");
+
+/** CashuMelt parallel fallback: every store keeps at least one Lightning address. */
+const samrockFallbackAddress = ref("");
+const advancedFallbackAddress = ref("");
+
+const samrockFallbackValid = computed(() =>
+  isValidCashuLightningAddress(samrockFallbackAddress.value),
+);
+
+const advancedFallbackDerivable = computed(() =>
+  fallbackAddressDerivableFromSecret(form.secret ?? ""),
+);
+
+const advancedFallbackOk = computed(
+  () =>
+    advancedFallbackDerivable.value ||
+    isValidCashuLightningAddress(advancedFallbackAddress.value),
+);
 
 const isUnsetWalletType = computed(() => {
   const w = props.walletType;
@@ -624,6 +699,7 @@ function onQuickConnectSubmitted() {
 }
 
 function startSamRockPairing() {
+  if (!samrockFallbackValid.value) return;
   if (route.query.samrock) {
     const q = { ...route.query };
     delete q.samrock;
@@ -631,7 +707,7 @@ function startSamRockPairing() {
   }
   void startSamRockPairingCore(() => {
     emit("submitted");
-  });
+  }, samrockFallbackAddress.value);
 }
 
 const submitting = ref(false);
@@ -733,9 +809,9 @@ watch(
     if (!props.autoSamrock || autoSamrockConsumed.value) return;
     if (!showWalletSetupForm.value || !showWalletSetupTabs.value) return;
     autoSamrockConsumed.value = true;
+    // Open the tab only - QR generation now needs the fallback Lightning address first.
     walletSetupTab.value = "samrock";
     await nextTick();
-    startSamRockPairing();
   },
   { flush: "post" },
 );
@@ -985,6 +1061,12 @@ async function handleSubmit() {
     return;
   }
 
+  if (!advancedFallbackOk.value) {
+    errors.fallback_lightning_address = t("stores.wallet_fallback_address_invalid");
+    submitting.value = false;
+    return;
+  }
+
   try {
     const secretPayload =
       form.type === "nwc"
@@ -998,6 +1080,9 @@ async function handleSubmit() {
     await walletApi.connection.create(props.storeId, {
       type: form.type,
       secret: secretPayload,
+      fallback_lightning_address: advancedFallbackDerivable.value
+        ? undefined
+        : advancedFallbackAddress.value.trim(),
     });
     emit("submitted");
   } catch (rawError) {

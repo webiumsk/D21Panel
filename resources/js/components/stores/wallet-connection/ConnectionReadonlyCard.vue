@@ -65,6 +65,17 @@
         {{ connection.masked_secret || "N/A" }}
       </div>
     </div>
+    <div v-if="cashuFallbackAddress" class="mt-6 pt-6 border-t border-gray-700">
+      <span class="block text-gray-500 text-xs uppercase tracking-wider mb-2">{{
+        t("stores.cashu_fallback_active_label")
+      }}</span>
+      <p class="text-sm text-emerald-300">
+        {{ cashuFallbackAddress }}
+      </p>
+      <p class="mt-1 text-xs text-gray-500 leading-relaxed">
+        {{ t("stores.cashu_fallback_active_hint") }}
+      </p>
+    </div>
     <!-- Last change: date + user ID (integrated into main card) -->
     <div
       v-if="
@@ -128,6 +139,8 @@ defineProps<{
   revealing?: boolean;
   /** Reveal error surfaced by the parent (recovery-only accounts reveal from here). */
   passwordError?: string;
+  /** CashuMelt parallel fallback payout address, when configured. */
+  cashuFallbackAddress?: string | null;
 }>();
 
 defineEmits<{

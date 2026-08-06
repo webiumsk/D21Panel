@@ -39,8 +39,14 @@ class WalletConnectionService
      *
      * @throws ValidationException
      */
-    public function createOrUpdate(Store $store, string $type, string $secret, User $user, string $initialStatus = 'needs_support'): WalletConnection
-    {
+    public function createOrUpdate(
+        Store $store,
+        string $type,
+        string $secret,
+        User $user,
+        string $initialStatus = 'needs_support',
+        ?string $fallbackLightningAddress = null,
+    ): WalletConnection {
         Log::info('WalletConnectionService::createOrUpdate called', [
             'store_id' => $store->id,
             'store_btcpay_store_id' => $store->btcpay_store_id ?? 'NULL',
@@ -180,30 +186,49 @@ class WalletConnectionService
                 }
 
                 if ($userApiKey) {
-                    try {
-                        $this->cashuService->tryDisableAtBtcPay(
-                            $store->btcpay_store_id,
-                            $userApiKey
-                        );
-                    } catch (\Throwable $e) {
-                        Log::error('Could not disable CashuMelt at BTCPay after Lightning wallet connection', [
-                            'store_id' => $store->id,
-                            'btcpay_store_id' => $store->btcpay_store_id,
-                            'message' => $e->getMessage(),
-                        ]);
-                    }
+                    // CashuMelt stays enabled in parallel as the payout fallback (Boltz/Spark
+                    // outages). The address comes from the request or is derived from
+                    // blink/blitz ln-address secrets; without one we fall back to the old
+                    // behavior of disabling CashuMelt entirely.
+                    $fallbackAddress = $fallbackLightningAddress
+                        ?: $this->validator->deriveLightningAddressFromSecret($type, $secret);
 
-                    try {
-                        $this->cashuService->tryRemoveCashuCheckoutPaymentMethods(
-                            $store->btcpay_store_id,
-                            $userApiKey
-                        );
-                    } catch (\Throwable $e) {
-                        Log::error('Could not remove Cashu checkout payment method at BTCPay', [
-                            'store_id' => $store->id,
-                            'btcpay_store_id' => $store->btcpay_store_id,
-                            'message' => $e->getMessage(),
-                        ]);
+                    if ($fallbackAddress !== null && $fallbackAddress !== '') {
+                        try {
+                            $this->configureCashuFallback($store, $fallbackAddress, $userApiKey, $user);
+                        } catch (\Throwable $e) {
+                            Log::error('Could not configure CashuMelt fallback at BTCPay', [
+                                'store_id' => $store->id,
+                                'btcpay_store_id' => $store->btcpay_store_id,
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
+                    } else {
+                        try {
+                            $this->cashuService->tryDisableAtBtcPay(
+                                $store->btcpay_store_id,
+                                $userApiKey
+                            );
+                        } catch (\Throwable $e) {
+                            Log::error('Could not disable CashuMelt at BTCPay after Lightning wallet connection', [
+                                'store_id' => $store->id,
+                                'btcpay_store_id' => $store->btcpay_store_id,
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
+
+                        try {
+                            $this->cashuService->tryRemoveCashuCheckoutPaymentMethods(
+                                $store->btcpay_store_id,
+                                $userApiKey
+                            );
+                        } catch (\Throwable $e) {
+                            Log::error('Could not remove Cashu checkout payment method at BTCPay', [
+                                'store_id' => $store->id,
+                                'btcpay_store_id' => $store->btcpay_store_id,
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
                     }
 
                     $this->attemptBtcpayWalletSync(
@@ -519,6 +544,53 @@ class WalletConnectionService
             'store_id' => $connection->store_id,
             'marked_by' => $markedBy->id,
             'was_needs_support' => $wasNeedsSupport,
+        ]);
+    }
+
+    /**
+     * Configures CashuMelt as the parallel payout fallback: keeps the plugin enabled
+     * with the given Lightning address (existing mint preserved, default mint otherwise)
+     * and records the state on the store. Checkout prefers the Lightning method; Cashu
+     * stays available when Boltz/Spark are down.
+     */
+    public function configureCashuFallback(Store $store, string $lightningAddress, string $userApiKey, ?User $user = null): void
+    {
+        $mintUrl = config('services.cashu.default_mint_url');
+        try {
+            $existing = $this->cashuService->getSettings($store->btcpay_store_id, $userApiKey);
+            if (! empty($existing['mintUrl'])) {
+                $mintUrl = $existing['mintUrl'];
+            }
+        } catch (\Throwable) {
+            // No existing settings - the default mint applies.
+        }
+
+        $this->cashuService->saveSettings($store->btcpay_store_id, [
+            'mintUrl' => $mintUrl,
+            'lightningAddress' => $lightningAddress,
+            'enabled' => true,
+        ], $userApiKey);
+
+        $store->forceFill([
+            'cashu_fallback_enabled' => true,
+            'cashu_fallback_address' => $lightningAddress,
+        ])->save();
+
+        AuditLog::log(
+            'store.cashu_fallback_configured',
+            'store',
+            $store->id,
+            [
+                'lightning_address' => $lightningAddress,
+                'mint_url' => $mintUrl,
+            ],
+            $user?->id
+        );
+
+        Log::info('CashuMelt parallel fallback configured', [
+            'store_id' => $store->id,
+            'btcpay_store_id' => $store->btcpay_store_id,
+            'mint_url' => $mintUrl,
         ]);
     }
 

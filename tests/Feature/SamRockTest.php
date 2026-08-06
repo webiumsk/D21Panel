@@ -96,6 +96,7 @@ class SamRockTest extends TestCase
         $store = Store::factory()->withAquaBoltz()->create(['user_id' => $user->id]);
 
         Http::fake([
+            'https://btcpay.test/api/v1/stores/'.$store->btcpay_store_id.'/plugins/cashumelt/*' => Http::response([], 200),
             'https://btcpay.test/api/v1/stores/'.$store->btcpay_store_id.'/samrock/otps/otp-xyz' => Http::sequence()
                 ->push([
                     'otp' => 'otp-xyz',
@@ -107,11 +108,17 @@ class SamRockTest extends TestCase
 
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/samrock/complete", [
             'otp' => 'otp-xyz',
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.status', 'connected')
             ->assertJsonPath('data.configuration_source', 'samrock');
+
+        // The pairing also configures the CashuMelt parallel fallback.
+        $store->refresh();
+        $this->assertTrue((bool) $store->cashu_fallback_enabled);
+        $this->assertSame('fallback@example.com', $store->cashu_fallback_address);
 
         $this->assertDatabaseHas('wallet_connections', [
             'store_id' => $store->id,
@@ -139,6 +146,7 @@ class SamRockTest extends TestCase
 
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/samrock/complete", [
             'otp' => 'otp-pending',
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(422);

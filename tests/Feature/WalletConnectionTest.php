@@ -77,6 +77,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => self::VALID_BLINK_SECRET,
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(201)
@@ -103,6 +104,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => 'type=blink;ln-address=satoshi@blink.sv;',
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(201)
@@ -140,6 +142,7 @@ class WalletConnectionTest extends TestCase
         $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => 'satoshi@blink.sv',
+            'fallback_lightning_address' => 'fallback@example.com',
         ])->assertStatus(201);
 
         Http::assertSent(function (Request $request) {
@@ -180,6 +183,7 @@ class WalletConnectionTest extends TestCase
         $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blitz',
             'secret' => 'satoshi@blitzwalletapp.com',
+            'fallback_lightning_address' => 'fallback@example.com',
         ])->assertStatus(201)
             ->assertJsonPath('data.type', 'blitz');
 
@@ -249,6 +253,7 @@ class WalletConnectionTest extends TestCase
         $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blitz',
             'secret' => 'satoshi@blitzwalletapp.com',
+            'fallback_lightning_address' => 'fallback@example.com',
         ])->assertStatus(201)
             ->assertJsonPath('data.type', 'blitz')
             ->assertJsonPath('data.status', 'pending');
@@ -273,8 +278,67 @@ class WalletConnectionTest extends TestCase
         $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blitz',
             'secret' => 'type=blitz;something=else;',
+            'fallback_lightning_address' => 'fallback@example.com',
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['secret']);
+    }
+
+    #[Test]
+    public function nwc_connection_requires_fallback_lightning_address(): void
+    {
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'nwc',
+            'secret' => 'nostr+walletconnect://abc1234567890123456789012345678901234567890123456789012345678901234?relay=wss%3A%2F%2Frelay.example.com&secret=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['fallback_lightning_address']);
+    }
+
+    #[Test]
+    public function blink_ln_address_secret_derives_cashu_fallback_automatically(): void
+    {
+        config(['services.btcpay.base_url' => 'https://btcpay.test']);
+
+        $putPayload = null;
+        Http::fake(function (Request $request) use (&$putPayload) {
+            $url = $request->url();
+            if (str_contains($url, 'cashumelt/settings')) {
+                if ($request->method() === 'PUT') {
+                    $putPayload = $request->data();
+                }
+
+                return Http::response($request->method() === 'PUT' ? ($putPayload ?? []) : [], 200);
+            }
+            if (str_contains($url, '/lightning/')) {
+                return Http::response([], 200);
+            }
+
+            return Http::response(['message' => 'not found'], 404);
+        });
+
+        $user = User::factory()->create(['btcpay_api_key' => 'merchant-key']);
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'blink-derive-store',
+        ]);
+
+        // No explicit fallback - the ln-address inside the secret is used.
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
+            'type' => 'blink',
+            'secret' => 'satoshi@blink.sv',
+        ])->assertStatus(201);
+
+        $this->assertNotNull($putPayload);
+        $this->assertTrue((bool) ($putPayload['enabled'] ?? false));
+        $this->assertSame('satoshi@blink.sv', $putPayload['lightningAddress'] ?? null);
+        // No existing settings at the mint - the configured default mint applies.
+        $this->assertSame(config('services.cashu.default_mint_url'), $putPayload['mintUrl'] ?? null);
+
+        $store->refresh();
+        $this->assertTrue((bool) $store->cashu_fallback_enabled);
+        $this->assertSame('satoshi@blink.sv', $store->cashu_fallback_address);
     }
 
     #[Test]
@@ -286,6 +350,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => 'type=blink;ln-address=@blink.sv;',
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(422)
@@ -343,6 +408,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => self::VALID_BLINK_SECRET,
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(201)
@@ -371,6 +437,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'aqua_descriptor',
             'secret' => self::VALID_AQUA_DESCRIPTOR,
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(201)
@@ -423,6 +490,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'aqua_descriptor',
             'secret' => self::VALID_AQUA_DESCRIPTOR,
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(201)
@@ -498,6 +566,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'nwc',
             'secret' => $nwcUri,
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(201)
@@ -549,6 +618,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'aqua_descriptor',
             'secret' => self::VALID_AQUA_DESCRIPTOR,
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(201)
@@ -571,6 +641,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => 'short',
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
         $response->assertStatus(422)->assertJsonValidationErrors(['secret']);
     }
@@ -585,6 +656,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($other)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => self::VALID_BLINK_SECRET,
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(403);
@@ -759,6 +831,7 @@ class WalletConnectionTest extends TestCase
         $response = $this->actingAs($user2)->postJson("/api/stores/{$store2->id}/wallet-connection", [
             'type' => 'aqua_descriptor',
             'secret' => self::VALID_AQUA_DESCRIPTOR,
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(422)
@@ -789,7 +862,7 @@ class WalletConnectionTest extends TestCase
     }
 
     #[Test]
-    public function saving_blink_wallet_disables_cashumelt_at_btcpay_when_plugin_reports_enabled(): void
+    public function saving_blink_wallet_configures_cashumelt_fallback_at_btcpay(): void
     {
         config(['services.btcpay.base_url' => 'https://btcpay.test']);
 
@@ -826,7 +899,7 @@ class WalletConnectionTest extends TestCase
             if ($request->method() === 'PUT') {
                 $putPayload = $request->data();
 
-                return Http::response(array_merge($putPayload ?? [], ['enabled' => false]), 200);
+                return Http::response($putPayload ?? [], 200);
             }
 
             return Http::response('not found', 404);
@@ -842,17 +915,23 @@ class WalletConnectionTest extends TestCase
         $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => self::VALID_BLINK_SECRET,
+            'fallback_lightning_address' => 'fallback@example.com',
         ])->assertStatus(201);
 
+        // CashuMelt stays enabled in parallel with the new payout address; the existing mint is kept.
         $this->assertNotNull($putPayload);
-        $this->assertFalse((bool) ($putPayload['enabled'] ?? true));
+        $this->assertTrue((bool) ($putPayload['enabled'] ?? false));
+        $this->assertSame('fallback@example.com', $putPayload['lightningAddress'] ?? null);
         $this->assertSame('https://mint.example/x', $putPayload['mintUrl'] ?? null);
         $store->refresh();
         $this->assertSame('blink', $store->wallet_type);
+        $this->assertTrue((bool) $store->cashu_fallback_enabled);
+        $this->assertSame('fallback@example.com', $store->cashu_fallback_address);
 
-        Http::assertSent(function (Request $request) {
+        // The CASHU checkout method is no longer removed - it is the fallback.
+        Http::assertNotSent(function (Request $request) {
             return $request->method() === 'DELETE'
-                && str_contains($request->url(), 'btcpay.test/api/v1/stores/store-btcpay-cashu-switch/payment-methods/CASHU');
+                && str_contains($request->url(), '/payment-methods/CASHU');
         });
 
         $this->assertDatabaseHas('wallet_connections', [
@@ -899,6 +978,7 @@ class WalletConnectionTest extends TestCase
         $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => self::VALID_BLINK_SECRET,
+            'fallback_lightning_address' => 'fallback@example.com',
         ])->assertStatus(201);
 
         $this->assertDatabaseHas('wallet_connections', [

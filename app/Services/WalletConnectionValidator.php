@@ -265,6 +265,31 @@ class WalletConnectionValidator
     }
 
     /**
+     * Lightning address contained in a connection secret, when the secret has one:
+     * blink ln-address variant and blitz secrets carry it, everything else does not.
+     * Used to default the CashuMelt fallback address.
+     */
+    public function deriveLightningAddressFromSecret(string $type, string $secret): ?string
+    {
+        if ($type === 'blink') {
+            $parsed = $this->parseBlinkConnectionString($secret);
+            if (empty($parsed['errors']) && ($parsed['variant'] ?? null) === 'ln_address') {
+                return $parsed['ln_address'] ?: null;
+            }
+
+            return null;
+        }
+
+        if ($type === 'blitz') {
+            $parsed = $this->parseBlitzConnectionString($secret);
+
+            return empty($parsed['errors']) ? ($parsed['ln_address'] ?: null) : null;
+        }
+
+        return null;
+    }
+
+    /**
      * Parse Boltz connection string.
      *
      * Note: Boltz/Aqua typically uses watch-only descriptors, not connection strings.
