@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -95,16 +96,44 @@ class SamRockTest extends TestCase
         $user = User::factory()->create();
         $store = Store::factory()->withAquaBoltz()->create(['user_id' => $user->id]);
 
-        Http::fake([
-            'https://btcpay.test/api/v1/stores/'.$store->btcpay_store_id.'/plugins/cashumelt/*' => Http::response([], 200),
-            'https://btcpay.test/api/v1/stores/'.$store->btcpay_store_id.'/samrock/otps/otp-xyz' => Http::sequence()
-                ->push([
-                    'otp' => 'otp-xyz',
-                    'expiresAt' => '2026-12-01T12:00:00Z',
-                    'status' => 'success',
-                ], 200)
-                ->push([], 200),
-        ]);
+        $cashuSettingsPuts = [];
+        Http::fake(function (Request $request) use ($store, &$cashuSettingsPuts) {
+            $url = $request->url();
+
+            if (str_contains($url, '/plugins/cashumelt/settings')) {
+                if ($request->method() === 'GET') {
+                    return Http::response([
+                        'mintUrl' => 'https://mint.example/x',
+                        'lightningAddress' => 'old-fallback@example.com',
+                        'enabled' => true,
+                    ], 200);
+                }
+                if ($request->method() === 'PUT') {
+                    $cashuSettingsPuts[] = $request->data();
+
+                    return Http::response($request->data() ?? [], 200);
+                }
+            }
+
+            if ($request->method() === 'DELETE' && str_contains($url, '/payment-methods/')) {
+                return Http::response([], 204);
+            }
+
+            if ($url === 'https://btcpay.test/api/v1/stores/'.$store->btcpay_store_id.'/samrock/otps/otp-xyz') {
+                if ($request->method() === 'GET') {
+                    return Http::response([
+                        'otp' => 'otp-xyz',
+                        'expiresAt' => '2026-12-01T12:00:00Z',
+                        'status' => 'success',
+                    ], 200);
+                }
+                if ($request->method() === 'DELETE') {
+                    return Http::response([], 200);
+                }
+            }
+
+            return Http::response(['message' => 'unexpected'], 404);
+        });
 
         $response = $this->actingAs($user)->postJson("/api/stores/{$store->id}/samrock/complete", [
             'otp' => 'otp-xyz',
@@ -119,6 +148,16 @@ class SamRockTest extends TestCase
         $store->refresh();
         $this->assertTrue((bool) $store->cashu_fallback_enabled);
         $this->assertSame('fallback@example.com', $store->cashu_fallback_address);
+        $this->assertNotEmpty($cashuSettingsPuts);
+        $lastPut = $cashuSettingsPuts[array_key_last($cashuSettingsPuts)];
+        $this->assertTrue((bool) ($lastPut['enabled'] ?? false));
+        $this->assertSame('fallback@example.com', $lastPut['lightningAddress'] ?? null);
+        $this->assertSame('https://mint.example/x', $lastPut['mintUrl'] ?? null);
+
+        Http::assertNotSent(function (Request $request) {
+            return $request->method() === 'DELETE'
+                && str_contains($request->url(), '/payment-methods/CASHU');
+        });
 
         $this->assertDatabaseHas('wallet_connections', [
             'store_id' => $store->id,

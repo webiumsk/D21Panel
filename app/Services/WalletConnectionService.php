@@ -279,10 +279,17 @@ class WalletConnectionService
     /**
      * Persist a connected Aqua/Boltz wallet that was configured via BTCPay SamRock OTP (no manual descriptor in Satflux).
      */
-    public function markSamRockConnected(Store $store, User $user): WalletConnection
+    public function markSamRockConnected(Store $store, User $user, ?string $fallbackLightningAddress = null): WalletConnection
     {
         $secret = $this->samRockPlaceholderDescriptor($store);
-        $connection = $this->createOrUpdate($store, 'aqua_descriptor', $secret, $user, 'connected');
+        $connection = $this->createOrUpdate(
+            $store,
+            'aqua_descriptor',
+            $secret,
+            $user,
+            'connected',
+            $fallbackLightningAddress
+        );
         $connection->update(['configuration_source' => 'samrock']);
 
         return $connection->fresh();
