@@ -4,6 +4,7 @@ namespace App\Services\BtcPay;
 
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class StoreService
 {
@@ -83,7 +84,7 @@ class StoreService
      * @param  string  $role  User role in store (e.g., 'Owner', 'Guest', 'Viewer')
      * @return array Store user data
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function addUserToStore(string $storeId, string $userId, string $role = 'Owner'): array
     {
@@ -92,7 +93,7 @@ class StoreService
                 'userId' => $userId,
                 'role' => $role,
             ]);
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             // If user is already in store (409 Conflict or error message contains "already"), this is OK
             $errorMessage = strtolower($e->getMessage());
             if (
@@ -101,7 +102,7 @@ class StoreService
                 str_contains($errorMessage, 'already added') ||
                 str_contains($errorMessage, 'already exists')
             ) {
-                \Illuminate\Support\Facades\Log::info('User already in store, skipping add', [
+                Log::info('User already in store, skipping add', [
                     'store_id' => $storeId,
                     'user_id' => $userId,
                     'role' => $role,
@@ -116,7 +117,7 @@ class StoreService
                     }
                 } catch (\Exception $fetchE) {
                     // If we can't fetch users, just return empty array
-                    \Illuminate\Support\Facades\Log::debug('Could not fetch store users to verify existing user', [
+                    Log::debug('Could not fetch store users to verify existing user', [
                         'store_id' => $storeId,
                         'error' => $fetchE->getMessage(),
                     ]);
@@ -136,7 +137,7 @@ class StoreService
      * @param  string  $storeId  BTCPay store ID
      * @return array List of store users
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function getStoreUsers(string $storeId): array
     {
@@ -150,7 +151,7 @@ class StoreService
      * @param  string  $userId  BTCPay user ID
      * @return bool True if successful
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function removeUserFromStore(string $storeId, string $userId): bool
     {

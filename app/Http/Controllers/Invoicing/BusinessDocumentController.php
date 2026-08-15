@@ -38,9 +38,11 @@ use App\Services\Invoicing\DocumentTotalsCalculator;
 use App\Support\Invoicing\CompanyAppSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class BusinessDocumentController extends Controller
 {
@@ -209,7 +211,7 @@ class BusinessDocumentController extends Controller
     {
         $this->assertDocumentCompany($businessDocument, $company);
 
-        if (! $businessDocument->canUpdate()) {
+        if (! $businessDocument->canUpdate($company)) {
             throw ValidationException::withMessages([
                 'status' => ['This document cannot be edited in its current status.'],
             ]);
@@ -241,7 +243,7 @@ class BusinessDocumentController extends Controller
 
             $this->assertDocumentCompany($locked, $company);
 
-            if (! $locked->canUpdate()) {
+            if (! $locked->canUpdate($company)) {
                 throw ValidationException::withMessages([
                     'status' => ['This document cannot be edited in its current status.'],
                 ]);
@@ -514,7 +516,7 @@ class BusinessDocumentController extends Controller
                 $request->input('subject'),
                 $request->input('body'),
             );
-        } catch (\Symfony\Component\Mailer\Exception\TransportExceptionInterface $e) {
+        } catch (TransportExceptionInterface $e) {
             return response()->json(['message' => 'Email could not be sent: '.$e->getMessage()], 422);
         }
 
@@ -620,7 +622,7 @@ class BusinessDocumentController extends Controller
     {
         $this->assertDocumentCompany($businessDocument, $company);
 
-        if (! $businessDocument->canDelete()) {
+        if (! $businessDocument->canDelete($company)) {
             throw ValidationException::withMessages([
                 'status' => ['This document cannot be deleted. Cancel it first, or delete only the latest invoice without bank matches or linked documents.'],
             ]);
@@ -633,13 +635,13 @@ class BusinessDocumentController extends Controller
         // Lock + re-check + stock reversal in one transaction: deleting an
         // issued document used to leave its stock deducted forever
         // (Cursor PR #67).
-        DB::transaction(function () use ($businessDocument) {
+        DB::transaction(function () use ($businessDocument, $company) {
             $locked = BusinessDocument::query()
                 ->whereKey($businessDocument->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (! $locked->canDelete()) {
+            if (! $locked->canDelete($company)) {
                 throw ValidationException::withMessages([
                     'status' => ['This document cannot be deleted. Cancel it first, or delete only the latest invoice without bank matches or linked documents.'],
                 ]);
@@ -782,14 +784,14 @@ class BusinessDocumentController extends Controller
         if (! $contactId) {
             $issue = $request->input('issue_date') ?? now()->toDateString();
 
-            return \Illuminate\Support\Carbon::parse($issue)->addDays($fallbackDays)->toDateString();
+            return Carbon::parse($issue)->addDays($fallbackDays)->toDateString();
         }
 
         $contact = CompanyContact::find($contactId);
         $days = $contact?->default_payment_terms_days ?? $fallbackDays;
         $issue = $request->input('issue_date') ?? now()->toDateString();
 
-        return \Illuminate\Support\Carbon::parse($issue)->addDays($days)->toDateString();
+        return Carbon::parse($issue)->addDays($days)->toDateString();
     }
 
     protected function defaultDeliveryDate(StoreBusinessDocumentRequest $request, Company $company): ?string

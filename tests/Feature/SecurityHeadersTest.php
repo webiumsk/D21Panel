@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -79,7 +81,7 @@ class SecurityHeadersTest extends TestCase
     {
         config(['security.csp.enabled' => true, 'security.csp.report_only' => false]);
 
-        $user = \App\Models\User::factory()->create(['evolu_relay_url' => 'wss://my-relay.example.com']);
+        $user = User::factory()->create(['evolu_relay_url' => 'wss://my-relay.example.com']);
 
         $policy = (string) $this->actingAs($user)->get('/')->headers->get('Content-Security-Policy');
         preg_match('/connect-src ([^;]+)/', $policy, $m);
@@ -118,7 +120,7 @@ class SecurityHeadersTest extends TestCase
     #[Test]
     public function csp_report_endpoint_accepts_and_logs_reports(): void
     {
-        \Illuminate\Support\Facades\Log::shouldReceive('warning')
+        Log::shouldReceive('warning')
             ->once()
             ->withArgs(function (string $message, array $context): bool {
                 return $message === 'CSP violation reported'
@@ -146,7 +148,7 @@ class SecurityHeadersTest extends TestCase
     #[Test]
     public function csp_report_endpoint_strips_sensitive_url_parts_before_logging(): void
     {
-        \Illuminate\Support\Facades\Log::shouldReceive('warning')
+        Log::shouldReceive('warning')
             ->once()
             ->withArgs(function (string $message, array $context): bool {
                 return $message === 'CSP violation reported'
@@ -183,5 +185,47 @@ class SecurityHeadersTest extends TestCase
         $policy = (string) $response->headers->get('Content-Security-Policy');
         preg_match('/script-src ([^;]+)/', $policy, $m);
         $this->assertStringContainsString('https://analytics.example.com', $m[1] ?? '');
+    }
+
+    #[Test]
+    public function frame_src_allows_the_btcpay_origin_for_the_pos_embed(): void
+    {
+        config([
+            'security.csp.enabled' => true,
+            'security.csp.report_only' => false,
+            'services.btcpay.public_url' => 'https://btcpay.example.com/some/path',
+        ]);
+
+        $response = $this->get('/');
+
+        $csp = (string) $response->headers->get('Content-Security-Policy');
+        $frameSrc = collect(explode(';', $csp))
+            ->map(fn (string $directive) => trim($directive))
+            ->first(fn (string $directive) => str_starts_with($directive, 'frame-src'));
+
+        $this->assertNotNull($frameSrc, 'frame-src directive missing: '.$csp);
+        $this->assertStringContainsString('https://btcpay.example.com', $frameSrc);
+        $this->assertStringNotContainsString('/some/path', $frameSrc);
+    }
+
+    #[Test]
+    public function frame_src_falls_back_to_the_base_url_like_api_config(): void
+    {
+        config([
+            'security.csp.enabled' => true,
+            'security.csp.report_only' => false,
+            'services.btcpay.public_url' => '',
+            'services.btcpay.base_url' => 'https://btcpay-internal.example.com',
+        ]);
+
+        $response = $this->get('/');
+
+        $csp = (string) $response->headers->get('Content-Security-Policy');
+        $frameSrc = collect(explode(';', $csp))
+            ->map(fn (string $directive) => trim($directive))
+            ->first(fn (string $directive) => str_starts_with($directive, 'frame-src'));
+
+        $this->assertNotNull($frameSrc, 'frame-src directive missing: '.$csp);
+        $this->assertStringContainsString('https://btcpay-internal.example.com', $frameSrc);
     }
 }

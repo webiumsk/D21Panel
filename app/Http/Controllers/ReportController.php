@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Services\BtcPay\InvoiceService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Spatie\LaravelPdf\Enums\Format;
 use Spatie\LaravelPdf\Facades\Pdf;
 
 class ReportController extends Controller
@@ -64,7 +65,7 @@ class ReportController extends Controller
         );
 
         return Pdf::view('pdf.store-report', $data)
-            ->format(\Spatie\LaravelPdf\Enums\Format::A4)
+            ->format(Format::A4)
             ->name($filename);
     }
 

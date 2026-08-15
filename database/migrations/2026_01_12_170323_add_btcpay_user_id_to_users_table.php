@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
@@ -21,7 +22,7 @@ return new class extends Migration
                 $table->string('btcpay_user_id')->nullable()->after('lightning_public_key');
                 $table->index('btcpay_user_id');
             });
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // Column already exists, skip
             if (str_contains($e->getMessage(), 'Duplicate column')) {
                 return;

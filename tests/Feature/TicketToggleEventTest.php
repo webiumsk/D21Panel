@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -25,14 +26,14 @@ class TicketToggleEventTest extends TestCase
         $toggleCalled = false;
         $ticketTypesCalled = false;
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, &$toggleCalled, &$ticketTypesCalled) {
+        Http::fake(function (Request $request) use ($baseUrl, &$toggleCalled, &$ticketTypesCalled) {
             $url = (string) $request->url();
 
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
             }
 
-            if ($request->method() === 'GET' && str_contains($url, '/satoshi-tickets/events/evt-1')) {
+            if ($request->method() === 'GET' && str_contains($url, '/satflux-tickets/events/evt-1')) {
                 return Http::response([
                     'id' => 'evt-1',
                     'title' => 'My event',
@@ -41,7 +42,7 @@ class TicketToggleEventTest extends TestCase
                 ], 200);
             }
 
-            if ($request->method() === 'PUT' && str_contains($url, '/satoshi-tickets/events/evt-1/toggle')) {
+            if ($request->method() === 'PUT' && str_contains($url, '/satflux-tickets/events/evt-1/toggle')) {
                 $toggleCalled = true;
 
                 return Http::response([
@@ -80,14 +81,14 @@ class TicketToggleEventTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $toggleCalled = false;
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, &$toggleCalled) {
+        Http::fake(function (Request $request) use ($baseUrl, &$toggleCalled) {
             $url = (string) $request->url();
 
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
             }
 
-            if ($request->method() === 'GET' && str_contains($url, '/satoshi-tickets/events/evt-2')) {
+            if ($request->method() === 'GET' && str_contains($url, '/satflux-tickets/events/evt-2')) {
                 return Http::response([
                     'id' => 'evt-2',
                     'title' => 'Sold event',
@@ -96,7 +97,7 @@ class TicketToggleEventTest extends TestCase
                 ], 200);
             }
 
-            if ($request->method() === 'PUT' && str_contains($url, '/satoshi-tickets/events/evt-2/toggle')) {
+            if ($request->method() === 'PUT' && str_contains($url, '/satflux-tickets/events/evt-2/toggle')) {
                 $toggleCalled = true;
             }
 
@@ -123,18 +124,18 @@ class TicketToggleEventTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $toggleCalled = false;
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, &$toggleCalled) {
+        Http::fake(function (Request $request) use ($baseUrl, &$toggleCalled) {
             $url = (string) $request->url();
 
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
             }
 
-            if ($request->method() === 'GET' && str_contains($url, '/satoshi-tickets/events/evt-3')) {
+            if ($request->method() === 'GET' && str_contains($url, '/satflux-tickets/events/evt-3')) {
                 return Http::response(['message' => 'BTCPay unavailable'], 500);
             }
 
-            if ($request->method() === 'PUT' && str_contains($url, '/satoshi-tickets/events/evt-3/toggle')) {
+            if ($request->method() === 'PUT' && str_contains($url, '/satflux-tickets/events/evt-3/toggle')) {
                 $toggleCalled = true;
             }
 

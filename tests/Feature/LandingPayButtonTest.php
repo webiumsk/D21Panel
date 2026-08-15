@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Store;
 use App\Models\User;
+use App\Services\BtcPay\BtcPayClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
@@ -17,7 +18,7 @@ class LandingPayButtonTest extends TestCase
     {
         parent::setUp();
         config(['services.btcpay.base_url' => 'https://btcpay.test']);
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
     }
 
     #[Test]

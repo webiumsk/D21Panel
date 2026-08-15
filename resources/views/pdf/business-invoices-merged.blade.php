@@ -30,6 +30,8 @@
         $reverseChargeNote = $page['reverseChargeNote'] ?? null;
         $vatLabel = $page['vatLabel'] ?? null;
         $taxIdLabel = $page['taxIdLabel'] ?? null;
+        $taxNumberLabel = $page['taxNumberLabel'] ?? null;
+        $isDe = $page['isDe'] ?? false;
     @endphp
     <div class="invoice-page">
         @include('pdf.partials.business-invoice-body-eu', compact(
@@ -39,6 +41,8 @@
             'lines',
             'vatLabel',
             'taxIdLabel',
+            'taxNumberLabel',
+            'isDe',
             'taxBreakdown',
             'showVatColumn',
             'showVatBreakdown',

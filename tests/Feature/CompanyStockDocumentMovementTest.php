@@ -11,6 +11,7 @@ use App\Models\CompanyWarehouse;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\Invoicing\CompanyStockBalanceService;
 use App\Services\Invoicing\CompanyStockMovementService;
 use App\Services\Invoicing\DocumentSequenceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -284,7 +285,7 @@ class CompanyStockDocumentMovementTest extends TestCase
             'deduct_on_issue' => true,
             'is_active' => true,
         ]);
-        app(\App\Services\Invoicing\CompanyStockBalanceService::class)
+        app(CompanyStockBalanceService::class)
             ->setQuantity($warehouse, $this->stockItem, 10);
 
         $create = $this->actingAs($this->proUser)
@@ -381,7 +382,7 @@ class CompanyStockDocumentMovementTest extends TestCase
     #[Test]
     public function issuing_credit_note_returns_stock(): void
     {
-        app(\App\Services\Invoicing\CompanyStockBalanceService::class)
+        app(CompanyStockBalanceService::class)
             ->setQuantity($this->defaultWarehouse($this->company), $this->stockItem, 5);
 
         $create = $this->actingAs($this->proUser)

@@ -41,6 +41,7 @@ import type { EvoluDocumentEventRow } from "@/evolu/documentEventLog";
 import type { CompanyId, DocumentId } from "@/evolu/schema";
 import { useStoresStore } from "@/store/stores";
 import { toAppRows } from "../evolu/queryLoad";
+import type { LocalDocumentDeletionPolicy } from "@/evolu/documentBulkLocal";
 
 /** Evolu-backed document operations (requires EvoluProvider). */
 export function useLocalInvoiceDocumentSupport() {
@@ -90,6 +91,14 @@ export function useLocalInvoiceDocumentSupport() {
             toAppRows<EvoluDocumentRow>(documentRows.value),
             toAppRows<EvoluNumberSeriesRow>(seriesRows.value),
         );
+    }
+
+    function deletionPolicy(): LocalDocumentDeletionPolicy {
+        return {
+            jurisdictionByCompanyId: new Map(
+                companyRows.value.map((row) => [String(row.id), String(row.jurisdiction ?? "")]),
+            ),
+        };
     }
 
     async function issueLocalDocumentAsyncWrapped(
@@ -143,6 +152,22 @@ export function useLocalInvoiceDocumentSupport() {
             documentId,
             documentRows.value as Parameters<typeof getLocalDocumentApi>[1],
             lineRows.value as Parameters<typeof getLocalDocumentApi>[2],
+            deletionPolicy(),
+        );
+    }
+
+    async function deleteLocalDocumentAsyncWrapped(
+        evoluInst: typeof evolu,
+        documentId: DocumentId,
+        documents: Parameters<typeof deleteLocalDocumentAsync>[2],
+        allSeries: Parameters<typeof deleteLocalDocumentAsync>[3],
+    ) {
+        return deleteLocalDocumentAsync(
+            evoluInst,
+            documentId,
+            documents,
+            allSeries,
+            deletionPolicy(),
         );
     }
 
@@ -180,7 +205,7 @@ export function useLocalInvoiceDocumentSupport() {
         saveLocalDocument,
         issueLocalDocumentAsync: issueLocalDocumentAsyncWrapped,
         deleteLocalDocument,
-        deleteLocalDocumentAsync,
+        deleteLocalDocumentAsync: deleteLocalDocumentAsyncWrapped,
         cancelLocalDocument,
         cancelLocalDocumentAsync,
         markLocalDocumentPaid,

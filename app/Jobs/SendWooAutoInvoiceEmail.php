@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\IntegrationDocumentInbox;
 use App\Models\Store;
 use App\Models\StoreIntegration;
+use App\Models\User;
 use App\Services\Integrations\IntegrationAutoIssueService;
 use App\Services\Invoicing\BusinessDocumentEmailService;
 use Illuminate\Bus\Queueable;
@@ -119,7 +120,7 @@ class SendWooAutoInvoiceEmail implements ShouldQueue
         $emailService->sendEphemeral(
             company: $snapshotCompany,
             document: $document,
-            sender: $sender instanceof \App\Models\User ? $sender : null,
+            sender: $sender instanceof User ? $sender : null,
             to: [$buyerEmail],
         );
 

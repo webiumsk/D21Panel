@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\BusinessDocumentStatus;
+use App\Enums\BusinessDocumentType;
 use App\Enums\CompanyJurisdiction;
+use App\Models\BusinessDocument;
 use App\Models\BusinessDocumentLine;
 use App\Models\Company;
 use App\Models\Subscription;
@@ -126,10 +129,10 @@ class CompanyStockItemCrudTest extends TestCase
         ], quantity: 5);
 
         BusinessDocumentLine::create([
-            'business_document_id' => \App\Models\BusinessDocument::create([
+            'business_document_id' => BusinessDocument::create([
                 'company_id' => $this->company->id,
-                'type' => \App\Enums\BusinessDocumentType::Invoice,
-                'status' => \App\Enums\BusinessDocumentStatus::Draft,
+                'type' => BusinessDocumentType::Invoice,
+                'status' => BusinessDocumentStatus::Draft,
                 'total' => 10,
                 'currency' => 'EUR',
                 'lines' => [],

@@ -16,9 +16,9 @@ return new class extends Migration
             $table->unsignedInteger('max_events')->nullable()->after('max_ln_addresses');
         });
 
-        \DB::table('subscription_plans')->where('code', 'free')->update(['max_events' => 1]);
-        \DB::table('subscription_plans')->where('code', 'pro')->update(['max_events' => 3]);
-        \DB::table('subscription_plans')->where('code', 'enterprise')->update(['max_events' => null]);
+        DB::table('subscription_plans')->where('code', 'free')->update(['max_events' => 1]);
+        DB::table('subscription_plans')->where('code', 'pro')->update(['max_events' => 3]);
+        DB::table('subscription_plans')->where('code', 'enterprise')->update(['max_events' => null]);
     }
 
     /**

@@ -179,6 +179,11 @@ export const InvoicingLocalSchema = {
         taxId: OptionalString64,
         vatNumber: OptionalString32,
         commercialRegister: OptionalString512,
+        // DE Geschaeftsbrief corporate data (GmbH/UG mandatory footer).
+        registerCourt: OptionalString128,
+        registerNumber: OptionalString64,
+        managingDirectors: OptionalString512,
+        supervisoryBoardChair: OptionalString128,
         street: OptionalString255,
         city: OptionalString128,
         postalCode: OptionalString32,

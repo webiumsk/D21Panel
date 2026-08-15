@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import type { InvoiceLineForm } from '../components/invoicing/InvoiceLivePreview.vue';
 import { invoicingApi } from '../services/api';
 import { isInvoicingLocalFirst } from '../evolu/flags';
+import { deFullInvoiceBuyerMissing } from '../evolu/deInvoiceRules';
 import { defaultPdfLocaleForJurisdiction } from '../config/jurisdictionRules';
 import { allDocumentEventsQuery, allDocumentSnapshotsQuery } from '../evolu/client';
 import {
@@ -154,8 +155,18 @@ export function useInvoiceDocument() {
   });
 
   const isIssued = computed(() => documentStatus.value === 'issued');
-  const isLocked = computed(() => ['paid', 'cancelled'].includes(documentStatus.value));
-  const canUpdate = computed(() => ['draft', 'issued'].includes(documentStatus.value));
+  const isDeGobdLocked = computed(
+    // GoBD (DE companies): an issued document is immutable - corrections go
+    // through storno or a credit note, never a retro-edit.
+    () => company.value?.jurisdiction === 'eu_de' && documentStatus.value === 'issued',
+  );
+  const isLocked = computed(
+    () => ['paid', 'cancelled'].includes(documentStatus.value) || isDeGobdLocked.value,
+  );
+  const canUpdate = computed(
+    () => documentStatus.value === 'draft'
+      || (documentStatus.value === 'issued' && !isDeGobdLocked.value),
+  );
   const defaultVat = computed(() => Number(company.value?.vat_rate_default ?? 23));
   const isUsCompany = computed(() => company.value?.jurisdiction === 'us');
   const vatPolicy = useCompanyVatPolicy();
@@ -250,7 +261,9 @@ export function useInvoiceDocument() {
     if (isUsCompany.value) {
       return true;
     }
-    return vatPolicy.calculatesVatAmounts(company.value);
+    // Contact-aware: §4 payer invoicing an EU VAT-registered business
+    // (reverse charge) charges no VAT.
+    return vatPolicy.calculatesVatAmounts(company.value, selectedContact.value);
   }
 
   function lineTaxRate(line: InvoiceLineForm) {
@@ -416,6 +429,7 @@ export function useInvoiceDocument() {
 
   const KNOWN_ISSUE_ERROR_CODES = new Set([
     'validation',
+    'issued_locked',
     'issue',
     'issue_requires_online',
     'reserve_failed',
@@ -446,6 +460,7 @@ export function useInvoiceDocument() {
       || e.response?.data?.errors?.status?.[0]
       || e.response?.data?.errors?.store_id?.[0]
       || e.response?.data?.errors?.document?.[0]
+      || (e.message === 'issued_locked' ? t('invoicing.issued_locked_gobd') : null)
       || (e.message === 'validation' ? t('invoicing.company_save_validation_error') : null)
       || (e.message === 'issue' || e.message === 'reserve_failed' || e.message === 'not_draft' || e.message === 'series_update_failed' || e.message === 'no_default_series' || e.message === 'number_collision'
         ? t('invoicing.issue_error')
@@ -468,11 +483,14 @@ export function useInvoiceDocument() {
       documentId: documentId.value as DocumentId | undefined,
       existingDocument: existingLocalDocument(),
       // Edit + re-freeze (audit F2): saving an issued document appends a new
-      // snapshot version with the current supplier/buyer.
+      // snapshot version with the current supplier/buyer. DE companies are
+      // exempt from re-freezing by design - their issued documents are
+      // immutable (GoBD), enforced below.
       refreezeContext: {
         company: (company.value as Record<string, unknown> | null) ?? null,
         contact: (selectedContact.value as Record<string, unknown> | null) ?? null,
       },
+      lockIssuedContent: company.value?.jurisdiction === 'eu_de',
     };
   }
 
@@ -486,7 +504,7 @@ export function useInvoiceDocument() {
       localSaveOptions(),
     );
     if (!saveResult.ok) {
-      throw new Error('validation');
+      throw new Error(typeof saveResult.error === 'string' ? saveResult.error : 'validation');
     }
     await local.refreshAll();
   }
@@ -1119,7 +1137,7 @@ export function useInvoiceDocument() {
       },
     );
     if (!saveResult.ok) {
-      throw new Error('validation');
+      throw new Error(typeof saveResult.error === 'string' ? saveResult.error : 'validation');
     }
     const docId = saveResult.value.id;
     if (isNewDocument) {
@@ -1134,6 +1152,20 @@ export function useInvoiceDocument() {
         local.companyRows.value,
       ).find((c) => c.id === companyId.value);
       if (!companyRow) throw new Error('company');
+      // DE § 14 UStG: above the 250 EUR Kleinbetrag limit the buyer's full
+      // name and address are mandatory - block the issue with an
+      // actionable message instead of producing a non-compliant invoice.
+      if (
+        deFullInvoiceBuyerMissing({
+          documentType: documentType.value,
+          jurisdiction: companyRow.jurisdiction,
+          currency: form.currency,
+          totalGross: previewTotals.value.total,
+          buyer: selectedContact.value,
+        })
+      ) {
+        throw new Error(t('invoicing.de_full_invoice_buyer_required'));
+      }
       const issueResult = await local.issueLocalDocumentAsync(
         local.evolu,
         docId as DocumentId,

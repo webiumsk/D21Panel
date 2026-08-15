@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Store;
 use App\Services\BtcPay\InvoiceService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -202,7 +203,7 @@ class StoreInvoiceStatsService
                     if (! $createdTime) {
                         continue;
                     }
-                    $day = \Carbon\Carbon::parse($createdTime)->startOfDay()->format('Y-m-d');
+                    $day = Carbon::parse($createdTime)->startOfDay()->format('Y-m-d');
                     if (isset($sales7[$day])) {
                         $sales7[$day]['count']++;
                         $total7d++;

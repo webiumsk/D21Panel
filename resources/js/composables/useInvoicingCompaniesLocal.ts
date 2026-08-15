@@ -6,6 +6,8 @@ import {
     useInvoicingEvolu,
 } from "@/evolu/client";
 import { loadEvoluQueryWithTimeout } from "@/evolu/queryLoad";
+import { sleep } from "@/evolu/asyncTimeout";
+import { detectEvoluMultiTabContention } from "@/evolu/multiTab";
 import {
     isEvoluRelaySyncPending,
     pullInvoicingFromRelay,
@@ -47,12 +49,21 @@ async function loadCompanyQueries(evolu: ReturnType<typeof useInvoicingEvolu>): 
     ]);
 }
 
+/**
+ * Grace period before we check whether a still-pending load is caused by
+ * another open tab. Evolu shares one worker across tabs; a proxy tab whose
+ * handshake was missed never resolves a query, so without this the list would
+ * spin indefinitely (see resources/js/evolu/multiTab.ts).
+ */
+const MULTI_TAB_WATCHDOG_MS = 6_000;
+
 /** Local-first company list (requires EvoluProvider). */
 export function useLocalInvoicingCompanies(): UseInvoicingCompaniesResult {
     const evolu = useInvoicingEvolu();
     const loading = ref(true);
     const forbidden = ref(false);
     const loadError = ref(false);
+    const multiTabBlocked = ref(false);
 
     const companiesPromise = loadEvoluQueryWithTimeout(evolu, allCompaniesQuery);
     const documentsPromise = loadEvoluQueryWithTimeout(evolu, allDocumentsQuery);
@@ -61,6 +72,21 @@ export function useLocalInvoicingCompanies(): UseInvoicingCompaniesResult {
     const documentRows = useQuery(allDocumentsQuery, { promise: documentsPromise });
 
     void (async () => {
+        let done = false;
+
+        // Watchdog: if the local queries are still pending after a short grace
+        // period and another tab holds the Evolu worker lock, surface an
+        // actionable message instead of an indefinite spinner.
+        void (async () => {
+            await sleep(MULTI_TAB_WATCHDOG_MS);
+            if (done || !loading.value) return;
+            if (await detectEvoluMultiTabContention()) {
+                multiTabBlocked.value = true;
+                loadError.value = true;
+                loading.value = false;
+            }
+        })();
+
         try {
             await Promise.all([companiesPromise, documentsPromise]);
             if (isEvoluRelaySyncPending()) {
@@ -69,9 +95,13 @@ export function useLocalInvoicingCompanies(): UseInvoicingCompaniesResult {
                 await pullInvoicingFromRelay(evolu, { timeoutMs: 20_000 });
             }
             await loadCompanyQueries(evolu);
+            // Recovered (e.g. the other tab closed) - clear any watchdog state.
+            multiTabBlocked.value = false;
+            loadError.value = false;
         } catch {
             loadError.value = true;
         } finally {
+            done = true;
             loading.value = false;
         }
     })();
@@ -83,6 +113,7 @@ export function useLocalInvoicingCompanies(): UseInvoicingCompaniesResult {
     async function refresh(): Promise<void> {
         loading.value = true;
         loadError.value = false;
+        multiTabBlocked.value = false;
         try {
             if (isEvoluRelaySyncPending()) {
                 await waitForInvoicingRelaySync(evolu);
@@ -91,6 +122,9 @@ export function useLocalInvoicingCompanies(): UseInvoicingCompaniesResult {
             }
             await loadCompanyQueries(evolu);
         } catch {
+            if (await detectEvoluMultiTabContention()) {
+                multiTabBlocked.value = true;
+            }
             loadError.value = true;
         } finally {
             loading.value = false;
@@ -103,6 +137,7 @@ export function useLocalInvoicingCompanies(): UseInvoicingCompaniesResult {
         loading,
         forbidden,
         loadError,
+        multiTabBlocked,
         refresh,
     };
 }

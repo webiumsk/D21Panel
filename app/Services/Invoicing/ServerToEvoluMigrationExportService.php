@@ -24,6 +24,7 @@ use App\Support\Invoicing\CompanyEfakturaSettings;
 use App\Support\Invoicing\CompanyEmailSettings;
 use App\Support\Invoicing\IsoCountryCode;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -433,10 +434,10 @@ class ServerToEvoluMigrationExportService
     }
 
     /**
-     * @param  callable(): \Illuminate\Support\Collection<int, mixed>  $callback
-     * @return \Illuminate\Support\Collection<int, mixed>
+     * @param  callable(): Collection<int, mixed>  $callback
+     * @return Collection<int, mixed>
      */
-    private function loadCollection(string $section, callable $callback): \Illuminate\Support\Collection
+    private function loadCollection(string $section, callable $callback): Collection
     {
         try {
             return $callback();

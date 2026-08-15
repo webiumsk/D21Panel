@@ -19,8 +19,8 @@ return new class extends Migration
         });
 
         // Backfill code from name for existing rows
-        foreach (\DB::table('subscription_plans')->get() as $row) {
-            \DB::table('subscription_plans')->where('id', $row->id)->update([
+        foreach (DB::table('subscription_plans')->get() as $row) {
+            DB::table('subscription_plans')->where('id', $row->id)->update([
                 'code' => strtolower($row->name),
             ]);
         }

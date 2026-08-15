@@ -112,6 +112,24 @@
               <p v-if="selectedContact && formatContactAddress(selectedContact)" class="text-xs text-gray-600 leading-relaxed">
                 {{ formatContactAddress(selectedContact) }}
               </p>
+              <p
+                v-if="efakturaIndicator === 'ok'"
+                class="text-xs text-emerald-700 leading-relaxed"
+              >
+                {{ t('invoicing.efaktura_will_send') }}
+              </p>
+              <p
+                v-else-if="efakturaIndicator === 'missing_ids'"
+                class="text-xs text-amber-600 leading-relaxed"
+              >
+                {{ t('invoicing.efaktura_indicator_missing_ids') }}
+              </p>
+              <p
+                v-else-if="efakturaIndicator"
+                class="text-xs text-gray-500 leading-relaxed"
+              >
+                {{ t(`invoicing.efaktura_indicator_${efakturaIndicator}`) }}
+              </p>
               <div class="flex flex-wrap gap-3 text-sm">
                 <button
                   v-if="!isLocked"
@@ -495,6 +513,8 @@ import {
 import { companyCurrencyOptions } from '../../config/companyCurrencies';
 import { allowedVatRates, vatRateOutsideJurisdiction } from '../../config/jurisdictionRules';
 import { appSettingsFromCompany } from '../../composables/useCompanyAppSettings';
+import { efakturaSendability } from '../../composables/useCompanyEfakturaSettings';
+import { useEfakturaFeature } from '../../composables/useEfakturaFeature';
 import { useInvoiceDocument } from '../../composables/useInvoiceDocument';
 import type { CompanyContactRow } from '../../composables/useCompanyContact';
 import { useInvoicingInvoiceTemplates } from '../../composables/useInvoicingInvoiceTemplates';
@@ -554,6 +574,20 @@ const {
 } = useInvoiceDocument();
 
 const { rememberCompany } = useInvoicingLayout();
+const { enabled: efakturaGloballyEnabled, load: loadEfakturaFeature } = useEfakturaFeature();
+
+// "Invisible" e-faktura: the merchant sees right on the form whether this
+// document will go out electronically, and if not, the first reason why.
+// Renders only for e-faktura companies (SK full payers with the module on).
+const efakturaIndicator = computed(() => {
+  if (documentType.value !== 'invoice' && documentType.value !== 'credit_note') {
+    return null;
+  }
+  const kind = efakturaSendability(company.value, selectedContact.value, efakturaGloballyEnabled.value);
+
+  // An empty customer select explains itself - stay quiet until a pick.
+  return kind === 'no_contact' ? null : kind;
+});
 
 const flashStore = useFlashStore();
 const {
@@ -793,6 +827,7 @@ async function save(downloadPdf: boolean) {
 
 onMounted(async () => {
   rememberCompany(companyId.value);
+  void loadEfakturaFeature();
   documentType.value =
     documentKind.value === 'proforma'
       ? 'proforma'

@@ -19,6 +19,26 @@ updates:
         applies-to: version-updates
         update-types:
           - patch
+    # Deferred majors - each needs a dedicated migration, not a dep bump.
+    # Minor/patch still flow. Revisit per docs/DEPENDABOT_MAINTENANCE.md.
+    ignore:
+      # vite 8 = Rolldown/Oxc migration (esbuild no longer bundled;
+      # optimizeDeps.esbuildOptions -> rolldownOptions, transformWithEsbuild).
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      # laravel-vite-plugin v3 requires vite ^8 - coupled with the vite migration.
+      - dependency-name: "laravel-vite-plugin"
+        update-types: ["version-update:semver-major"]
+      # vue-router v5 = build-time/typed router; needs vite 8 + pinia 3 +
+      # @pinia/colada and a routing rewrite (we use the v4 runtime API).
+      - dependency-name: "vue-router"
+        update-types: ["version-update:semver-major"]
+      # tiptap 3 = coordinated migration across all 16 @tiptap/* packages.
+      - dependency-name: "@tiptap/*"
+        update-types: ["version-update:semver-major"]
+      # @vue/eslint-config-typescript v14 requires ESLint 9 (flat config migration).
+      - dependency-name: "@vue/eslint-config-typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: composer
     directory: /
@@ -33,6 +53,13 @@ updates:
         applies-to: version-updates
         update-types:
           - patch
+    # Deferred majors - dedicated migration, not a dep bump. Minor/patch flow.
+    ignore:
+      # Laravel 12 -> 13 is a full framework major migration (breaking changes
+      # + a stricter Pint preset that reformats ~160 files). Do it deliberately,
+      # not as a Dependabot merge. See docs/DEPENDABOT_MAINTENANCE.md.
+      - dependency-name: "laravel/framework"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

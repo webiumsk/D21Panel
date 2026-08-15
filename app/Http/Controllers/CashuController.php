@@ -8,6 +8,7 @@ use App\Services\BtcPay\CashuService;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\LightningService;
 use App\Services\StoreChecklistService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,7 +26,7 @@ class CashuController extends Controller
      * Confirm account password (or LNURL / Nostr challenge) before editing Cashu settings in the UI.
      * Recovery-phrase accounts may confirm with their authenticated session only.
      */
-    public function confirmEdit(Request $request, Store $store): \Illuminate\Http\JsonResponse
+    public function confirmEdit(Request $request, Store $store): JsonResponse
     {
         if (($store->wallet_type ?? null) !== 'cashu') {
             throw ValidationException::withMessages([
@@ -42,11 +43,11 @@ class CashuController extends Controller
         return response()->json(['data' => ['ok' => true]]);
     }
 
-    public function getSettings(Store $store): \Illuminate\Http\JsonResponse
+    public function getSettings(Store $store): JsonResponse
     {
         $wt = $store->wallet_type ?? null;
 
-        if ($this->isLightningWalletTypeForCashuSwitch($wt)) {
+        if ($this->isLightningWalletTypeForCashuSwitch($wt) && ! $store->cashu_fallback_enabled) {
             return response()->json([
                 'data' => $this->emptyCashuSettingsPayload(),
             ]);
@@ -63,7 +64,7 @@ class CashuController extends Controller
         ]);
     }
 
-    public function updateSettings(Request $request, Store $store): \Illuminate\Http\JsonResponse
+    public function updateSettings(Request $request, Store $store): JsonResponse
     {
         $previousWalletType = $store->wallet_type ?? null;
         $switchingFromLightning = $this->isLightningWalletTypeForCashuSwitch($previousWalletType)
@@ -93,14 +94,7 @@ class CashuController extends Controller
 
         try {
             $updated = DB::transaction(function () use ($store, $payload, $userApiKey, $switchingFromLightning) {
-                if ($switchingFromLightning) {
-                    $store->walletConnection()?->delete();
-                }
-
-                if (($store->wallet_type ?? null) === null || $switchingFromLightning) {
-                    $store->update(['wallet_type' => 'cashu']);
-                    $store->refresh();
-                }
+                $store->markAsPureCashu($switchingFromLightning);
 
                 return $this->cashuService->saveSettings($store->btcpay_store_id, $payload, $userApiKey);
             });
@@ -149,7 +143,7 @@ class CashuController extends Controller
         return response()->json(['data' => $data]);
     }
 
-    public function listPayments(Request $request, Store $store): \Illuminate\Http\JsonResponse
+    public function listPayments(Request $request, Store $store): JsonResponse
     {
         $this->ensureCashuStore($store);
 
@@ -188,7 +182,7 @@ class CashuController extends Controller
         ]);
     }
 
-    public function retryPayment(Request $request, Store $store, string $quoteId): \Illuminate\Http\JsonResponse
+    public function retryPayment(Request $request, Store $store, string $quoteId): JsonResponse
     {
         $this->ensureCashuStore($store);
 
@@ -204,15 +198,18 @@ class CashuController extends Controller
             'data' => [
                 'settled' => $result['settled'] ?? null,
                 'error' => $result['error'] ?? null,
+                'retry_after_seconds' => $result['retryAfterSeconds'] ?? $result['retry_after_seconds'] ?? null,
             ],
         ]);
     }
 
     protected function ensureCashuStore(Store $store): void
     {
-        if (($store->wallet_type ?? null) !== 'cashu') {
-            abort(404, 'Cashu wallet is not configured for this store.');
+        if (($store->wallet_type ?? null) === 'cashu' || $store->cashu_fallback_enabled) {
+            return;
         }
+
+        abort(404, 'Cashu wallet is not configured for this store.');
     }
 
     /**
@@ -221,7 +218,7 @@ class CashuController extends Controller
     private function isLightningWalletTypeForCashuSwitch(?string $walletType): bool
     {
         return $walletType === null
-            || in_array($walletType, ['blink', 'aqua_boltz', 'nwc'], true);
+            || in_array($walletType, ['blink', 'blitz', 'flash', 'lnaddress', 'aqua_boltz', 'nwc'], true);
     }
 
     /**
@@ -259,6 +256,9 @@ class CashuController extends Controller
             'paid_at' => $item['paidAt'] ?? $item['paid_at'] ?? null,
             'settled_at' => $settledAt,
             'mint_quote_poll_url' => is_string($pollUrl) && $pollUrl !== '' ? $pollUrl : null,
+            'retry_count' => (int) ($item['retryCount'] ?? $item['retry_count'] ?? 0),
+            'needs_manual_review' => (bool) ($item['needsManualReview'] ?? $item['needs_manual_review'] ?? false),
+            'failure_reason_code' => $item['failureReasonCode'] ?? $item['failure_reason_code'] ?? null,
         ];
     }
 

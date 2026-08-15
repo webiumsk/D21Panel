@@ -10,18 +10,21 @@ use App\Models\WalletConnection;
 use App\Notifications\SupportNeededNotification;
 use App\Notifications\WalletConnectionChangedNotification;
 use App\Notifications\WalletConnectionNeedsSupportMerchantNotification;
+use App\Notifications\WalletConnectionReadyNotification;
 use App\Services\BtcPay\BoltzService;
+use App\Services\BtcPay\CashuService;
 use App\Services\BtcPay\LightningService;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 
 class WalletConnectionService
 {
     public function __construct(
         protected WalletConnectionValidator $validator,
-        protected \App\Services\BtcPay\CashuService $cashuService,
+        protected CashuService $cashuService,
         protected LightningService $lightningService,
         protected BoltzService $boltzService,
     ) {}
@@ -34,10 +37,16 @@ class WalletConnectionService
      * @param  User  $user  User submitting the connection
      * @param  string  $initialStatus  'pending' = bot will run first, no support emails yet; 'needs_support' = notify support immediately
      *
-     * @throws \Illuminate\Validation\ValidationException
+     * @throws ValidationException
      */
-    public function createOrUpdate(Store $store, string $type, string $secret, User $user, string $initialStatus = 'needs_support'): WalletConnection
-    {
+    public function createOrUpdate(
+        Store $store,
+        string $type,
+        string $secret,
+        User $user,
+        string $initialStatus = 'needs_support',
+        ?string $fallbackLightningAddress = null,
+    ): WalletConnection {
         Log::info('WalletConnectionService::createOrUpdate called', [
             'store_id' => $store->id,
             'store_btcpay_store_id' => $store->btcpay_store_id ?? 'NULL',
@@ -68,7 +77,7 @@ class WalletConnectionService
                 'type' => $type,
                 'errors' => $validation['errors'] ?? [],
             ]);
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'secret' => $validation['errors'],
             ]);
         }
@@ -83,7 +92,7 @@ class WalletConnectionService
                     'existing_store_id' => $duplicateCheck['existing_store_id'],
                     'existing_store_name' => $duplicateCheck['existing_store_name'],
                 ]);
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'secret' => [
                         'This descriptor is already in use by another store. '.
                         'BTCPay allows each descriptor to be used only once. '.
@@ -107,7 +116,8 @@ class WalletConnectionService
         // Switching Aqua/Boltz → Blink while still "pending" must also use reconfig: BTCPay may already
         // have a Boltz connection string; the first-setup wizard does not replace it.
         $cameFromCashu = ($store->wallet_type ?? null) === 'cashu';
-        $blinkBotUseReconfigPath = $type === 'blink' && ($wasConnected || $cameFromCashu || $hadAquaDescriptor);
+        $blinkBotUseReconfigPath = in_array($type, ['blink', 'blitz', 'flash', 'lnaddress'], true)
+            && ($wasConnected || $cameFromCashu || $hadAquaDescriptor);
 
         Log::info('Checking for existing wallet connection', [
             'store_id' => $store->id,
@@ -134,7 +144,7 @@ class WalletConnectionService
                     'configuration_source' => null,
                     'encrypted_secret' => Crypt::encryptString($secret),
                     'status' => $initialStatus,
-                    'reconfig' => $type === 'blink' ? $blinkBotUseReconfigPath : $wasConnected,
+                    'reconfig' => in_array($type, ['blink', 'blitz', 'flash', 'lnaddress'], true) ? $blinkBotUseReconfigPath : $wasConnected,
                     'bot_failure_message' => null,
                     'bot_failed_at' => null,
                     'secret_updated_at' => now(),
@@ -162,7 +172,7 @@ class WalletConnectionService
                 'wallet_type' => $storeWalletType,
             ]);
 
-            if (in_array($storeWalletType, ['blink', 'aqua_boltz', 'nwc'], true)) {
+            if (in_array($storeWalletType, ['blink', 'blitz', 'flash', 'lnaddress', 'aqua_boltz', 'nwc'], true)) {
                 $merchant = $store->user;
                 $userApiKey = ($merchant && filled($merchant->btcpay_api_key ?? null))
                     ? $merchant->btcpay_api_key
@@ -176,30 +186,49 @@ class WalletConnectionService
                 }
 
                 if ($userApiKey) {
-                    try {
-                        $this->cashuService->tryDisableAtBtcPay(
-                            $store->btcpay_store_id,
-                            $userApiKey
-                        );
-                    } catch (\Throwable $e) {
-                        Log::error('Could not disable CashuMelt at BTCPay after Lightning wallet connection', [
-                            'store_id' => $store->id,
-                            'btcpay_store_id' => $store->btcpay_store_id,
-                            'message' => $e->getMessage(),
-                        ]);
-                    }
+                    // CashuMelt stays enabled in parallel as the payout fallback (Boltz/Spark
+                    // outages). The address comes from the request or is derived from
+                    // blink/blitz ln-address secrets; without one we fall back to the old
+                    // behavior of disabling CashuMelt entirely.
+                    $fallbackAddress = $fallbackLightningAddress
+                        ?: $this->validator->deriveLightningAddressFromSecret($type, $secret);
 
-                    try {
-                        $this->cashuService->tryRemoveCashuCheckoutPaymentMethods(
-                            $store->btcpay_store_id,
-                            $userApiKey
-                        );
-                    } catch (\Throwable $e) {
-                        Log::error('Could not remove Cashu checkout payment method at BTCPay', [
-                            'store_id' => $store->id,
-                            'btcpay_store_id' => $store->btcpay_store_id,
-                            'message' => $e->getMessage(),
-                        ]);
+                    if ($fallbackAddress !== null && $fallbackAddress !== '') {
+                        try {
+                            $this->configureCashuFallback($store, $fallbackAddress, $userApiKey, $user);
+                        } catch (\Throwable $e) {
+                            Log::error('Could not configure CashuMelt fallback at BTCPay', [
+                                'store_id' => $store->id,
+                                'btcpay_store_id' => $store->btcpay_store_id,
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
+                    } else {
+                        try {
+                            $this->cashuService->tryDisableAtBtcPay(
+                                $store->btcpay_store_id,
+                                $userApiKey
+                            );
+                        } catch (\Throwable $e) {
+                            Log::error('Could not disable CashuMelt at BTCPay after Lightning wallet connection', [
+                                'store_id' => $store->id,
+                                'btcpay_store_id' => $store->btcpay_store_id,
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
+
+                        try {
+                            $this->cashuService->tryRemoveCashuCheckoutPaymentMethods(
+                                $store->btcpay_store_id,
+                                $userApiKey
+                            );
+                        } catch (\Throwable $e) {
+                            Log::error('Could not remove Cashu checkout payment method at BTCPay', [
+                                'store_id' => $store->id,
+                                'btcpay_store_id' => $store->btcpay_store_id,
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
                     }
 
                     $this->attemptBtcpayWalletSync(
@@ -250,10 +279,17 @@ class WalletConnectionService
     /**
      * Persist a connected Aqua/Boltz wallet that was configured via BTCPay SamRock OTP (no manual descriptor in Satflux).
      */
-    public function markSamRockConnected(Store $store, User $user): WalletConnection
+    public function markSamRockConnected(Store $store, User $user, ?string $fallbackLightningAddress = null): WalletConnection
     {
         $secret = $this->samRockPlaceholderDescriptor($store);
-        $connection = $this->createOrUpdate($store, 'aqua_descriptor', $secret, $user, 'connected');
+        $connection = $this->createOrUpdate(
+            $store,
+            'aqua_descriptor',
+            $secret,
+            $user,
+            'connected',
+            $fallbackLightningAddress
+        );
         $connection->update(['configuration_source' => 'samrock']);
 
         return $connection->fresh();
@@ -326,7 +362,14 @@ class WalletConnectionService
         if ($webhookUrl) {
             try {
                 $storeName = $store->name;
-                $typeLabel = $connection->type === 'blink' ? 'Blink' : 'Aqua/Bull (Boltz)';
+                $typeLabel = match ($connection->type) {
+                    'blink' => 'Blink',
+                    'blitz' => 'Blitz Wallet',
+                    'flash' => 'Flash Wallet',
+                    'lnaddress' => 'LN Address',
+                    'nwc' => 'NWC',
+                    default => 'Aqua/Bull (Boltz)',
+                };
                 $panelUrl = rtrim(config('app.url'), '/').'/support/wallet-connections';
 
                 Http::timeout(10)->post($webhookUrl, [
@@ -487,7 +530,7 @@ class WalletConnectionService
 
             if ($merchant && $merchant->email) {
                 try {
-                    $merchant->notify(new \App\Notifications\WalletConnectionReadyNotification($store, $connection));
+                    $merchant->notify(new WalletConnectionReadyNotification($store, $connection));
                     Log::info('Wallet connection ready notification sent', [
                         'connection_id' => $connection->id,
                         'store_id' => $connection->store_id,
@@ -513,11 +556,61 @@ class WalletConnectionService
         ]);
     }
 
+    /**
+     * Configures CashuMelt as the parallel payout fallback: keeps the plugin enabled
+     * with the given Lightning address (existing mint preserved, default mint otherwise)
+     * and records the state on the store. Checkout prefers the Lightning method; Cashu
+     * stays available when Boltz/Spark are down.
+     */
+    public function configureCashuFallback(Store $store, string $lightningAddress, string $userApiKey, ?User $user = null): void
+    {
+        $mintUrl = config('services.cashu.default_mint_url');
+        try {
+            $existing = $this->cashuService->getSettings($store->btcpay_store_id, $userApiKey);
+            if (! empty($existing['mintUrl'])) {
+                $mintUrl = $existing['mintUrl'];
+            }
+        } catch (\Throwable) {
+            // No existing settings - the default mint applies.
+        }
+
+        $this->cashuService->saveSettings($store->btcpay_store_id, [
+            'mintUrl' => $mintUrl,
+            'lightningAddress' => $lightningAddress,
+            'enabled' => true,
+        ], $userApiKey);
+
+        $store->forceFill([
+            'cashu_fallback_enabled' => true,
+            'cashu_fallback_address' => $lightningAddress,
+        ])->save();
+
+        AuditLog::log(
+            'store.cashu_fallback_configured',
+            'store',
+            $store->id,
+            [
+                'lightning_address' => $lightningAddress,
+                'mint_url' => $mintUrl,
+            ],
+            $user?->id
+        );
+
+        Log::info('CashuMelt parallel fallback configured', [
+            'store_id' => $store->id,
+            'btcpay_store_id' => $store->btcpay_store_id,
+            'mint_url' => $mintUrl,
+        ]);
+    }
+
     protected function resolveStoreWalletType(string $connectionType): string
     {
         return match ($connectionType) {
             'aqua_descriptor' => 'aqua_boltz',
             'nwc' => 'nwc',
+            'blitz' => 'blitz',
+            'flash' => 'flash',
+            'lnaddress' => 'lnaddress',
             default => 'blink',
         };
     }
@@ -534,7 +627,16 @@ class WalletConnectionService
             return;
         }
 
-        if ($type === 'blink') {
+        // Lightning-address style connections share one flow: best-effort clear of
+        // the existing BTCPay Lightning config, then connect with the canonical string.
+        $lnFlows = [
+            'blink' => ['label' => 'Blink', 'format' => fn (string $s): string => $this->validator->formatBtcpayBlinkConnectionString($s)],
+            'blitz' => ['label' => 'Blitz', 'format' => fn (string $s): string => $this->validator->formatBtcpayBlitzConnectionString($s)],
+            'flash' => ['label' => 'Flash', 'format' => fn (string $s): string => $this->validator->formatBtcpayFlashConnectionString($s)],
+            'lnaddress' => ['label' => 'LN address', 'format' => fn (string $s): string => $this->validator->formatBtcpayLnAddressConnectionString($s)],
+        ];
+
+        if (isset($lnFlows[$type])) {
             try {
                 $this->lightningService->tryRemoveStoreLightningNodeConfiguration(
                     $store->btcpay_store_id,
@@ -542,13 +644,14 @@ class WalletConnectionService
                     $userApiKey
                 );
             } catch (\Throwable $e) {
-                Log::info('Best-effort clear BTCPay Lightning before Blink connect', [
+                Log::info("Best-effort clear BTCPay Lightning before {$lnFlows[$type]['label']} connect", [
                     'store_id' => $store->id,
                     'message' => $e->getMessage(),
                 ]);
             }
 
-            $this->tryConnectLightningAndMarkConnected($store, $connection, $secret, $user, $userApiKey);
+            $btcpayString = $lnFlows[$type]['format']($secret);
+            $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
 
             return;
         }

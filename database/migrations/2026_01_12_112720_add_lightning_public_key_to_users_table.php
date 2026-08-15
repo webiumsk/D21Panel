@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
@@ -20,7 +21,7 @@ return new class extends Migration
             Schema::table('users', function (Blueprint $table) {
                 $table->string('lightning_public_key', 66)->nullable()->unique()->after('email');
             });
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // Column already exists, skip
             if (str_contains($e->getMessage(), 'Duplicate column')) {
                 return;

@@ -10,7 +10,9 @@ use App\Models\IntegrationDocumentInbox;
 use App\Models\Store;
 use App\Models\StoreIntegration;
 use App\Models\User;
+use App\Services\Invoicing\DocumentSequenceService;
 use App\Support\Invoicing\CompanyAppSettings;
+use App\Support\Invoicing\JurisdictionRules;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +20,7 @@ use Illuminate\Validation\ValidationException;
 class IntegrationDocumentInboxService
 {
     public function __construct(
-        protected \App\Services\Invoicing\DocumentSequenceService $sequenceService,
+        protected DocumentSequenceService $sequenceService,
     ) {}
 
     /**
@@ -85,7 +87,7 @@ class IntegrationDocumentInboxService
             'tags' => $wcOrderId ? ['woocommerce', 'wc_order:'.$wcOrderId] : ['woocommerce'],
             // Headless auto-issue renders the PDF before any browser touches
             // the document - pick the merchant's language up front.
-            'pdf_locale' => \App\Support\Invoicing\JurisdictionRules::defaultPdfLocale($company->jurisdiction),
+            'pdf_locale' => JurisdictionRules::defaultPdfLocale($company->jurisdiction),
         ];
 
         foreach ([
@@ -113,7 +115,7 @@ class IntegrationDocumentInboxService
             $paidByProforma = __(
                 'invoicing.paid_by_proforma',
                 ['number' => $sourceNumber],
-                \App\Support\Invoicing\JurisdictionRules::documentNoteLocale($company->jurisdiction),
+                JurisdictionRules::documentNoteLocale($company->jurisdiction),
             );
             $note = trim((string) ($documentPayload['note_above_lines'] ?? ''));
             $documentPayload['note_above_lines'] = $note === '' ? $paidByProforma : $note.' - '.$paidByProforma;

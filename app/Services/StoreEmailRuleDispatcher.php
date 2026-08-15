@@ -9,8 +9,10 @@ use App\Models\StoreEmailRuleDispatch;
 use App\Models\WebhookEvent;
 use App\Services\BtcPay\InvoiceService;
 use App\Support\BtcPay\BtcPayWebhookEventType;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use JsonPath\JsonObject;
 
 class StoreEmailRuleDispatcher
 {
@@ -125,7 +127,7 @@ class StoreEmailRuleDispatcher
                     'webhook_event_id' => $webhookEvent->id,
                     'dispatch_key' => $dispatchKey,
                 ]);
-            } catch (\Illuminate\Database\QueryException $e) {
+            } catch (QueryException $e) {
                 if ($e->getCode() === '23000' || str_contains(strtolower($e->getMessage()), 'unique')) {
                     continue;
                 }
@@ -217,7 +219,7 @@ class StoreEmailRuleDispatcher
             return true;
         }
 
-        if (! class_exists(\JsonPath\JsonObject::class)) {
+        if (! class_exists(JsonObject::class)) {
             Log::warning('Store email rule condition cannot run: install galbar/jsonpath (composer require galbar/jsonpath)');
 
             return false;
@@ -225,7 +227,7 @@ class StoreEmailRuleDispatcher
 
         try {
             $json = json_encode($context, JSON_THROW_ON_ERROR);
-            $j = new \JsonPath\JsonObject($json);
+            $j = new JsonObject($json);
             $result = $j->get($condition);
 
             return $result !== [] && $result !== null;

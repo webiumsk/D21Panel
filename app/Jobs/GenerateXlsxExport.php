@@ -3,16 +3,21 @@
 namespace App\Jobs;
 
 use App\Models\Export;
+use App\Notifications\ExportReadyNotification;
+use App\Notifications\MonthlyExportReadyNotification;
 use App\Services\BtcPay\InvoiceService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class GenerateXlsxExport implements ShouldQueue
 {
@@ -58,7 +63,7 @@ class GenerateXlsxExport implements ShouldQueue
 
             try {
                 $store->user->getBtcPayApiKeyOrFail();
-            } catch (\Illuminate\Http\Exceptions\HttpResponseException|\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            } catch (HttpResponseException|HttpException $e) {
                 $this->export->markAsFailed('BTCPay API key not configured. Please contact support.');
 
                 return;
@@ -176,13 +181,13 @@ class GenerateXlsxExport implements ShouldQueue
                     : now()->subMonth()->format('F Y');
                 $email = $store->auto_report_email ?: $user->email;
                 if ($email) {
-                    \Illuminate\Support\Facades\Notification::route('mail', $email)
-                        ->notify(new \App\Notifications\MonthlyExportReadyNotification($this->export, $store, $monthLabel));
+                    Notification::route('mail', $email)
+                        ->notify(new MonthlyExportReadyNotification($this->export, $store, $monthLabel));
                 }
             } elseif ($this->export->source === Export::SOURCE_MANUAL && $user->email) {
                 $label = date('Y-m-d_His');
-                \Illuminate\Support\Facades\Notification::route('mail', $user->email)
-                    ->notify(new \App\Notifications\ExportReadyNotification($this->export, $store, $label));
+                Notification::route('mail', $user->email)
+                    ->notify(new ExportReadyNotification($this->export, $store, $label));
             }
         } catch (\Exception $e) {
             Log::error('XLSX export generation failed', [

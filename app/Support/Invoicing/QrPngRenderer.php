@@ -2,6 +2,8 @@
 
 namespace App\Support\Invoicing;
 
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -14,13 +16,13 @@ final class QrPngRenderer
     /** @return string|null data:image/png;base64,... for embedding in PDF */
     public static function dataUri(string $data, int $size = 200): ?string
     {
-        if (class_exists(\chillerlan\QRCode\QRCode::class)) {
-            $options = new \chillerlan\QRCode\QROptions([
-                'outputType' => \chillerlan\QRCode\QRCode::OUTPUT_IMAGE_PNG,
+        if (class_exists(QRCode::class)) {
+            $options = new QROptions([
+                'outputType' => QRCode::OUTPUT_IMAGE_PNG,
                 'scale' => max(4, (int) floor($size / 25)),
                 'imageBase64' => true,
             ]);
-            $qr = new \chillerlan\QRCode\QRCode($options);
+            $qr = new QRCode($options);
 
             return $qr->render($data);
         }

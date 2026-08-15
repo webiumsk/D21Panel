@@ -278,6 +278,81 @@ class BusinessDocumentActionsTest extends TestCase
     }
 
     #[Test]
+    public function german_issued_invoice_cannot_be_updated_after_issue(): void
+    {
+        $this->company->update(['jurisdiction' => CompanyJurisdiction::EuDe]);
+
+        $issued = BusinessDocument::create([
+            'company_id' => $this->company->id,
+            'type' => 'invoice',
+            'status' => BusinessDocumentStatus::Issued,
+            'number' => 'RE20260001',
+            'title' => 'Original',
+            'total' => 50,
+            'currency' => 'EUR',
+            'issue_date' => now(),
+        ]);
+        $issued->lines()->create([
+            'sort_order' => 0,
+            'name' => 'Line',
+            'quantity' => 1,
+            'unit_price' => 50,
+            'line_total' => 50,
+        ]);
+
+        $this->actingAs($this->user)
+            ->patchJson("/api/invoicing/companies/{$this->company->id}/documents/{$issued->id}", [
+                'title' => 'Mutated',
+                'lines' => [
+                    ['name' => 'Line', 'quantity' => 1, 'unit_price' => 50, 'tax_rate' => 0],
+                ],
+            ])
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('business_documents', [
+            'id' => $issued->id,
+            'title' => 'Original',
+        ]);
+    }
+
+    #[Test]
+    public function german_numbered_invoice_cannot_be_deleted_after_issue_or_cancellation(): void
+    {
+        $this->company->update(['jurisdiction' => CompanyJurisdiction::EuDe]);
+
+        $issued = BusinessDocument::create([
+            'company_id' => $this->company->id,
+            'type' => 'invoice',
+            'status' => BusinessDocumentStatus::Issued,
+            'number' => 'RE20260002',
+            'total' => 50,
+            'currency' => 'EUR',
+            'issue_date' => now(),
+            'created_at' => now()->subMinute(),
+        ]);
+        $cancelled = BusinessDocument::create([
+            'company_id' => $this->company->id,
+            'type' => 'invoice',
+            'status' => BusinessDocumentStatus::Cancelled,
+            'number' => 'RE20260003',
+            'total' => 15,
+            'currency' => 'EUR',
+            'issue_date' => now(),
+        ]);
+
+        $this->actingAs($this->user)
+            ->deleteJson("/api/invoicing/companies/{$this->company->id}/documents/{$issued->id}")
+            ->assertStatus(422);
+
+        $this->actingAs($this->user)
+            ->deleteJson("/api/invoicing/companies/{$this->company->id}/documents/{$cancelled->id}")
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('business_documents', ['id' => $issued->id]);
+        $this->assertDatabaseHas('business_documents', ['id' => $cancelled->id]);
+    }
+
+    #[Test]
     public function can_cancel_paid_invoice(): void
     {
         $paid = BusinessDocument::create([

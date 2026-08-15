@@ -61,7 +61,7 @@
                     {{ __('Reg. no.') }}: {{ $company->registration_number }}<br>
                 @endif
             @endif
-            @if($company->tax_id){{ __('Tax no.') }}: {{ $company->tax_id }}<br>@endif
+            @if($company->tax_id){{ $taxNumberLabel ?? __('Tax no.') }}: {{ $company->tax_id }}<br>@endif
             @if($company->vat_number){{ $taxIdLabel ?? __('VAT ID') }}: {{ $company->vat_number }}<br>@endif
             @if($company->commercial_register)<span class="muted">{{ $company->commercial_register }}</span><br>@endif
         </td>
@@ -126,6 +126,13 @@
                     @endif
                 @endif
                 @if($contact->country){{ $contact->country }}<br>@endif
+                {{-- Buyer identifiers - a reverse-charge invoice must carry
+                     both parties' VAT IDs. Generic labels on purpose: the
+                     supplier-scoped overrides (Steuernummer/USt-IdNr.) do
+                     not fit a foreign counterparty. --}}
+                @if(!empty($contact->registration_number)){{ __('Reg. no.') }}: {{ $contact->registration_number }}<br>@endif
+                @if(!empty($contact->tax_id)){{ __('Tax no.') }}: {{ $contact->tax_id }}<br>@endif
+                @if(!empty($contact->vat_id)){{ __('VAT ID') }}: {{ $contact->vat_id }}<br>@endif
                 @if($contact->email){{ $contact->email }}<br>@endif
             @endif
             <table class="dates-table">
@@ -133,10 +140,12 @@
                     <td class="date-label">{{ __('Issue date') }}:</td>
                     <td class="date-value">{{ $document->issue_date?->format($dateFmt) }}</td>
                 </tr>
-                @if($document->delivery_date)
+                {{-- DE §14 UStG: the Leistungsdatum must be stated explicitly
+                     even when it equals the issue date. --}}
+                @if($document->delivery_date || !empty($isDe))
                     <tr>
                         <td class="date-label">{{ __('Delivery date') }}:</td>
-                        <td class="date-value">{{ $document->delivery_date->format($dateFmt) }}</td>
+                        <td class="date-value">{{ ($document->delivery_date ?? $document->issue_date)?->format($dateFmt) }}</td>
                     </tr>
                 @endif
                 @if($document->due_date)

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\BtcPay\BtcPayClient;
 use App\Services\SubscriptionCheckoutRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -19,7 +20,7 @@ class SubscriptionTest extends TestCase
         parent::setUp();
 
         config(['services.btcpay.base_url' => 'https://btcpay.example.test']);
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
     }
 
     /** BTCPay fake: success for offering, plan, and plan-checkout. Use in tests that expect 200. */
@@ -89,7 +90,7 @@ class SubscriptionTest extends TestCase
         config(['services.btcpay.subscription_offering_id' => 'offering_test']);
         config(['services.btcpay.subscription_plans.pro' => 'plan_pro_test']);
 
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
 
         // Mock BTCPay: return 404 for every request so offering validation fails
         Http::fake([
@@ -236,7 +237,7 @@ class SubscriptionTest extends TestCase
         config(['services.btcpay.subscription_offering_id' => 'offering_test']);
         config(['services.btcpay.subscription_plans.pro' => 'plan_pro_test']);
 
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
 
         // Mock BTCPay: offering and plan succeed, plan-checkout POST returns 422
         Http::fake(function ($request) {

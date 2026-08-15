@@ -7,6 +7,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\WebhookEvent;
+use App\Services\BtcPay\BtcPayClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
@@ -40,7 +41,7 @@ class ProcessBtcPayWebhookTest extends TestCase
         Config::set('services.btcpay.base_url', 'https://btcpay.example.test');
         Config::set('services.btcpay.subscription_store_id', 'sub-store-123');
         Config::set('services.btcpay.subscription_plans.pro', 'plan-pro-123');
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
 
         SubscriptionPlan::create([
             'code' => 'pro',

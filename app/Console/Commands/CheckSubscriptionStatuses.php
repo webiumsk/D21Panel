@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\SubscriptionService as BtcPaySubscriptionService;
 use App\Services\SubscriptionEntitlementService;
 use Illuminate\Console\Command;
@@ -143,7 +144,7 @@ class CheckSubscriptionStatuses extends Command
                             'status' => $status,
                         ]);
                     }
-                } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+                } catch (BtcPayException $e) {
                     // Subscription not found in BTCPay (404) - might have been deleted
                     if ($e->getStatusCode() === 404) {
                         Log::warning('Subscription not found in BTCPay - may have been deleted', [

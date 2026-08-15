@@ -34,6 +34,8 @@ class StoreResponseFormatter
             'timezone' => $store->timezone ?? 'Europe/Vienna',
             'preferred_exchange' => $store->preferred_exchange ?? 'kraken',
             'wallet_type' => $store->wallet_type,
+            'cashu_fallback_enabled' => (bool) $store->cashu_fallback_enabled,
+            'cashu_fallback_address' => $store->cashu_fallback_address,
             'wallet_brand' => $this->walletBrandPayload($store, $store->walletConnection),
             'created_at' => $store->created_at,
             'updated_at' => $store->updated_at,
@@ -61,6 +63,8 @@ class StoreResponseFormatter
             'timezone' => $localStore->timezone ?? ($btcpayStore['timeZone'] ?? 'Europe/Vienna'),
             'preferred_exchange' => $localStore->preferred_exchange ?? ($btcpayStore['preferredExchange'] ?? 'kraken'),
             'wallet_type' => $localStore->wallet_type,
+            'cashu_fallback_enabled' => (bool) $localStore->cashu_fallback_enabled,
+            'cashu_fallback_address' => $localStore->cashu_fallback_address,
             'wallet_brand' => $this->walletBrandPayload($localStore, $localStore->walletConnection),
             'created_at' => $localStore->created_at,
             'updated_at' => $localStore->updated_at,
@@ -122,7 +126,9 @@ class StoreResponseFormatter
             'submitted_by_user_id' => $walletConnection->submitted_by_user_id,
         ];
 
-        $brand = $this->validator->resolveAquaBoltzBrand($walletConnection);
+        $brand = $walletConnection->type === 'lnaddress'
+            ? $this->validator->resolveLnAddressBrand($walletConnection)
+            : $this->validator->resolveAquaBoltzBrand($walletConnection);
         if ($brand !== null) {
             $payload['brand'] = $brand;
         }
@@ -131,11 +137,17 @@ class StoreResponseFormatter
     }
 
     /**
-     * @return 'aqua'|'bull'|null
+     * @return 'aqua'|'bull'|'blitz'|'flash'|'coinos'|null
      */
     protected function walletBrandPayload(Store $store, ?WalletConnection $walletConnection): ?string
     {
-        if (($store->wallet_type ?? null) !== 'aqua_boltz') {
+        $walletType = $store->wallet_type ?? null;
+
+        if ($walletType === 'lnaddress') {
+            return $this->validator->resolveLnAddressBrand($walletConnection);
+        }
+
+        if ($walletType !== 'aqua_boltz') {
             return null;
         }
 

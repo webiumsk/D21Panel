@@ -7,9 +7,12 @@ use App\Models\AuditLog;
 use App\Models\Store;
 use App\Models\WalletConnection;
 use App\Services\Auth\SensitiveActionAuthorization;
+use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\LightningService;
+use App\Services\LnAddressLud21Prober;
 use App\Services\WalletConnectionService;
 use App\Services\WalletConnectionValidator;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -37,7 +40,10 @@ class WalletConnectionController extends Controller
             return response()->json(['data' => null]);
         }
 
-        $brand = app(WalletConnectionValidator::class)->resolveAquaBoltzBrand($connection);
+        $validator = app(WalletConnectionValidator::class);
+        $brand = $connection->type === 'lnaddress'
+            ? $validator->resolveLnAddressBrand($connection)
+            : $validator->resolveAquaBoltzBrand($connection);
 
         return response()->json([
             'data' => [
@@ -77,7 +83,7 @@ class WalletConnectionController extends Controller
 
         try {
             $plaintext = $this->service->reveal($connection, $user);
-        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+        } catch (DecryptException $e) {
             return response()->json([
                 'message' => 'Unable to decrypt the stored secret. Please re-submit your wallet connection.',
             ], 500);
@@ -94,6 +100,22 @@ class WalletConnectionController extends Controller
                 'masked_secret' => $connection->masked_secret,
             ],
         ]);
+    }
+
+    /**
+     * Probe an unknown Lightning-address domain for LUD-21 verify support -
+     * QuickConnect decides between a native lnaddress connection and the
+     * CashuMelt path based on the result.
+     */
+    public function lnaddressProbe(Request $request, LnAddressLud21Prober $prober)
+    {
+        $request->validate([
+            'address' => ['required', 'string', 'max:320', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
+        ]);
+
+        $result = $prober->probe($request->string('address')->toString());
+
+        return response()->json(['data' => $result]);
     }
 
     /**
@@ -189,7 +211,8 @@ class WalletConnectionController extends Controller
             $request->type,
             $request->secret,
             $user,
-            'pending'
+            'pending',
+            $request->input('fallback_lightning_address') ?: null
         );
 
         // Audit log
@@ -320,7 +343,7 @@ class WalletConnectionController extends Controller
 
         try {
             $plaintext = $this->service->reveal($connection, $request->user());
-        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+        } catch (DecryptException $e) {
             return response()->json([
                 'message' => 'Unable to decrypt the stored secret. This usually happens when APP_KEY was changed after the secret was saved. The merchant will need to re-submit their wallet connection.',
             ], 500);
@@ -545,7 +568,7 @@ class WalletConnectionController extends Controller
             }
 
             $result['connection_id'] = $connection->id;
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             // BTCPay API error
             $connection->update(['status' => 'needs_support']);
 

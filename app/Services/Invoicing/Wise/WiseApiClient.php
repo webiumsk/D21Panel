@@ -2,6 +2,7 @@
 
 namespace App\Services\Invoicing\Wise;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
@@ -73,7 +74,7 @@ class WiseApiClient
         return is_array($data) ? $data : [];
     }
 
-    protected function request(string $token): \Illuminate\Http\Client\PendingRequest
+    protected function request(string $token): PendingRequest
     {
         return Http::withToken($token)
             ->acceptJson()

@@ -13,8 +13,11 @@ export type CompanyAppSettingsState = {
   tax_free_minimum: string;
   show_contextual_help: boolean;
   embed_isdoc_in_pdf: boolean;
+  embed_zugferd_in_pdf: boolean;
   reverse_charge: boolean;
   reverse_charge_note: string;
+  export_goods: boolean;
+  export_note: string;
   us_sales_tax_provider: 'manual' | 'stripe_tax' | 'avalara';
   stripe_tax_secret_key: string;
   show_pay_by_square: boolean;
@@ -56,8 +59,11 @@ export function defaultAppSettings(): CompanyAppSettingsState {
     tax_free_minimum: '0.00',
     show_contextual_help: true,
     embed_isdoc_in_pdf: true,
+    embed_zugferd_in_pdf: true,
     reverse_charge: false,
     reverse_charge_note: '',
+    export_goods: false,
+    export_note: '',
     us_sales_tax_provider: 'manual',
     stripe_tax_secret_key: '',
     show_pay_by_square: true,
@@ -93,8 +99,11 @@ export function appSettingsFromCompany(company: Record<string, unknown> | null):
     tax_free_minimum: String(raw.tax_free_minimum ?? base.tax_free_minimum),
     show_contextual_help: raw.show_contextual_help ?? base.show_contextual_help,
     embed_isdoc_in_pdf: raw.embed_isdoc_in_pdf ?? base.embed_isdoc_in_pdf,
+    embed_zugferd_in_pdf: raw.embed_zugferd_in_pdf ?? base.embed_zugferd_in_pdf,
     reverse_charge: raw.reverse_charge ?? base.reverse_charge,
     reverse_charge_note: raw.reverse_charge_note ?? base.reverse_charge_note,
+    export_goods: raw.export_goods ?? base.export_goods,
+    export_note: raw.export_note ?? base.export_note,
     us_sales_tax_provider: raw.us_sales_tax_provider ?? base.us_sales_tax_provider,
     stripe_tax_secret_key: raw.stripe_tax_secret_key ?? base.stripe_tax_secret_key,
     show_pay_by_square: raw.show_pay_by_square ?? base.show_pay_by_square,

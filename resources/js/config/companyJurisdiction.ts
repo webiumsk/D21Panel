@@ -40,6 +40,22 @@ const DEFAULT_COUNTRY_BY_JURISDICTION: Record<CompanyJurisdictionValue, string> 
   asia: 'HK',
 };
 
+/**
+ * Jurisdictions with a complete market setup (VAT policy, clauses,
+ * e-invoicing). The rest stay visible in the picker but disabled until
+ * their market work lands.
+ */
+export const ENABLED_COMPANY_JURISDICTIONS: readonly CompanyJurisdictionValue[] = [
+  'eu_sk',
+  'eu_cz',
+  'eu_de',
+  'us',
+];
+
+export function isCompanyJurisdictionEnabled(value: string | null | undefined): boolean {
+  return (ENABLED_COMPANY_JURISDICTIONS as readonly string[]).includes(value ?? '');
+}
+
 /** i18n keys under invoicing.jurisdiction_* */
 export const JURISDICTION_I18N_KEYS: Record<CompanyJurisdictionValue, string> = {
   eu_sk: 'jurisdiction_sk',

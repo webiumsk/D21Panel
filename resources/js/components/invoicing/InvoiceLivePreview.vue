@@ -106,12 +106,14 @@
                 {{ formatDate(form.issue_date) }}
               </td>
             </tr>
-            <tr v-if="form.delivery_date">
+            <!-- DE §14 UStG: the Leistungsdatum must be stated even when it
+                 equals the issue date. -->
+            <tr v-if="form.delivery_date || isDeCompany">
               <td class="text-right pr-2 text-gray-500">
                 {{ t("invoicing.delivery_date") }}:
               </td>
               <td class="text-right font-semibold">
-                {{ formatDate(form.delivery_date) }}
+                {{ formatDate(form.delivery_date || form.issue_date) }}
               </td>
             </tr>
             <tr v-if="form.due_date">
@@ -132,6 +134,10 @@
     </div>
 
     <hr class="border-0 border-t border-dotted border-gray-300 my-3" />
+
+    <p v-if="reverseChargeNote" class="text-xs font-semibold text-gray-800 mb-3">
+      {{ reverseChargeNote }}
+    </p>
 
     <p
       v-if="form.note_above_lines"
@@ -310,6 +316,12 @@
 
     <div class="mt-auto shrink-0 pt-4">
     <div class="border-t border-dotted border-gray-300 pt-3">
+      <div
+        v-if="corporateFooterLine"
+        class="mb-1.5 text-center text-[9px] text-gray-500"
+      >
+        {{ corporateFooterLine }}
+      </div>
       <div class="grid grid-cols-4 gap-2 text-[10px] text-gray-600">
         <div v-if="company?.issuer_name" class="text-left">
           <span class="font-semibold text-gray-800">{{ t('invoicing.issued_by') }}:</span>
@@ -341,7 +353,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useCompanyVatPolicy } from "../../composables/useCompanyVatPolicy";
+import {
+  DE_EXPORT_GOODS_NOTE,
+  DE_EXPORT_SERVICES_NOTE,
+  DE_KLEINUNTERNEHMER_NOTE,
+  DE_REVERSE_CHARGE_NOTE,
+  useCompanyVatPolicy,
+} from "../../composables/useCompanyVatPolicy";
+import { appSettingsFromCompany } from "../../composables/useCompanyAppSettings";
 import FooterContactIcon from "./FooterContactIcon.vue";
 
 export type InvoiceLineForm = {
@@ -403,11 +422,50 @@ const companyDisplayName = computed(
 
 const vatPolicy = useCompanyVatPolicy();
 const isUsCompany = computed(() => props.company?.jurisdiction === "us");
-const showTaxSummary = computed(() => {
-  if (isUsCompany.value) {
-    return true;
+// §4 payer / US: always; non-payer: never; §7a: only EU counterparties
+// (VAT 0 next to the reverse-charge note).
+const showTaxSummary = computed(() =>
+  vatPolicy.showsVatSummary(props.company, props.selectedContact),
+);
+const isDeCompany = computed(() => vatPolicy.isDeCompany(props.company));
+// DE Geschaeftsbrief corporate footer - statutory German labels on purpose.
+// DE-only: a company switched away from eu_de must not carry German
+// statutory wording even while the field values are preserved. Mirrors the
+// guard in pdf/partials/business-invoice-footer.blade.php.
+const corporateFooterLine = computed(() => {
+  if (!isDeCompany.value) return null;
+  const c = props.company;
+  const register = [c?.register_court, c?.register_number].filter(Boolean).join(" ");
+  const parts = [
+    register || null,
+    c?.managing_directors ? `Geschäftsführer: ${c.managing_directors}` : null,
+    c?.supervisory_board_chair ? `Vorsitzender des Aufsichtsrats: ${c.supervisory_board_chair}` : null,
+  ].filter(Boolean);
+  if (parts.length === 0) return null;
+  const seat = c?.city ? ` · Sitz: ${c.city}` : "";
+  return `${c?.legal_name ?? ""}${seat} · ${parts.join(" · ")}`;
+});
+// Statutory clause (mirrors the server taxClause): DE texts stay German
+// regardless of the UI locale; custom company notes win over defaults.
+const reverseChargeNote = computed(() => {
+  const settings = appSettingsFromCompany(props.company);
+  const kind = vatPolicy.taxClauseKind(props.company, props.selectedContact, settings);
+  if (!kind) return null;
+  if (kind === "kleinunternehmer_de") {
+    return DE_KLEINUNTERNEHMER_NOTE;
   }
-  return vatPolicy.calculatesVatAmounts(props.company);
+  if (kind === "export_de") {
+    return (
+      settings.export_note.trim() ||
+      (settings.export_goods ? DE_EXPORT_GOODS_NOTE : DE_EXPORT_SERVICES_NOTE)
+    );
+  }
+  const custom = settings.reverse_charge ? settings.reverse_charge_note.trim() : "";
+  if (isDeCompany.value) {
+    // The mandatory German wording always stays; a custom note appends.
+    return custom ? `${DE_REVERSE_CHARGE_NOTE} ${custom}` : DE_REVERSE_CHARGE_NOTE;
+  }
+  return custom || t("invoicing.reverse_charge_note_partial");
 });
 
 const invoiceHeading = computed(() => {
@@ -465,8 +523,14 @@ function lineTotal(line: InvoiceLineForm) {
     (line.quantity || 0) *
     (line.unit_price || 0) *
     (1 - (line.line_discount_percent || 0) / 100);
-  const tax = showTaxSummary.value ? net * ((line.tax_rate || 0) / 100) : 0;
-  return net + tax;
+  // The policy resolves the effective rate (0 for non-payers, §7a and EU
+  // reverse charge) - showTaxSummary only controls summary rendering.
+  const rate = vatPolicy.resolveLineTaxRate(
+    props.company,
+    props.selectedContact,
+    line.tax_rate ?? null,
+  );
+  return net + net * (rate / 100);
 }
 
 function formatMoney(n: number) {

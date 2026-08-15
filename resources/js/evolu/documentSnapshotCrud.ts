@@ -30,6 +30,11 @@ export type SnapshotCompanyV1 = {
     postal_code: string | null;
     country: string | null;
     state_region: string | null;
+    /** DE Geschaeftsbrief corporate footer data; older snapshots lack them. */
+    register_court?: string | null;
+    register_number?: string | null;
+    managing_directors?: string | null;
+    supervisory_board_chair?: string | null;
     iban: string | null;
     bic: string | null;
     bank_name: string | null;
@@ -38,6 +43,8 @@ export type SnapshotCompanyV1 = {
     default_currency: string | null;
     jurisdiction: string | null;
     vat_payer: boolean | null;
+    /** §7a is 'partial'; older snapshots may lack the field entirely. */
+    vat_status?: 'none' | 'payer' | 'partial' | null;
     vat_rate_default: string | null;
     legal_footer_note: string | null;
     issuer_name: string | null;
@@ -120,6 +127,10 @@ function bool(value: unknown, fallback: boolean): boolean {
     return typeof value === "boolean" ? value : fallback;
 }
 
+function vatStatus(value: unknown): 'none' | 'payer' | 'partial' | null {
+    return value === "none" || value === "payer" || value === "partial" ? value : null;
+}
+
 /**
  * Freezes API-shaped company/contact/document/line records (the shape
  * evoluCompanyToApi / evoluContactToApi / evoluDocumentToApi emit) into the
@@ -158,6 +169,10 @@ export function buildIssuedSnapshotContentV1(input: {
             postal_code: str(input.company.postal_code),
             country: str(input.company.country),
             state_region: str(input.company.state_region),
+            register_court: str(input.company.register_court),
+            register_number: str(input.company.register_number),
+            managing_directors: str(input.company.managing_directors),
+            supervisory_board_chair: str(input.company.supervisory_board_chair),
             iban: str(input.company.iban),
             bic: str(input.company.bic),
             bank_name: str(input.company.bank_name),
@@ -166,6 +181,7 @@ export function buildIssuedSnapshotContentV1(input: {
             default_currency: str(input.company.default_currency),
             jurisdiction: str(input.company.jurisdiction),
             vat_payer: typeof input.company.vat_payer === "boolean" ? input.company.vat_payer : null,
+            vat_status: vatStatus(input.company.vat_status),
             vat_rate_default: str(input.company.vat_rate_default),
             legal_footer_note: str(input.company.legal_footer_note),
             issuer_name: str(input.company.issuer_name),
@@ -265,6 +281,9 @@ export function validateIssuedSnapshotV1(
     }
     const company = root.company;
     if (!company || typeof company !== "object" || typeof company.legal_name !== "string" || !company.legal_name) {
+        return { ok: false, error: "snapshot_company_invalid" };
+    }
+    if (company.vat_status != null && vatStatus(company.vat_status) === null) {
         return { ok: false, error: "snapshot_company_invalid" };
     }
     const doc = root.document;

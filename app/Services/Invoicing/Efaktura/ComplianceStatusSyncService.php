@@ -5,6 +5,7 @@ namespace App\Services\Invoicing\Efaktura;
 use App\Enums\ComplianceSubmissionStatus;
 use App\Models\BusinessDocument;
 use App\Models\BusinessDocumentCompliance;
+use App\Models\EfakturaCpdsProvider;
 use App\Support\Invoicing\CompanyEfakturaSettings;
 use App\Support\Invoicing\Efaktura\SapiSkDocumentStatusMapper;
 use Illuminate\Http\Client\RequestException;
@@ -50,8 +51,8 @@ class ComplianceStatusSyncService
             return $stats;
         }
 
-        $detailPath = (string) config('efaktura.providers.sapi_sk.send_detail_path', '');
-        if ($detailPath === '') {
+        $globalDetailPath = (string) config('efaktura.providers.sapi_sk.send_detail_path', '');
+        if ($globalDetailPath === '' && ! EfakturaCpdsProvider::anyActiveDetailPath()) {
             return $stats;
         }
 
@@ -111,8 +112,7 @@ class ComplianceStatusSyncService
      */
     protected function fetchRemotePayload(BusinessDocumentCompliance $row): ?array
     {
-        $detailPath = (string) config('efaktura.providers.sapi_sk.send_detail_path', '');
-        if ($detailPath === '' || $row->external_id === null || $row->external_id === '') {
+        if ($row->external_id === null || $row->external_id === '') {
             return null;
         }
 
@@ -123,6 +123,12 @@ class ComplianceStatusSyncService
 
         $settings = CompanyEfakturaSettings::fromCompany($document->company);
         if (! $settings->configured()) {
+            return null;
+        }
+
+        // Preset detail path (per CPDS) or the global fallback - none means
+        // this company's postman exposes no status endpoint.
+        if ($this->client->sentDocumentDetailPathTemplate($settings->sapiBaseUrl()) === null) {
             return null;
         }
 

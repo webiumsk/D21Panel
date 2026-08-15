@@ -12,6 +12,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Integrations\IntegrationDocumentInboxService;
+use App\Services\Invoicing\DocumentSequenceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -223,7 +224,7 @@ class IntegrationDocumentInboxTest extends TestCase
     #[Test]
     public function user_can_reserve_number_via_store_bridge(): void
     {
-        app(\App\Services\Invoicing\DocumentSequenceService::class)->seedDefaultsForCompany($this->company);
+        app(DocumentSequenceService::class)->seedDefaultsForCompany($this->company);
 
         $this->actingAs($this->user)
             ->postJson("/api/invoicing/stores/{$this->store->id}/number-series/reserve", [
@@ -241,7 +242,7 @@ class IntegrationDocumentInboxTest extends TestCase
     #[Test]
     public function store_reserve_honors_local_high_counter_from_evolu_clients(): void
     {
-        $sequenceService = app(\App\Services\Invoicing\DocumentSequenceService::class);
+        $sequenceService = app(DocumentSequenceService::class);
         $sequenceService->seedDefaultsForCompany($this->company);
 
         $this->actingAs($this->user)

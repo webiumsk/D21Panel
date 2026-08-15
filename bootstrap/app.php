@@ -1,8 +1,15 @@
 <?php
 
+use App\Http\Middleware\RejectGuestRestrictedFeatures;
+use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\SetSecurityHeaders;
+use App\Http\Middleware\TrustProxies;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,15 +21,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->api(prepend: [
-            \App\Http\Middleware\TrustProxies::class,
+            TrustProxies::class,
         ]);
         $middleware->web(prepend: [
-            \App\Http\Middleware\TrustProxies::class,
-            \App\Http\Middleware\SetLocale::class,
+            TrustProxies::class,
+            SetLocale::class,
         ]);
         // CSP on the SPA shell and web views (opt-in via CSP_ENABLED)
         $middleware->web(append: [
-            \App\Http\Middleware\SetSecurityHeaders::class,
+            SetSecurityHeaders::class,
         ]);
         $middleware->statefulApi();
         // Browser-native CSP report-uri POSTs carry the session cookie but no
@@ -33,12 +40,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'guest.restrict' => \App\Http\Middleware\RejectGuestRestrictedFeatures::class,
+            'guest.restrict' => RejectGuestRestrictedFeatures::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // For API routes, return JSON 401 instead of redirecting to login
-        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {
+        $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'Unauthenticated.',
@@ -47,7 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         // Handle RouteNotFoundException that might occur during authentication redirect
-        $exceptions->render(function (\Symfony\Component\Routing\Exception\RouteNotFoundException $e, \Illuminate\Http\Request $request) {
+        $exceptions->render(function (RouteNotFoundException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'Unauthenticated.',

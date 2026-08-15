@@ -3,6 +3,7 @@
 namespace App\Services\BtcPay;
 
 use App\Services\BtcPay\Exceptions\BtcPayException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class SubscriptionService
@@ -791,13 +792,13 @@ class SubscriptionService
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function resolveTrialEndsAt(array $payload): \Illuminate\Support\Carbon
+    public function resolveTrialEndsAt(array $payload): Carbon
     {
         $subscriber = $payload['subscriber'] ?? $payload;
         $trialEnd = $this->normalizeUnixTimestamp($subscriber['trialEnd'] ?? null);
 
         if ($trialEnd !== null) {
-            return \Illuminate\Support\Carbon::createFromTimestamp($trialEnd);
+            return Carbon::createFromTimestamp($trialEnd);
         }
 
         return now()->addDays((int) config('pricing.trial_days', 30));

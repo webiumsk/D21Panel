@@ -8,6 +8,7 @@ use App\Models\CompanyDocumentSequence;
 use App\Models\DocumentNumberReservation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
@@ -67,7 +68,7 @@ class NumberReleaseTest extends TestCase
         return ['number' => $reserve['number'], 'counter' => $reserve['counter']];
     }
 
-    protected function release(string $number): \Illuminate\Testing\TestResponse
+    protected function release(string $number): TestResponse
     {
         return $this->actingAs($this->user)
             ->postJson('/api/invoicing/companies/'.$this->company->id.'/number-allocator/release', [

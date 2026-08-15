@@ -4,13 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\PosOrder;
 use App\Models\Store;
+use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\StoreService;
+use App\Services\DashboardAnalyticsService;
 use App\Services\InvoiceSourceService;
 use App\Services\StoreInvoiceStatsService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 
 class DashboardController extends Controller
 {
@@ -40,7 +45,7 @@ class DashboardController extends Controller
                 // Load stores from BTCPay API using merchant token
                 $btcpayStores = $this->storeService->listStores($user->btcpay_api_key);
             }
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             // If API fails, we'll use local stores only
             Log::warning('BTCPay API failed when loading dashboard stores, using local stores only', [
                 'user_id' => $user->id,
@@ -101,7 +106,7 @@ class DashboardController extends Controller
                 $orders = PosOrder::whereIn('store_id', $storeIds)
                     ->where('status', PosOrder::STATUS_PAID)
                     ->get(['amount', 'currency', 'store_id', 'btcpay_invoice_id', 'paid_method']);
-                /** @var \Illuminate\Support\Collection<int, Store> $localStoresById */
+                /** @var Collection<int, Store> $localStoresById */
                 $localStoresById = Store::whereIn('id', $storeIds)->with('user')->get()->keyBy('id');
                 foreach ($orders as $order) {
                     $currency = strtoupper(trim($order->currency ?? ''));
@@ -371,7 +376,7 @@ class DashboardController extends Controller
      * (DashboardAnalyticsService). Free plans get totals only - the same
      * boundary the stats() chart gate draws.
      */
-    public function analytics(Request $request, \App\Services\DashboardAnalyticsService $analyticsService)
+    public function analytics(Request $request, DashboardAnalyticsService $analyticsService)
     {
         $user = $request->user();
 
@@ -382,8 +387,8 @@ class DashboardController extends Controller
             'source' => ['nullable', 'in:'.implode(',', InvoiceSourceService::SOURCES)],
         ]);
 
-        $from = \Carbon\CarbonImmutable::createFromFormat('Y-m-d', $validated['from'])->startOfDay();
-        $to = \Carbon\CarbonImmutable::createFromFormat('Y-m-d', $validated['to'])->startOfDay();
+        $from = CarbonImmutable::createFromFormat('Y-m-d', $validated['from'])->startOfDay();
+        $to = CarbonImmutable::createFromFormat('Y-m-d', $validated['to'])->startOfDay();
         if ($from->diffInDays($to) > 400) {
             return response()->json(['message' => 'Date range too large (max 400 days).'], 422);
         }
@@ -409,10 +414,10 @@ class DashboardController extends Controller
             // A cache-busting refresh recomputes against BTCPay - throttle it
             // tighter than the generic api-user limit (which still applies).
             $refreshKey = 'dashboard-analytics-refresh:'.$user->id;
-            if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($refreshKey, 5)) {
+            if (RateLimiter::tooManyAttempts($refreshKey, 5)) {
                 return response()->json(['message' => 'Too many refreshes - try again shortly.'], 429);
             }
-            \Illuminate\Support\Facades\RateLimiter::hit($refreshKey, 60);
+            RateLimiter::hit($refreshKey, 60);
             Cache::forget($cacheKey);
         }
 

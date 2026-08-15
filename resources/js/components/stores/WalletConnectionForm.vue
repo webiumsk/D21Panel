@@ -18,6 +18,7 @@
         :wallet-brand="readonlyAquaWalletBrand"
         :revealing="revealing"
         :password-error="passwordError"
+        :cashu-fallback-address="cashuFallbackAddress"
         @change="startWalletConnectionEdit"
         @cancel="$emit('cancel')"
       />
@@ -91,55 +92,47 @@
         v-if="showWalletSetupTabs"
         role="tablist"
         class="flex gap-6 border-b border-gray-700/60"
-        @keydown.left.prevent="focusWalletTab(walletSetupTab === 'paste' ? 'samrock' : 'paste')"
-        @keydown.right.prevent="focusWalletTab(walletSetupTab === 'paste' ? 'samrock' : 'paste')"
+        @keydown.left.prevent="focusAdjacentWalletTab(-1)"
+        @keydown.right.prevent="focusAdjacentWalletTab(1)"
       >
         <button
-          id="wallet-setup-tab-samrock"
+          v-for="tab in walletSetupTabsList"
+          :id="`wallet-setup-tab-${tab.id}`"
+          :key="tab.id"
           type="button"
           role="tab"
-          aria-controls="wallet-setup-panel-samrock"
-          :aria-selected="walletSetupTab === 'samrock'"
-          :tabindex="walletSetupTab === 'samrock' ? 0 : -1"
+          :aria-controls="`wallet-setup-panel-${tab.id}`"
+          :aria-selected="walletSetupTab === tab.id"
+          :tabindex="walletSetupTab === tab.id ? 0 : -1"
           class="pb-3 -mb-px text-sm font-medium border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-t-sm"
           :class="
-            walletSetupTab === 'samrock'
+            walletSetupTab === tab.id
               ? 'border-indigo-500 text-white'
               : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-600'
           "
-          @click="walletSetupTab = 'samrock'"
+          @click="walletSetupTab = tab.id"
         >
-          <span class="inline-flex items-center gap-2">
-            {{ t("create_store.tab_samrock") }}
-            <span
-              class="text-[10px] font-semibold uppercase tracking-wide text-emerald-400/90"
-            >{{ t("stores.wallet_recommended_badge") }}</span>
-          </span>
-        </button>
-        <button
-          id="wallet-setup-tab-paste"
-          type="button"
-          role="tab"
-          aria-controls="wallet-setup-panel-paste"
-          :aria-selected="walletSetupTab === 'paste'"
-          :tabindex="walletSetupTab === 'paste' ? 0 : -1"
-          class="pb-3 -mb-px text-sm font-medium border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-t-sm"
-          :class="
-            walletSetupTab === 'paste'
-              ? 'border-indigo-500 text-white'
-              : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-600'
-          "
-          @click="walletSetupTab = 'paste'"
-        >
-          {{ t("stores.wallet_smart_paste_label") }}
+          {{ t(tab.labelKey) }}
         </button>
       </div>
 
       <div
-        id="wallet-setup-panel-paste"
-        v-show="!showWalletSetupTabs || walletSetupTab === 'paste'"
+        id="wallet-setup-panel-ln"
+        v-show="showWalletSetupTabs && walletSetupTab === 'ln'"
         role="tabpanel"
-        aria-labelledby="wallet-setup-tab-paste"
+        aria-labelledby="wallet-setup-tab-ln"
+      >
+        <LightningAddressQuickConnect
+          :store-id="storeId"
+          @submitted="onQuickConnectSubmitted"
+        />
+      </div>
+
+      <div
+        id="wallet-setup-panel-advanced"
+        v-show="!showWalletSetupTabs || walletSetupTab === 'advanced'"
+        role="tabpanel"
+        aria-labelledby="wallet-setup-tab-advanced"
         class="space-y-6"
       >
         <WalletConnectionSmartPaste
@@ -148,6 +141,37 @@
           input-id="wallet-connection-smart-paste"
           @detect-cashu="onDetectCashuFromPaste"
         />
+
+        <div v-if="form.secret.trim()" class="max-w-md">
+          <template v-if="advancedFallbackDerivable">
+            <p class="text-sm text-gray-500">
+              {{ t("stores.wallet_fallback_derived_note") }}
+            </p>
+          </template>
+          <template v-else>
+            <label
+              for="wallet-advanced-fallback"
+              class="block text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider"
+            >
+              {{ t("stores.wallet_fallback_address_label") }}
+            </label>
+            <input
+              id="wallet-advanced-fallback"
+              v-model="advancedFallbackAddress"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              class="block w-full rounded-xl border-gray-600 bg-gray-900/50 text-white placeholder-gray-600 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-3"
+              :placeholder="t('stores.ln_quick_address_placeholder')"
+            />
+            <p class="mt-2 text-sm text-gray-500 leading-relaxed">
+              {{ t("stores.wallet_fallback_address_hint") }}
+            </p>
+            <p v-if="errors.fallback_lightning_address" class="mt-2 text-sm text-red-400">
+              {{ errors.fallback_lightning_address }}
+            </p>
+          </template>
+        </div>
 
         <div
           v-if="
@@ -275,11 +299,32 @@
           {{ samrockErrorMessage }}
         </p>
 
-        <div v-if="!samrockOtp && !samrockBusy" class="flex flex-wrap gap-3">
+        <div v-if="!samrockOtp && !samrockBusy" class="space-y-4">
+          <div class="max-w-md">
+            <label
+              for="wallet-samrock-fallback"
+              class="block text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider"
+            >
+              {{ t("stores.wallet_fallback_address_label") }}
+            </label>
+            <input
+              id="wallet-samrock-fallback"
+              v-model="samrockFallbackAddress"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              class="block w-full rounded-xl border-gray-600 bg-gray-900/50 text-white placeholder-gray-600 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-3"
+              :placeholder="t('stores.ln_quick_address_placeholder')"
+            />
+            <p class="mt-2 text-sm text-gray-500 leading-relaxed">
+              {{ t("stores.wallet_fallback_address_hint") }}
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3">
           <button
             type="button"
             class="px-6 py-3 rounded-xl text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50"
-            :disabled="samrockBusy"
+            :disabled="samrockBusy || !samrockFallbackValid"
             @click="startSamRockPairing"
           >
             {{ t("stores.samrock_generate_qr") }}
@@ -295,6 +340,7 @@
           >
             {{ t("stores.samrock_try_again") }}
           </button>
+          </div>
         </div>
 
         <div
@@ -360,6 +406,7 @@
           walletPasteDetection.kind === 'unknown' ? null : walletPasteDetection.kind
         "
         :highlight-brand="walletPasteDetection.brand"
+        :highlight-ln-address-brand="walletPasteDetection.lnAddressBrand"
       />
 
       <div
@@ -436,15 +483,27 @@ import CashuConnectionSection from "./wallet-connection/CashuConnectionSection.v
 import ConnectionReadonlyCard from "./wallet-connection/ConnectionReadonlyCard.vue";
 import { walletApi } from "../../services/api";
 import WalletConnectionSmartPaste from "./WalletConnectionSmartPaste.vue";
+import LightningAddressQuickConnect from "./wallet-connection/LightningAddressQuickConnect.vue";
 import WalletConnectionTypeGuide from "./WalletConnectionTypeGuide.vue";
 import { isValidAquaBoltzDescriptor } from "../../utils/aquaBoltzDescriptor";
-import { detectWalletConnectionInput } from "../../utils/detectWalletConnectionInput";
+import { detectWalletConnectionInput, isValidCashuLightningAddress } from "../../utils/detectWalletConnectionInput";
 import {
+  fallbackAddressDerivableFromSecret,
   isCashuWalletNwcUri,
+  normalizeBlinkConnectionString,
+  normalizeBlitzConnectionString,
+  normalizeFlashConnectionString,
   normalizeNwcUri,
   validateBlinkConnectionString,
+  validateBlitzConnectionString,
+  validateFlashConnectionString,
   validateNwcUri,
 } from "../../utils/walletNwcHelpers";
+import {
+  normalizeLnAddressConnectionString,
+  validateLnAddressConnectionString,
+  type LnAddressWalletBrand,
+} from "../../utils/lnAddressWalletBrands";
 import {
   detectWalletBrandFromDescriptor,
   type AquaBoltzWalletBrand,
@@ -453,18 +512,44 @@ import {
 interface Props {
   storeId: string;
   existingConnection?: WalletConnectionDetails | null;
-  walletType?: "blink" | "aqua_boltz" | "cashu" | "nwc" | string | null | undefined;
+  walletType?: "blink" | "blitz" | "flash" | "lnaddress" | "aqua_boltz" | "cashu" | "nwc" | string | null | undefined;
   /** When wallet_type is aqua_boltz: Aqua vs Bull (from API) */
-  walletBrand?: AquaBoltzWalletBrand | null | undefined;
+  walletBrand?: AquaBoltzWalletBrand | LnAddressWalletBrand | null | undefined;
   /** After create-store redirect: auto-open SamRock QR flow */
   autoSamrock?: boolean;
+  /** CashuMelt parallel fallback payout address, when configured on the store. */
+  cashuFallbackAddress?: string | null;
 }
 
 const props = defineProps<Props>();
 
 const switchToCashuIntent = ref(false);
-/** Smart paste vs SamRock tab (paste first - same as create store). */
-const walletSetupTab = ref<"paste" | "samrock">("samrock");
+/** Setup tabs: Lightning address quick-connect (default) / Aqua-Bull SamRock / advanced strings. */
+type WalletSetupTabId = "ln" | "samrock" | "advanced";
+const walletSetupTabsList: ReadonlyArray<{ id: WalletSetupTabId; labelKey: string }> = [
+  { id: "ln", labelKey: "create_store.tab_lightning_address" },
+  { id: "samrock", labelKey: "create_store.tab_samrock" },
+  { id: "advanced", labelKey: "create_store.tab_advanced" },
+];
+const walletSetupTab = ref<WalletSetupTabId>("ln");
+
+/** CashuMelt parallel fallback: every store keeps at least one Lightning address. */
+const samrockFallbackAddress = ref("");
+const advancedFallbackAddress = ref("");
+
+const samrockFallbackValid = computed(() =>
+  isValidCashuLightningAddress(samrockFallbackAddress.value),
+);
+
+const advancedFallbackDerivable = computed(() =>
+  fallbackAddressDerivableFromSecret(form.secret ?? ""),
+);
+
+const advancedFallbackOk = computed(
+  () =>
+    advancedFallbackDerivable.value ||
+    isValidCashuLightningAddress(advancedFallbackAddress.value),
+);
 
 const isUnsetWalletType = computed(() => {
   const w = props.walletType;
@@ -484,7 +569,7 @@ const showWalletSetupForm = computed(() => {
   if (isCashuFlow.value) return false;
   const wt = props.walletType;
   if (wt === "cashu") return switchToLightningIntent.value;
-  if (wt === "aqua_boltz" || wt === "blink" || wt === "nwc") return true;
+  if (wt === "aqua_boltz" || wt === "blink" || wt === "blitz" || wt === "flash" || wt === "lnaddress" || wt === "nwc") return true;
   if (isUnsetWalletType.value) return true;
   return false;
 });
@@ -499,7 +584,7 @@ const showWalletSetupTabs = computed(
 );
 
 const showAquaDescriptorWarnings = computed(() => {
-  if (props.walletType === "nwc" || props.walletType === "blink") return false;
+  if (props.walletType === "nwc" || props.walletType === "blink" || props.walletType === "blitz" || props.walletType === "flash" || props.walletType === "lnaddress") return false;
   if (props.walletType === "aqua_boltz") return true;
   return form.type === "aqua_descriptor";
 });
@@ -522,6 +607,14 @@ const walletTypeLabel = computed(() => {
       : t("create_store.wallet_type_aqua");
   }
   if (w === "blink") return t("create_store.wallet_type_blink");
+  if (w === "blitz") return t("create_store.wallet_type_blitz");
+  if (w === "flash") return t("create_store.wallet_type_flash");
+  if (w === "lnaddress") {
+    if (props.walletBrand === "blitz") return t("create_store.wallet_type_blitz");
+    if (props.walletBrand === "flash") return t("create_store.wallet_type_flash");
+    if (props.walletBrand === "coinos") return t("create_store.wallet_type_coinos");
+    return t("create_store.wallet_type_lnaddress");
+  }
   if (w === "cashu") return t("create_store.wallet_type_cashu");
   if (w === "nwc") return t("create_store.wallet_type_nwc");
   return String(w);
@@ -533,7 +626,7 @@ const router = useRouter();
 
 type ViewMode = "readonly" | "password" | "editing" | "create";
 
-type WalletConnectionFormType = "blink" | "aqua_descriptor" | "nwc";
+type WalletConnectionFormType = "blink" | "blitz" | "flash" | "lnaddress" | "aqua_descriptor" | "nwc";
 
 function defaultWalletConnectionType(
   walletType: Props["walletType"],
@@ -544,6 +637,9 @@ function defaultWalletConnectionType(
   }
   if (walletType === "nwc") return "nwc";
   if (walletType === "blink") return "blink";
+  if (walletType === "blitz") return "blitz";
+  if (walletType === "flash") return "flash";
+  if (walletType === "lnaddress") return "lnaddress";
   return "aqua_descriptor";
 }
 
@@ -604,14 +700,23 @@ function formatSamRockExpiry(iso: string) {
   }
 }
 
-function focusWalletTab(tab: "paste" | "samrock") {
-  walletSetupTab.value = tab;
+function focusAdjacentWalletTab(direction: -1 | 1) {
+  const ids = walletSetupTabsList.map((tab) => tab.id);
+  const current = ids.indexOf(walletSetupTab.value);
+  const next = ids[(current + direction + ids.length) % ids.length]!;
+  walletSetupTab.value = next;
   void nextTick(() => {
-    document.getElementById(`wallet-setup-tab-${tab}`)?.focus();
+    document.getElementById(`wallet-setup-tab-${next}`)?.focus();
   });
 }
 
+/** QuickConnect saved the wallet (connection or Cashu settings) - reload the parent view. */
+function onQuickConnectSubmitted() {
+  emit("submitted");
+}
+
 function startSamRockPairing() {
+  if (!samrockFallbackValid.value) return;
   if (route.query.samrock) {
     const q = { ...route.query };
     delete q.samrock;
@@ -619,7 +724,7 @@ function startSamRockPairing() {
   }
   void startSamRockPairingCore(() => {
     emit("submitted");
-  });
+  }, samrockFallbackAddress.value);
 }
 
 const submitting = ref(false);
@@ -691,7 +796,7 @@ watch(
   () => {
     switchToCashuIntent.value = false;
     switchToLightningIntent.value = false;
-    walletSetupTab.value = "samrock";
+    walletSetupTab.value = "ln";
   },
 );
 
@@ -704,10 +809,7 @@ watch(
       return;
     }
     if (viewMode.value !== "editing") {
-      form.type = (conn.type || "blink") as
-        | "blink"
-        | "aqua_descriptor"
-        | "nwc";
+      form.type = (conn.type || "blink") as WalletConnectionFormType;
     }
     if (conn.status === "pending") {
       viewMode.value = "create";
@@ -724,9 +826,9 @@ watch(
     if (!props.autoSamrock || autoSamrockConsumed.value) return;
     if (!showWalletSetupForm.value || !showWalletSetupTabs.value) return;
     autoSamrockConsumed.value = true;
+    // Open the tab only - QR generation now needs the fallback Lightning address first.
     walletSetupTab.value = "samrock";
     await nextTick();
-    startSamRockPairing();
   },
   { flush: "post" },
 );
@@ -766,7 +868,7 @@ async function handleConfirmPassword() {
 
 function handleCancelEdit() {
   switchToCashuIntent.value = false;
-  walletSetupTab.value = "samrock";
+  walletSetupTab.value = "ln";
   form.secret = "";
   if (props.existingConnection) {
     form.type = defaultWalletConnectionType(
@@ -808,12 +910,12 @@ function sanitizeSecretForDeclaredType() {
 
 function syncWalletFormAquaTabAfterReveal() {
   if (form.type !== "aqua_descriptor") {
-    walletSetupTab.value = "paste";
+    walletSetupTab.value = "advanced";
     return;
   }
   const hasDescriptor = validateDescriptor(form.secret);
   walletSetupTab.value =
-    hasDescriptor || !showWalletSetupTabs.value ? "paste" : "samrock";
+    hasDescriptor || !showWalletSetupTabs.value ? "advanced" : "samrock";
 }
 
 watch(
@@ -836,7 +938,7 @@ watch(
       }
     }
     if (newType === "aqua_descriptor" && showWalletSetupTabs.value) {
-      walletSetupTab.value = "paste";
+      walletSetupTab.value = "advanced";
     }
   },
 );
@@ -853,6 +955,27 @@ async function handleTestConnection() {
     testResult.value = {
       success: false,
       message: "Invalid Blink connection string format.",
+    };
+    return;
+  }
+  if (form.type === "blitz" && !validateBlitzConnectionString(form.secret)) {
+    testResult.value = {
+      success: false,
+      message: t("stores.blitz_invalid_connection"),
+    };
+    return;
+  }
+  if (form.type === "flash" && !validateFlashConnectionString(form.secret)) {
+    testResult.value = {
+      success: false,
+      message: t("stores.flash_invalid_connection"),
+    };
+    return;
+  }
+  if (form.type === "lnaddress" && !validateLnAddressConnectionString(form.secret)) {
+    testResult.value = {
+      success: false,
+      message: t("stores.lnaddress_invalid_connection"),
     };
     return;
   }
@@ -903,6 +1026,18 @@ async function handleTestConnection() {
 }
 
 function formatConnectionStringForApi(value: string, type: string): string {
+  if (type === "blink") {
+    return normalizeBlinkConnectionString(value);
+  }
+  if (type === "blitz") {
+    return normalizeBlitzConnectionString(value);
+  }
+  if (type === "flash") {
+    return normalizeFlashConnectionString(value);
+  }
+  if (type === "lnaddress") {
+    return normalizeLnAddressConnectionString(value);
+  }
   if (type !== "nwc") {
     return value.trim();
   }
@@ -942,6 +1077,21 @@ async function handleSubmit() {
     submitting.value = false;
     return;
   }
+  if (form.type === "blitz" && !validateBlitzConnectionString(form.secret)) {
+    errors.secret = t("stores.blitz_invalid_connection");
+    submitting.value = false;
+    return;
+  }
+  if (form.type === "flash" && !validateFlashConnectionString(form.secret)) {
+    errors.secret = t("stores.flash_invalid_connection");
+    submitting.value = false;
+    return;
+  }
+  if (form.type === "lnaddress" && !validateLnAddressConnectionString(form.secret)) {
+    errors.secret = t("stores.lnaddress_invalid_connection");
+    submitting.value = false;
+    return;
+  }
   if (form.type === "aqua_descriptor" && !validateDescriptor(form.secret)) {
     errors.secret = t("create_store.invalid_descriptor_format");
     submitting.value = false;
@@ -958,13 +1108,32 @@ async function handleSubmit() {
     return;
   }
 
+  if (!advancedFallbackOk.value) {
+    errors.fallback_lightning_address = t("stores.wallet_fallback_address_invalid");
+    submitting.value = false;
+    return;
+  }
+
   try {
     const secretPayload =
-      form.type === "nwc" ? normalizeNwcUri(form.secret) : form.secret.trim();
+      form.type === "nwc"
+        ? normalizeNwcUri(form.secret)
+        : form.type === "blink"
+          ? normalizeBlinkConnectionString(form.secret)
+          : form.type === "blitz"
+            ? normalizeBlitzConnectionString(form.secret)
+            : form.type === "flash"
+              ? normalizeFlashConnectionString(form.secret)
+              : form.type === "lnaddress"
+                ? normalizeLnAddressConnectionString(form.secret)
+                : form.secret.trim();
 
     await walletApi.connection.create(props.storeId, {
       type: form.type,
       secret: secretPayload,
+      fallback_lightning_address: advancedFallbackDerivable.value
+        ? undefined
+        : advancedFallbackAddress.value.trim(),
     });
     emit("submitted");
   } catch (rawError) {

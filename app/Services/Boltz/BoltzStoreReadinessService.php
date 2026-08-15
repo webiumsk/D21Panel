@@ -3,6 +3,7 @@
 namespace App\Services\Boltz;
 
 use App\Models\Store;
+use App\Models\User;
 use App\Services\BtcPay\BoltzService;
 use App\Services\BtcPay\LightningService;
 use App\Services\BtcPay\StoreService;
@@ -93,7 +94,7 @@ class BoltzStoreReadinessService
         $limitsAndFees = $this->limitsSnapshot($reasons);
 
         $owner = $store->user;
-        $userApiKey = $owner instanceof \App\Models\User ? $owner->btcpay_api_key : null;
+        $userApiKey = $owner instanceof User ? $owner->btcpay_api_key : null;
         if (! filled($userApiKey)) {
             $reasons[] = self::REASON_MISSING_MERCHANT_API_KEY;
 

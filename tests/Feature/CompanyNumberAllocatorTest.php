@@ -9,6 +9,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -55,7 +56,7 @@ class CompanyNumberAllocatorTest extends TestCase
         ]);
     }
 
-    protected function reserve(array $payload): \Illuminate\Testing\TestResponse
+    protected function reserve(array $payload): TestResponse
     {
         return $this->actingAs($this->proUser)->postJson(
             "/api/invoicing/companies/{$this->company->id}/number-allocator/reserve",

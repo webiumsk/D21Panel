@@ -22,13 +22,21 @@ class BlinkMigrationReportCommand extends Command
     {
         $blinkStores = Store::query()
             ->where('wallet_type', 'blink')
+            ->with('walletConnection')
             ->get();
 
         $active = 0;
         $snoozed = 0;
         $dismissed = 0;
+        $migrated = 0;
 
         foreach ($blinkStores as $store) {
+            if (! $this->alertService->usesLegacyBlinkFormat($store)) {
+                $migrated++;
+
+                continue;
+            }
+
             if ($store->blink_alert_dismissed_at !== null) {
                 $dismissed++;
 
@@ -51,6 +59,7 @@ class BlinkMigrationReportCommand extends Command
             ['Metric', 'Count'],
             [
                 ['Total Blink stores', $blinkStores->count()],
+                ['Migrated (Lightning address)', $migrated],
                 ['Active alert', $active],
                 ['Snoozed (24h)', $snoozed],
                 ['Dismissed (per store)', $dismissed],

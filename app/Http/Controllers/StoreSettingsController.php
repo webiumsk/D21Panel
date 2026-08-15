@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreUpdateRequest;
 use App\Services\BtcPay\StoreService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class StoreSettingsController extends Controller
 {
@@ -28,7 +29,7 @@ class StoreSettingsController extends Controller
         // Clear cache before fetching to ensure we get the latest data
         $apiKeyHash = md5($userApiKey);
         $cacheKey = "btcpay:store:{$store->btcpay_store_id}:{$apiKeyHash}";
-        \Illuminate\Support\Facades\Cache::forget($cacheKey);
+        Cache::forget($cacheKey);
 
         // Get store data from BTCPay using merchant token
         $btcpayStore = $this->storeService->getStore($store->btcpay_store_id, $userApiKey);

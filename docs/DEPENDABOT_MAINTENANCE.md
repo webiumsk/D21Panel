@@ -83,6 +83,21 @@ maintainer as usual.
 - **Security advisories:** Dependabot security PRs may be minor/major; treat as
   high priority regardless of the label.
 
+## Deferred majors (ignored)
+
+These major updates are `ignore`d in `dependabot.yml` (minor/patch still flow).
+Each is a dedicated migration, not a dependency bump - triaged and confirmed
+non-trivial. Drop the corresponding `ignore` entry when tackling one.
+
+| Package | Why deferred |
+|---|---|
+| `vite` (5 -> 8) | Rolldown/Oxc migration - esbuild no longer bundled; `optimizeDeps.esbuildOptions` -> `rolldownOptions`, `transformWithEsbuild` removed. Build fails until the config is migrated. |
+| `laravel-vite-plugin` (1 -> 3) | v3 requires `vite ^8` - coupled with the vite migration. |
+| `vue-router` (4 -> 5) | v5 is a build-time/typed router (peers on vite 8, pinia 3, `@pinia/colada`, `@vue-macros`); we use the v4 runtime `createRouter` API. Needs the vite migration + pinia 3 + a routing rewrite. |
+| `@tiptap/*` (2 -> 3) | tiptap 3 must be upgraded across all 16 `@tiptap/*` packages together (extension 3.x peers `@tiptap/core@3`); partial bumps ERESOLVE. |
+| `@vue/eslint-config-typescript` (13 -> 14) | Requires ESLint `^9` (flat-config migration); project is on ESLint 8. |
+| `laravel/framework` (12 -> 13) | Full framework major (breaking changes) and its stricter Pint preset reformats ~160 files (`fully_qualified_strict_types` etc.). Master stays Pint-clean on the current version; do the upgrade + reformat as one deliberate migration. |
+
 ## Known limitations
 
 - The npm/composer security audits run in CI (`npm audit`, `composer audit`)

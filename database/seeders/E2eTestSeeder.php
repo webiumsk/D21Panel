@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\App;
@@ -58,7 +60,7 @@ class E2eTestSeeder extends Seeder
                 'btcpay_api_key' => 'stub-merchant-key',
             ])->save();
 
-            $plan = \App\Models\SubscriptionPlan::firstOrCreate(
+            $plan = SubscriptionPlan::firstOrCreate(
                 ['code' => 'pro'],
                 [
                     'name' => 'pro',
@@ -84,7 +86,7 @@ class E2eTestSeeder extends Seeder
                     'is_active' => true,
                 ])->save();
             }
-            \App\Models\Subscription::updateOrCreate(
+            Subscription::updateOrCreate(
                 ['user_id' => $user->id],
                 [
                     'plan_id' => $plan->id,

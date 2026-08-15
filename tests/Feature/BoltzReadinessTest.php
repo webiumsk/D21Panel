@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -30,7 +31,7 @@ class BoltzReadinessTest extends TestCase
      */
     protected function fakeHappyPath(array $overrides = []): void
     {
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($overrides) {
+        Http::fake(function (Request $request) use ($overrides) {
             $url = $request->url();
 
             foreach ($overrides as $fragment => $response) {

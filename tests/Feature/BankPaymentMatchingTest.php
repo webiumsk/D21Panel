@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\BankImportSource;
+use App\Enums\BankTransactionDirection;
+use App\Enums\BankTransactionMatchStatus;
 use App\Enums\BusinessDocumentStatus;
 use App\Enums\CompanyJurisdiction;
+use App\Models\BankTransaction;
 use App\Models\BusinessDocument;
 use App\Models\Company;
 use App\Models\Subscription;
@@ -117,7 +120,7 @@ class BankPaymentMatchingTest extends TestCase
             ],
         );
         $import->assertOk();
-        $txId = \App\Models\BankTransaction::first()->id;
+        $txId = BankTransaction::first()->id;
 
         $match = $this->actingAs($this->user)->postJson(
             "/api/invoicing/companies/{$this->company->id}/bank-transactions/{$txId}/match",
@@ -182,13 +185,13 @@ class BankPaymentMatchingTest extends TestCase
     #[Test]
     public function balance_snapshot_is_excluded_from_list_but_in_summary(): void
     {
-        \App\Models\BankTransaction::create([
+        BankTransaction::create([
             'company_id' => $this->company->id,
             'booked_at' => now(),
             'amount' => 18.80,
             'currency' => 'EUR',
-            'direction' => \App\Enums\BankTransactionDirection::Credit,
-            'match_status' => \App\Enums\BankTransactionMatchStatus::Unmatched,
+            'direction' => BankTransactionDirection::Credit,
+            'match_status' => BankTransactionMatchStatus::Unmatched,
             'counterparty_name' => 'Platba 1100/000000-2629709868',
             'reference' => 'COD - DOBIERKA:0610182023',
             'variable_symbol' => '0610182023',
@@ -196,13 +199,13 @@ class BankPaymentMatchingTest extends TestCase
             'dedupe_hash' => 'movement-1',
         ]);
 
-        \App\Models\BankTransaction::create([
+        BankTransaction::create([
             'company_id' => $this->company->id,
             'booked_at' => now()->subMinute(),
             'amount' => 107.13,
             'currency' => 'EUR',
-            'direction' => \App\Enums\BankTransactionDirection::Credit,
-            'match_status' => \App\Enums\BankTransactionMatchStatus::Unmatched,
+            'direction' => BankTransactionDirection::Credit,
+            'match_status' => BankTransactionMatchStatus::Unmatched,
             'counterparty_name' => 'Stav na účte',
             'reference' => 'Stav na ucte (ID=100626/103565-3)',
             'source' => 'email',
@@ -281,7 +284,7 @@ class BankPaymentMatchingTest extends TestCase
 
         $this->actingAs($this->user)
             ->post("/api/invoicing/companies/{$this->company->id}/bank-transactions/import", [
-                'file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('tb.csv', $csv),
+                'file' => UploadedFile::fake()->createWithContent('tb.csv', $csv),
             ])
             ->assertOk();
 
@@ -309,7 +312,7 @@ class BankPaymentMatchingTest extends TestCase
 
         $this->actingAs($this->user)
             ->post("/api/invoicing/companies/{$this->company->id}/bank-transactions/import", [
-                'file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('tb.csv', $csv),
+                'file' => UploadedFile::fake()->createWithContent('tb.csv', $csv),
             ])
             ->assertOk();
 

@@ -5,6 +5,7 @@ namespace App\Services\Invoicing;
 use App\Enums\BusinessDocumentStatus;
 use App\Models\BusinessDocument;
 use App\Models\Store;
+use App\Models\User;
 use App\Services\BtcPay\InvoiceService as BtcPayInvoiceService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
@@ -52,7 +53,7 @@ class BusinessDocumentBtcPayService
         // again by any later render/view/create - refuse to mint and render
         // without a QR instead of leaving untrackable strays behind.
         $user = $store->user;
-        if (! $user instanceof \App\Models\User || ! is_string($evoluDocumentId) || $evoluDocumentId === '') {
+        if (! $user instanceof User || ! is_string($evoluDocumentId) || $evoluDocumentId === '') {
             return null;
         }
 

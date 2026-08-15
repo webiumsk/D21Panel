@@ -2,6 +2,7 @@
 
 namespace App\Services\Chorala;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -221,7 +222,7 @@ class ChoralaWidgetSettingsService
         return array_values(array_filter($projects, 'is_array'));
     }
 
-    private function adminClient(): \Illuminate\Http\Client\PendingRequest
+    private function adminClient(): PendingRequest
     {
         return Http::withToken((string) config('services.chorala.api_key'))
             ->acceptJson()

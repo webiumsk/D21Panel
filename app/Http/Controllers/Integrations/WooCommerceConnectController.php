@@ -7,6 +7,7 @@ use App\Models\Store;
 use App\Models\StoreIntegration;
 use App\Services\SubscriptionEntitlementService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -117,7 +118,7 @@ class WooCommerceConnectController extends Controller
         return response()->json(['data' => $payload]);
     }
 
-    private function redirectToReturnUrl(string $returnUrl, Store $store, $user, bool $includeSatfluxStoreId = false): \Illuminate\Http\RedirectResponse
+    private function redirectToReturnUrl(string $returnUrl, Store $store, $user, bool $includeSatfluxStoreId = false): RedirectResponse
     {
         $btcpayUrl = rtrim((string) config('services.btcpay.base_url'), '/');
         $apiKey = $user->getBtcPayApiKeyOrFail();
@@ -163,7 +164,7 @@ class WooCommerceConnectController extends Controller
         return redirect()->away($returnUrl.$separator.$queryString);
     }
 
-    private function redirectWithError(string $returnUrl, string $errorCode): \Illuminate\Http\RedirectResponse
+    private function redirectWithError(string $returnUrl, string $errorCode): RedirectResponse
     {
         $params = http_build_query([
             'satflux_return' => '1',

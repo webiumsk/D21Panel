@@ -2,6 +2,7 @@
 
 namespace App\Services\Invoicing\Efaktura;
 
+use App\Models\EfakturaCpdsProvider;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
@@ -95,7 +96,7 @@ class SapiSkClient
         string $documentId,
         ?string $baseUrl = null,
     ): array {
-        $pathTemplate = (string) config('efaktura.providers.sapi_sk.send_detail_path', '');
+        $pathTemplate = (string) $this->sentDocumentDetailPathTemplate($baseUrl);
         if ($pathTemplate === '') {
             throw new \RuntimeException('SAPI-SK sent document detail path is not configured.');
         }
@@ -207,6 +208,35 @@ class SapiSkClient
     }
 
     /**
+     * Validate a base URL (HTTPS-only, SSRF guard, allowlist) without any
+     * HTTP call - used by efaktura:doctor for ops diagnostics. Throws a
+     * RuntimeException with the human-readable reason.
+     */
+    public function validateBaseUrl(?string $baseUrl): string
+    {
+        return $this->resolveBaseUrl($baseUrl);
+    }
+
+    /**
+     * Effective sent-document detail path: the CPDS preset matching the base
+     * URL wins over the global EFAKTURA_SAPI_SEND_DETAIL_PATH - two merchants
+     * on different postmen can each track their own status endpoint.
+     */
+    public function sentDocumentDetailPathTemplate(?string $baseUrl = null): ?string
+    {
+        $preset = EfakturaCpdsProvider::detailPathForBaseUrl(
+            $baseUrl ?? (string) config('efaktura.providers.sapi_sk.base_url'),
+        );
+        if ($preset !== null) {
+            return $preset;
+        }
+
+        $global = (string) config('efaktura.providers.sapi_sk.send_detail_path', '');
+
+        return $global !== '' ? $global : null;
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      */
     protected function tokenTtlSeconds(array $payload): int
@@ -252,10 +282,21 @@ class SapiSkClient
         return 'https://'.$host.$port;
     }
 
+    /**
+     * Operator-verified hosts: the env allowlist plus active CPDS presets.
+     *
+     * @return list<string>
+     */
+    protected function trustedHosts(): array
+    {
+        $configHosts = array_map('strtolower', (array) config('efaktura.allowed_sapi_hosts', []));
+
+        return array_values(array_unique(array_merge($configHosts, EfakturaCpdsProvider::allowedHosts())));
+    }
+
     protected function assertResolvablePublicHost(string $host): void
     {
-        $allowedHosts = array_map('strtolower', (array) config('efaktura.allowed_sapi_hosts', []));
-        if (in_array($host, $allowedHosts, true)) {
+        if (in_array($host, $this->trustedHosts(), true)) {
             return;
         }
 
@@ -295,10 +336,14 @@ class SapiSkClient
 
     protected function assertAllowedSapiHost(string $host): void
     {
-        $allowedHosts = array_map('strtolower', (array) config('efaktura.allowed_sapi_hosts', []));
-        if ($allowedHosts !== [] && in_array($host, $allowedHosts, true)) {
+        if (in_array($host, $this->trustedHosts(), true)) {
             return;
         }
+
+        // Presets only ADD trusted hosts - the open-by-default behaviour
+        // below is keyed on the env allowlist alone, so adding a preset
+        // never locks out merchants with a custom (non-preset) CPDS.
+        $allowedHosts = array_map('strtolower', (array) config('efaktura.allowed_sapi_hosts', []));
 
         $globalBase = rtrim((string) config('efaktura.providers.sapi_sk.base_url'), '/');
         $globalHost = is_string($globalBase) && $globalBase !== ''

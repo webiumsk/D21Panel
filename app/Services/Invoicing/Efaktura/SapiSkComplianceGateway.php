@@ -11,6 +11,7 @@ use App\Models\BusinessDocument;
 use App\Services\Invoicing\BusinessDocumentUblService;
 use App\Support\Invoicing\CompanyEfakturaEligibility;
 use App\Support\Invoicing\CompanyEfakturaSettings;
+use App\Support\Invoicing\ComplianceSubmissionResult;
 use App\Support\Invoicing\Efaktura\PeppolParticipantId;
 use App\Support\Invoicing\Efaktura\SapiSkDocumentStatusMapper;
 use App\Support\Invoicing\Efaktura\SapiSkSendPayload;
@@ -73,10 +74,10 @@ class SapiSkComplianceGateway implements ComplianceSubmissionGateway
         return SkUblProfile::countryCode($buyer) === 'SK';
     }
 
-    public function submit(BusinessDocument $document): \App\Support\Invoicing\ComplianceSubmissionResult
+    public function submit(BusinessDocument $document): ComplianceSubmissionResult
     {
         if (! $this->supports($document)) {
-            return new \App\Support\Invoicing\ComplianceSubmissionResult(
+            return new ComplianceSubmissionResult(
                 status: ComplianceSubmissionStatus::Skipped,
                 message: 'Document is not eligible for SAPI-SK submission.',
             );
@@ -89,7 +90,7 @@ class SapiSkComplianceGateway implements ComplianceSubmissionGateway
         $receiverParticipantId = $buyer !== null ? PeppolParticipantId::fromContact($buyer) : null;
 
         if ($receiverParticipantId === null) {
-            return new \App\Support\Invoicing\ComplianceSubmissionResult(
+            return new ComplianceSubmissionResult(
                 status: ComplianceSubmissionStatus::Failed,
                 message: 'Recipient Peppol participant ID is missing (IČO, DIČ, or peppol_participant_id on contact).',
             );
@@ -123,14 +124,14 @@ class SapiSkComplianceGateway implements ComplianceSubmissionGateway
             $status = SapiSkDocumentStatusMapper::fromProviderPayload($response)
                 ?? ComplianceSubmissionStatus::Submitted;
 
-            return new \App\Support\Invoicing\ComplianceSubmissionResult(
+            return new ComplianceSubmissionResult(
                 status: $status,
                 externalId: $externalId !== '' ? $externalId : null,
                 responsePayload: $response,
             );
         } catch (RequestException $exception) {
             if ($this->client->isRecipientNotFoundError($exception)) {
-                return new \App\Support\Invoicing\ComplianceSubmissionResult(
+                return new ComplianceSubmissionResult(
                     status: ComplianceSubmissionStatus::Failed,
                     message: 'Recipient is not registered in the Peppol network.',
                     responsePayload: $exception->response?->json(),
@@ -139,14 +140,14 @@ class SapiSkComplianceGateway implements ComplianceSubmissionGateway
 
             report($exception);
 
-            return new \App\Support\Invoicing\ComplianceSubmissionResult(
+            return new ComplianceSubmissionResult(
                 status: ComplianceSubmissionStatus::Failed,
                 message: $exception->getMessage(),
             );
         } catch (\Throwable $e) {
             report($e);
 
-            return new \App\Support\Invoicing\ComplianceSubmissionResult(
+            return new ComplianceSubmissionResult(
                 status: ComplianceSubmissionStatus::Failed,
                 message: $e->getMessage(),
             );

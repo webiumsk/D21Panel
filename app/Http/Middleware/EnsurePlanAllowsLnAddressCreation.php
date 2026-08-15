@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\BtcPay\LightningAddressService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -38,7 +39,7 @@ class EnsurePlanAllowsLnAddressCreation
         $currentCount = 0;
         try {
             $apiKey = $user->getBtcPayApiKeyOrFail();
-            $lnService = app(\App\Services\BtcPay\LightningAddressService::class);
+            $lnService = app(LightningAddressService::class);
             foreach ($user->stores as $s) {
                 $list = $lnService->listAddresses($s->btcpay_store_id, $apiKey);
                 $currentCount += count($list ?? []);

@@ -13,6 +13,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Invoicing\BusinessDocumentIsdocService;
 use App\Services\Invoicing\BusinessDocumentPdfService;
+use App\Services\Invoicing\CanonicalInvoiceBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -223,7 +224,7 @@ class BusinessDocumentIsdocTest extends TestCase
         ]);
 
         $doc = $doc->fresh(['company', 'contact', 'lines']);
-        $canonical = app(\App\Services\Invoicing\CanonicalInvoiceBuilder::class)->fromDocument($doc);
+        $canonical = app(CanonicalInvoiceBuilder::class)->fromDocument($doc);
         $xml = app(BusinessDocumentIsdocService::class)->xml($doc);
 
         $this->assertStringContainsString(

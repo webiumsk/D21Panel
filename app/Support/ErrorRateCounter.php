@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -55,6 +56,6 @@ class ErrorRateCounter
 
     protected static function bucketKey(?\DateTimeInterface $at = null): string
     {
-        return self::KEY_PREFIX.\Illuminate\Support\Carbon::parse($at ?? now())->format('Y-m-d-H');
+        return self::KEY_PREFIX.Carbon::parse($at ?? now())->format('Y-m-d-H');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Company;
 use App\Services\Invoicing\Efaktura\EfakturaInboundService;
 use Illuminate\Console\Command;
 
@@ -21,7 +22,7 @@ class PollEfakturaInboundCommand extends Command
 
         $companyId = $this->option('company');
         if (is_string($companyId) && $companyId !== '') {
-            $company = \App\Models\Company::query()->find($companyId);
+            $company = Company::query()->find($companyId);
             if (! $company) {
                 $this->error("Company {$companyId} not found.");
 

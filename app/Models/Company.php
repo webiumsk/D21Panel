@@ -3,6 +3,9 @@
 namespace App\Models;
 
 use App\Enums\CompanyJurisdiction;
+use App\Services\Invoicing\CompanyEmailSettingsService;
+use App\Support\Invoicing\CompanyAppSettings;
+use App\Support\Invoicing\CompanyEfakturaSettings;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +30,10 @@ class Company extends Model
         'tax_id',
         'vat_number',
         'commercial_register',
+        'register_court',
+        'register_number',
+        'managing_directors',
+        'supervisory_board_chair',
         'street',
         'city',
         'postal_code',
@@ -71,7 +78,7 @@ class Company extends Model
      */
     public function resolvedAppSettings(): array
     {
-        $settings = \App\Support\Invoicing\CompanyAppSettings::from($this->app_settings)->toArray();
+        $settings = CompanyAppSettings::from($this->app_settings)->toArray();
         $stripeTaxSecretSet = is_string($settings['stripe_tax_secret_key'] ?? null)
             && trim((string) $settings['stripe_tax_secret_key']) !== '';
 
@@ -81,7 +88,7 @@ class Company extends Model
         return array_merge(
             $settings,
             ['stripe_tax_secret_key_set' => $stripeTaxSecretSet],
-            \App\Support\Invoicing\CompanyEfakturaSettings::fromCompany($this)->publicPayload(),
+            CompanyEfakturaSettings::fromCompany($this)->publicPayload(),
         );
     }
 
@@ -90,7 +97,7 @@ class Company extends Model
      */
     public function resolvedEmailSettings(): array
     {
-        return app(\App\Services\Invoicing\CompanyEmailSettingsService::class)
+        return app(CompanyEmailSettingsService::class)
             ->publicPayload($this);
     }
 
@@ -151,7 +158,7 @@ class Company extends Model
 
     public function usesServerInvoicing(): bool
     {
-        if (\App\Support\Invoicing\CompanyAppSettings::from($this->app_settings)->bool('local_first')) {
+        if (CompanyAppSettings::from($this->app_settings)->bool('local_first')) {
             return false;
         }
 

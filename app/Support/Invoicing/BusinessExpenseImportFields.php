@@ -2,6 +2,8 @@
 
 namespace App\Support\Invoicing;
 
+use Illuminate\Support\Str;
+
 /**
  * Excel expense import column definitions (internal keys are English).
  */
@@ -117,6 +119,6 @@ final class BusinessExpenseImportFields
         $header = trim(mb_strtolower($header));
         $header = preg_replace('/\s+/', ' ', $header) ?? $header;
 
-        return \Illuminate\Support\Str::ascii($header);
+        return Str::ascii($header);
     }
 }

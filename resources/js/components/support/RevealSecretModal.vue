@@ -58,7 +58,7 @@
                                 <span class="ml-2 inline-flex items-center gap-1.5">
                                     <WalletTypeIcon
                                       :type="connection.type"
-                                      :brand="connection.type === 'aqua_descriptor' ? (connection.brand ?? undefined) : undefined"
+                                      :brand="connection.type === 'aqua_descriptor' || connection.type === 'lnaddress' ? (connection.brand ?? undefined) : undefined"
                                       size="sm"
                                       :show-label="true"
                                     />
@@ -136,6 +136,20 @@
                                     </ol>
                                     <p class="mt-2 text-xs text-gray-500">
                                         Connection string format: <code class="bg-gray-100 px-1 py-0.5 rounded">type=blink;server=https://api.blink.sv/graphql;api-key=...;wallet-id=...</code>
+                                    </p>
+                                </div>
+                                <div v-else-if="connection.type === 'lnaddress'" class="space-y-2 text-sm text-gray-700">
+                                    <p><strong>Steps to configure a Lightning address (LUD-21) wallet:</strong></p>
+                                    <ol class="list-decimal list-inside space-y-1 ml-2">
+                                        <li>Click "Open Wallet Connection" button below to open Store settings in a new tab</li>
+                                        <li>Select "Use custom lightning node"</li>
+                                        <li>In the Connection String field, paste the connection string above</li>
+                                        <li>Save the settings</li>
+                                        <li>Test by creating a test invoice</li>
+                                    </ol>
+                                    <p class="mt-2 text-xs text-gray-500">
+                                        Connection string format: <code class="bg-gray-100 px-1 py-0.5 rounded">type=lnaddress;ln-address=user&#64;domain.com;</code>
+                                        Receive-only; settlement is detected via the wallet's LUD-21 <code class="bg-gray-100 px-1 py-0.5 rounded">verify</code> endpoint (requires the LN Address Connect plugin).
                                     </p>
                                 </div>
                                 <div v-else class="space-y-2 text-sm text-gray-700">

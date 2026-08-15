@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -25,7 +26,7 @@ class TicketEventRaffleBundleTest extends TestCase
         $postedBundleRaffleId = null;
         $postedBundlePerAdmission = null;
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $raffleId, &$postSeen, &$postedBundleRaffleId, &$postedBundlePerAdmission) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $raffleId, &$postSeen, &$postedBundleRaffleId, &$postedBundlePerAdmission) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -43,14 +44,14 @@ class TicketEventRaffleBundleTest extends TestCase
             }
 
             if ($request->method() === 'GET'
-                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satoshi-tickets/events")
-                && ! str_contains($url, '/satoshi-tickets/events/')
+                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satflux-tickets/events")
+                && ! str_contains($url, '/satflux-tickets/events/')
             ) {
                 return Http::response([], 200);
             }
 
             if ($request->method() === 'POST'
-                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satoshi-tickets/events")
+                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satflux-tickets/events")
             ) {
                 $postSeen = true;
                 $body = $request->data();
@@ -98,14 +99,14 @@ class TicketEventRaffleBundleTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $postedBundleRaffleId = 'unset';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $eventId, &$postedBundleRaffleId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $eventId, &$postedBundleRaffleId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
             }
 
             if ($request->method() === 'PUT'
-                && str_ends_with($url, "/api/v1/stores/{$btcpayStoreId}/satoshi-tickets/events/{$eventId}")
+                && str_ends_with($url, "/api/v1/stores/{$btcpayStoreId}/satflux-tickets/events/{$eventId}")
             ) {
                 $body = $request->data();
                 $postedBundleRaffleId = array_key_exists('bundledRaffleId', $body)

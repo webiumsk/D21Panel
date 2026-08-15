@@ -6,6 +6,8 @@ use App\Enums\CompanyJurisdiction;
 use App\Models\BusinessDocument;
 use App\Models\Company;
 use App\Models\CompanyContact;
+use App\Models\Subscription;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Invoicing\CanonicalInvoiceBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -101,14 +103,14 @@ class StripeTaxUsSalesTaxTest extends TestCase
         ]);
 
         $user = User::factory()->create();
-        \App\Models\SubscriptionPlan::create([
+        SubscriptionPlan::create([
             'code' => 'pro', 'name' => 'pro', 'display_name' => 'Pro', 'price_eur' => 99,
             'billing_period' => 'year', 'max_stores' => 3, 'max_api_keys' => 3,
             'max_ln_addresses' => null, 'features' => ['business_invoicing'], 'is_active' => true,
         ]);
-        \App\Models\Subscription::create([
+        Subscription::create([
             'user_id' => $user->id,
-            'plan_id' => \App\Models\SubscriptionPlan::first()->id,
+            'plan_id' => SubscriptionPlan::first()->id,
             'status' => 'active', 'starts_at' => now(), 'expires_at' => now()->addYear(),
         ]);
 
@@ -163,14 +165,14 @@ class StripeTaxUsSalesTaxTest extends TestCase
         ]);
 
         $user = User::factory()->create();
-        \App\Models\SubscriptionPlan::create([
+        SubscriptionPlan::create([
             'code' => 'pro', 'name' => 'pro', 'display_name' => 'Pro', 'price_eur' => 99,
             'billing_period' => 'year', 'max_stores' => 3, 'max_api_keys' => 3,
             'max_ln_addresses' => null, 'features' => ['business_invoicing'], 'is_active' => true,
         ]);
-        \App\Models\Subscription::create([
+        Subscription::create([
             'user_id' => $user->id,
-            'plan_id' => \App\Models\SubscriptionPlan::first()->id,
+            'plan_id' => SubscriptionPlan::first()->id,
             'status' => 'active', 'starts_at' => now(), 'expires_at' => now()->addYear(),
         ]);
 
@@ -213,7 +215,7 @@ class StripeTaxUsSalesTaxTest extends TestCase
         $response->assertJsonPath('data.total', '217.00');
 
         $doc = BusinessDocument::find($response->json('data.id'));
-        $canonical = app(\App\Services\Invoicing\CanonicalInvoiceBuilder::class)->fromDocument(
+        $canonical = app(CanonicalInvoiceBuilder::class)->fromDocument(
             $doc->fresh(['company', 'contact', 'lines'])
         );
 

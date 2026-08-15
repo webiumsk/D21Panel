@@ -11,10 +11,12 @@
 require __DIR__.'/../vendor/autoload.php';
 
 $app = require_once __DIR__.'/../bootstrap/app.php';
-$app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$app->make(Kernel::class)->bootstrap();
 
 use App\Models\Store;
 use App\Models\User;
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\Schema;
 
 echo "Creating subscription store record...\n\n";
 
@@ -57,7 +59,7 @@ try {
     ];
 
     // Only add optional fields if they exist in the schema
-    $columns = \Illuminate\Support\Facades\Schema::getColumnListing('stores');
+    $columns = Schema::getColumnListing('stores');
     if (in_array('default_currency', $columns)) {
         $storeData['default_currency'] = 'EUR';
     }
@@ -77,7 +79,7 @@ try {
     echo "  SUBSCRIPTION_PLAN_PRO_ID=<from BTCPay plan>\n";
     echo "\nLocal Laravel store UUID: {$store->id}\n";
 
-} catch (\Exception $e) {
+} catch (Exception $e) {
     echo "❌ Error creating store: {$e->getMessage()}\n";
     exit(1);
 }

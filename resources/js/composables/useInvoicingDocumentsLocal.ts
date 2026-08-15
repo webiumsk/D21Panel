@@ -2,12 +2,18 @@ import { computed, ref, type Ref } from "vue";
 import { useQuery } from "@evolu/vue";
 import type { DocumentAdvancedFilters } from "@/composables/useInvoicingDocumentListFilters";
 import type { IssuePeriodState } from "@/composables/useInvoicingIssuePeriod";
-import { allContactsQuery, allDocumentsQuery, useInvoicingEvolu } from "@/evolu/client";
+import {
+    allCompaniesDetailQuery,
+    allContactsQuery,
+    allDocumentsQuery,
+    useInvoicingEvolu,
+} from "@/evolu/client";
 import { evoluContactToApi } from "@/evolu/contactMap";
 import { evoluDocumentToListRow, type EvoluDocumentRow } from "@/evolu/documentMap";
 import { filterLocalDocumentRows } from "@/evolu/documentListFilters";
 import type { CompanyId } from "@/evolu/schema";
 import { toAppRows } from "../evolu/queryLoad";
+import type { LocalDocumentDeletionPolicy } from "@/evolu/documentBulkLocal";
 
 export type LocalDocumentListRow = Record<string, unknown>;
 
@@ -23,8 +29,9 @@ function mapDocumentRow(
     row: EvoluDocumentRow,
     contactName?: string | null,
     allDocuments: EvoluDocumentRow[] = [],
+    policy: LocalDocumentDeletionPolicy = {},
 ): LocalDocumentListRow {
-    return evoluDocumentToListRow(row, contactName, allDocuments);
+    return evoluDocumentToListRow(row, contactName, allDocuments, policy);
 }
 
 export function useInvoicingDocumentsLocal(companyId: Ref<string>) {
@@ -34,10 +41,12 @@ export function useInvoicingDocumentsLocal(companyId: Ref<string>) {
 
     const documentsPromise = evolu.loadQuery(allDocumentsQuery);
     const contactsPromise = evolu.loadQuery(allContactsQuery);
+    const companiesPromise = evolu.loadQuery(allCompaniesDetailQuery);
     const documentRows = useQuery(allDocumentsQuery, { promise: documentsPromise });
     const contactRows = useQuery(allContactsQuery, { promise: contactsPromise });
+    const companyRows = useQuery(allCompaniesDetailQuery, { promise: companiesPromise });
 
-    void Promise.all([documentsPromise, contactsPromise]).finally(() => {
+    void Promise.all([documentsPromise, contactsPromise, companiesPromise]).finally(() => {
         loading.value = false;
     });
 
@@ -49,6 +58,12 @@ export function useInvoicingDocumentsLocal(companyId: Ref<string>) {
         }
         return map;
     });
+
+    const deletionPolicy = computed<LocalDocumentDeletionPolicy>(() => ({
+        jurisdictionByCompanyId: new Map(
+            companyRows.value.map((row) => [String(row.id), String(row.jurisdiction ?? "")]),
+        ),
+    }));
 
     const filteredRows = computed(() => {
         const companyRows = toAppRows<EvoluDocumentRow>(
@@ -74,6 +89,7 @@ export function useInvoicingDocumentsLocal(companyId: Ref<string>) {
                 row,
                 row.contactId ? contactNameById.value.get(row.contactId) : null,
                 all,
+                deletionPolicy.value,
             ),
         );
     });
@@ -85,6 +101,7 @@ export function useInvoicingDocumentsLocal(companyId: Ref<string>) {
             await Promise.all([
                 evolu.loadQuery(allDocumentsQuery),
                 evolu.loadQuery(allContactsQuery),
+                evolu.loadQuery(allCompaniesDetailQuery),
             ]);
         } finally {
             loading.value = false;
@@ -97,6 +114,7 @@ export function useInvoicingDocumentsLocal(companyId: Ref<string>) {
         filteredRows,
         documentRows,
         contactRows,
+        companyRows,
         refresh,
         evolu,
     };

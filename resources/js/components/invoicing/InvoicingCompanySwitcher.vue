@@ -11,9 +11,9 @@
       :class="{ 'invoicing-company-switcher__trigger--open': open }"
       :aria-expanded="open"
       aria-haspopup="listbox"
-      :aria-label="t('invoicing.company_switcher_title')"
       @click="toggleOpen"
     >
+      <span class="sr-only">{{ t('invoicing.company_switcher_title') }}</span>
       <img
         v-if="currentLogoUrl"
         :src="currentLogoUrl"
@@ -22,6 +22,16 @@
       />
       <InvoicingIcons v-else name="building" class="h-4 w-4 shrink-0 text-gray-500" />
       <span class="invoicing-company-switcher__label">{{ currentLabel }}</span>
+      <span
+        v-if="vatLimitStatus"
+        class="h-2 w-2 shrink-0 rounded-full"
+        :class="vatLimitStatus.level === 'approaching' ? 'bg-amber-500' : 'bg-red-500'"
+        :title="t('invoicing.vat_limit_indicator_tooltip', { percent: vatLimitStatus.percent })"
+      >
+        <span class="sr-only">{{
+          t('invoicing.vat_limit_indicator_tooltip', { percent: vatLimitStatus.percent })
+        }}</span>
+      </span>
       <InvoicingIcons name="chevrons-up-down" class="h-3.5 w-3.5 shrink-0 text-gray-400" />
     </button>
 
@@ -99,6 +109,7 @@ import { invoicingCompanyLabel } from '../../composables/invoicingCompanyLabel';
 import { dedupeInvoicingCompanyList } from '../../composables/dedupeInvoicingCompanyList';
 import { useInvoicingCompanies } from '../../composables/useInvoicingCompanies';
 import { useInvoicingLayout } from '../../composables/useInvoicingLayout';
+import { useVatLimitStatus } from '../../composables/useVatLimitStatus';
 
 const props = withDefaults(
   defineProps<{
@@ -118,6 +129,7 @@ const { t } = useI18n();
 const router = useRouter();
 const { companyId, switchCompany } = useInvoicingLayout();
 const { companies, loading, refresh } = useInvoicingCompanies();
+const { status: vatLimitStatus } = useVatLimitStatus(companyId);
 
 const rootRef = ref<HTMLElement | null>(null);
 const searchRef = ref<HTMLInputElement | null>(null);

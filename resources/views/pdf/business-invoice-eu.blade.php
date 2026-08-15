@@ -12,6 +12,8 @@
         // the variables to exist; the body partial falls back to __() labels.
         $vatLabel = $vatLabel ?? null;
         $taxIdLabel = $taxIdLabel ?? null;
+        $taxNumberLabel = $taxNumberLabel ?? null;
+        $isDe = $isDe ?? false;
     @endphp
     <div class="invoice-doc-body">
     @include('pdf.partials.business-invoice-body-eu', compact(
@@ -21,6 +23,8 @@
         'lines',
         'vatLabel',
         'taxIdLabel',
+        'taxNumberLabel',
+        'isDe',
         'taxBreakdown',
         'showVatColumn',
         'showVatBreakdown',

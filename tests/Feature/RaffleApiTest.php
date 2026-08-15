@@ -7,6 +7,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -22,7 +23,7 @@ class RaffleApiTest extends TestCase
         $btcpayStoreId = $store->btcpay_store_id;
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -50,7 +51,7 @@ class RaffleApiTest extends TestCase
         $btcpayStoreId = $store->btcpay_store_id;
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -78,7 +79,7 @@ class RaffleApiTest extends TestCase
         $btcpayStoreId = $store->btcpay_store_id;
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -107,7 +108,7 @@ class RaffleApiTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $raffleId = 'raffle-uuid-1';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -173,7 +174,7 @@ class RaffleApiTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $raffleId = 'raffle-eur-1';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -224,7 +225,7 @@ class RaffleApiTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $raffleId = '11111111-1111-1111-1111-111111111111';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -269,7 +270,7 @@ class RaffleApiTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $raffleId = '44444444-4444-4444-4444-444444444444';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -308,7 +309,7 @@ class RaffleApiTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $raffleId = '77777777-7777-7777-7777-777777777777';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -338,7 +339,7 @@ class RaffleApiTest extends TestCase
         $response->assertForbidden();
         $response->assertJsonFragment(['message' => __('messages.raffles_cannot_delete')]);
 
-        Http::assertNotSent(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
+        Http::assertNotSent(function (Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
             $url = (string) $request->url();
 
             return $request->method() === 'DELETE'
@@ -355,7 +356,7 @@ class RaffleApiTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $raffleId = '55555555-5555-5555-5555-555555555555';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -398,7 +399,7 @@ class RaffleApiTest extends TestCase
         $raffleId = '22222222-2222-2222-2222-222222222222';
         $internalPresenterUrl = 'http://btcpay:49392/raffle/'.$raffleId.'/present?token=abc';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($apiBase, $btcpayStoreId, $raffleId, $internalPresenterUrl) {
+        Http::fake(function (Request $request) use ($apiBase, $btcpayStoreId, $raffleId, $internalPresenterUrl) {
             $url = (string) $request->url();
             if (! str_contains($url, $apiBase)) {
                 return Http::response([], 404);
@@ -434,7 +435,7 @@ class RaffleApiTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $existingId = '11111111-1111-1111-1111-111111111111';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $existingId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $existingId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -470,7 +471,7 @@ class RaffleApiTest extends TestCase
         $response->assertForbidden();
         $response->assertJsonFragment(['message' => __('messages.raffles_limit_free', ['max' => 1])]);
 
-        Http::assertNotSent(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId) {
+        Http::assertNotSent(function (Request $request) use ($baseUrl, $btcpayStoreId) {
             $url = (string) $request->url();
 
             return $request->method() === 'POST'
@@ -486,7 +487,7 @@ class RaffleApiTest extends TestCase
         $btcpayStoreId = $store->btcpay_store_id;
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -509,7 +510,7 @@ class RaffleApiTest extends TestCase
         $response->assertStatus(503);
         $response->assertJsonFragment(['message' => __('messages.raffles_quota_verification_failed')]);
 
-        Http::assertNotSent(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId) {
+        Http::assertNotSent(function (Request $request) use ($baseUrl, $btcpayStoreId) {
             $url = (string) $request->url();
 
             return $request->method() === 'POST'
@@ -544,7 +545,7 @@ class RaffleApiTest extends TestCase
         $btcpayStoreId = $store->btcpay_store_id;
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -588,7 +589,7 @@ class RaffleApiTest extends TestCase
         $baseUrl = rtrim(config('services.btcpay.base_url', 'http://localhost'), '/');
         $raffleId = '66666666-6666-6666-6666-666666666666';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, $raffleId) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
@@ -645,7 +646,7 @@ class RaffleApiTest extends TestCase
         $publicBase = rtrim(config('services.btcpay.public_url'), '/');
         $raffleId = '33333333-3333-3333-3333-333333333333';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($apiBase, $btcpayStoreId, $raffleId) {
+        Http::fake(function (Request $request) use ($apiBase, $btcpayStoreId, $raffleId) {
             $url = (string) $request->url();
             if (! str_contains($url, $apiBase)) {
                 return Http::response([], 404);

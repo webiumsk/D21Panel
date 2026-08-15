@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Store;
 use App\Models\User;
 use App\Notifications\BlinkWalletMigrationNotification;
+use App\Services\BlinkMigrationAlertService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 
@@ -13,7 +14,13 @@ class NotifyBlinkMigrationCommand extends Command
     protected $signature = 'wallet:notify-blink-migration
                             {--dry-run : List recipients without sending email}';
 
-    protected $description = 'Send one-shot Blink wallet migration emails (deduped per user, skips dismissed stores)';
+    protected $description = 'Send one-shot Blink wallet migration emails (deduped per user, skips dismissed stores and stores already on the Lightning address format)';
+
+    public function __construct(
+        protected BlinkMigrationAlertService $alertService,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -22,9 +29,11 @@ class NotifyBlinkMigrationCommand extends Command
         $blinkStores = Store::query()
             ->where('wallet_type', 'blink')
             ->whereNull('blink_alert_dismissed_at')
-            ->with('user')
+            ->with(['user', 'walletConnection'])
             ->orderBy('user_id')
-            ->get();
+            ->get()
+            ->filter(fn (Store $store) => $this->alertService->usesLegacyBlinkFormat($store))
+            ->values();
 
         if ($blinkStores->isEmpty()) {
             $this->info('No Blink stores eligible for migration notification.');

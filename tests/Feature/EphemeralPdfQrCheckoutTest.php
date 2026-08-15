@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Enums\BusinessDocumentStatus;
+use App\Enums\CompanyJurisdiction;
 use App\Models\BusinessDocument;
+use App\Models\Company;
 use App\Models\EphemeralBtcpayCheckout;
 use App\Models\Store;
 use App\Models\User;
@@ -55,10 +57,10 @@ class EphemeralPdfQrCheckoutTest extends TestCase
         $document->amount_paid = number_format($amountPaid, 2, '.', '');
         $document->store_id = $this->store->id;
         $document->setRelation('store', $this->store);
-        $document->setRelation('company', \App\Models\Company::create([
+        $document->setRelation('company', Company::create([
             'user_id' => $this->user->id,
             'legal_name' => 'QR Test s.r.o.',
-            'jurisdiction' => \App\Enums\CompanyJurisdiction::EuSk,
+            'jurisdiction' => CompanyJurisdiction::EuSk,
             'default_currency' => 'EUR',
         ]));
 

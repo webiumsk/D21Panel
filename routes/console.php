@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ProcessMonthlyExports;
 use Illuminate\Support\Facades\Schedule;
 
 // Check subscription statuses daily at 2 AM
@@ -18,7 +19,7 @@ Schedule::command('subscriptions:check-statuses')
 //     ->runInBackground();
 
 // Automatic monthly CSV exports for PRO users (1st of month at 03:00 for previous month)
-Schedule::job(new \App\Jobs\ProcessMonthlyExports)->monthlyOn(1, '03:00')->withoutOverlapping();
+Schedule::job(new ProcessMonthlyExports)->monthlyOn(1, '03:00')->withoutOverlapping();
 
 // Inactive guest purge (opt-in via GUEST_PURGE_ENABLED in .env)
 Schedule::command('guests:purge-inactive')
@@ -66,6 +67,15 @@ Schedule::command('compliance:sync-sanctions-lists')
     ->dailyAt('04:30')
     ->withoutOverlapping()
     ->runInBackground();
+
+// RegWatch legislative monitoring (docs/LEGAL.md): fetch official sources,
+// diff snapshots, record detections for human review (opt-in via REGWATCH_ENABLED).
+if (config('regwatch.enabled')) {
+    Schedule::command('regwatch:monitor')
+        ->dailyAt('05:15')
+        ->withoutOverlapping()
+        ->runInBackground();
+}
 
 if (config('efaktura.enabled')) {
     Schedule::command('efaktura:poll-inbound')

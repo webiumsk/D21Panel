@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Models\StoreApiKey;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\BtcPay\BtcPayClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -21,7 +22,7 @@ class StoreApiKeyTest extends TestCase
         parent::setUp();
 
         config(['services.btcpay.base_url' => 'https://btcpay.test']);
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
 
         SubscriptionPlan::create([
             'name' => 'free',

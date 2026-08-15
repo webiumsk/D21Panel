@@ -7,6 +7,10 @@ use Illuminate\Validation\ValidationException;
 
 class BlinkMigrationAlertService
 {
+    public function __construct(
+        protected WalletConnectionValidator $validator,
+    ) {}
+
     /**
      * @return array{active: bool, snoozed_until: ?string, dismissed_at: ?string}
      */
@@ -33,7 +37,26 @@ class BlinkMigrationAlertService
             return false;
         }
 
-        return true;
+        return $this->usesLegacyBlinkFormat($store);
+    }
+
+    /**
+     * True when the store's Blink secret is still the custodial API key format (or
+     * undeterminable). The non-custodial Lightning address format works in the EU,
+     * so those stores get no migration warning.
+     */
+    public function usesLegacyBlinkFormat(Store $store): bool
+    {
+        $connection = $store->walletConnection;
+        if (! $connection || $connection->type !== 'blink') {
+            return true;
+        }
+
+        try {
+            return $this->validator->blinkVariant($connection->reveal()) !== 'ln_address';
+        } catch (\Throwable) {
+            return true;
+        }
     }
 
     public function snooze(Store $store): Store

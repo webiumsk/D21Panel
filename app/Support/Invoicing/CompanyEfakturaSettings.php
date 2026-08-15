@@ -3,6 +3,7 @@
 namespace App\Support\Invoicing;
 
 use App\Models\Company;
+use App\Support\Invoicing\Efaktura\PeppolParticipantId;
 use Illuminate\Support\Facades\Crypt;
 
 /**
@@ -13,11 +14,17 @@ final class CompanyEfakturaSettings
     /**
      * @param  array<string, mixed>  $values
      */
-    public function __construct(public array $values = []) {}
+    public function __construct(
+        public array $values = [],
+        protected ?string $derivedPeppolParticipantId = null,
+    ) {}
 
     public static function fromCompany(Company $company): self
     {
-        return new self(CompanyAppSettings::from($company->app_settings)->toArray());
+        return new self(
+            CompanyAppSettings::from($company->app_settings)->toArray(),
+            PeppolParticipantId::fromCompany($company),
+        );
     }
 
     public function enabled(): bool
@@ -40,11 +47,28 @@ final class CompanyEfakturaSettings
         return (string) ($this->values['efaktura_provider'] ?? 'sapi_sk');
     }
 
-    public function peppolParticipantId(): ?string
+    /** The explicitly stored participant ID only (settings form value). */
+    public function explicitPeppolParticipantId(): ?string
     {
         $id = trim((string) ($this->values['efaktura_peppol_participant_id'] ?? ''));
 
         return $id !== '' ? $id : null;
+    }
+
+    /** Auto-derived from the company DIČ (0245) or IČO (0208) - see SkUblProfile. */
+    public function derivedPeppolParticipantId(): ?string
+    {
+        return $this->derivedPeppolParticipantId;
+    }
+
+    /**
+     * Effective sender ID: the explicit override wins, otherwise the value
+     * derived from the company registration data - merchants never have to
+     * learn the scheme syntax when their DIČ/IČO is filled in.
+     */
+    public function peppolParticipantId(): ?string
+    {
+        return $this->explicitPeppolParticipantId() ?? $this->derivedPeppolParticipantId;
     }
 
     public function sapiBaseUrl(): ?string
@@ -105,9 +129,13 @@ final class CompanyEfakturaSettings
             'efaktura_inbound_enabled' => $this->inboundEnabled(),
             'efaktura_provider' => $this->provider(),
             'efaktura_sapi_base_url' => $this->sapiBaseUrl(),
-            'efaktura_peppol_participant_id' => $this->peppolParticipantId(),
+            // The form shows only the explicit override; the derived default
+            // travels separately so the UI can hint "we will use 0245:...".
+            'efaktura_peppol_participant_id' => $this->explicitPeppolParticipantId(),
+            'efaktura_peppol_participant_id_derived' => $this->derivedPeppolParticipantId,
             'efaktura_sapi_client_id' => $this->sapiClientId(),
             'efaktura_sapi_client_secret_set' => $this->sapiClientSecret() !== null,
+            'efaktura_connection_tested_at' => $this->values['efaktura_connection_tested_at'] ?? null,
             'efaktura_inbound_last_poll_at' => $this->values['efaktura_inbound_last_poll_at'] ?? null,
             'efaktura_inbound_last_poll_stats' => $this->values['efaktura_inbound_last_poll_stats'] ?? null,
         ];

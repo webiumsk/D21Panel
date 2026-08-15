@@ -124,7 +124,7 @@ class AccountTest extends TestCase
         $response->assertJson(['message' => __('messages.password_updated')]);
 
         $user->refresh();
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('new-secure-password', $user->password));
+        $this->assertTrue(Hash::check('new-secure-password', $user->password));
     }
 
     public function test_password_update_requires_correct_current_password(): void

@@ -6,6 +6,7 @@ use App\Enums\BusinessDocumentStatus;
 use App\Models\AuditLog;
 use App\Models\BankTransaction;
 use App\Models\BusinessDocument;
+use App\Services\Integrations\WooCommerceWebhookNotifier;
 use Illuminate\Validation\ValidationException;
 
 class BusinessDocumentMarkPaidService
@@ -57,7 +58,7 @@ class BusinessDocumentMarkPaidService
 
         if ($fullyPaid) {
             $this->paymentTokenService->revokeAfterPaid($document->fresh());
-            app(\App\Services\Integrations\WooCommerceWebhookNotifier::class)
+            app(WooCommerceWebhookNotifier::class)
                 ->notifyDocumentPaid($document->fresh());
         }
 

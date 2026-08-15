@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Cache\RateLimiter as CacheRateLimiter;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -39,7 +40,7 @@ abstract class TestCase extends BaseTestCase
 
         $app = require __DIR__.'/../bootstrap/app.php';
 
-        $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+        $kernel = $app->make(Kernel::class);
         $kernel->bootstrap();
 
         // After bootstrap, ensure cache uses array

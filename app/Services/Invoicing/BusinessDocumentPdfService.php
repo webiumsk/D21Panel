@@ -6,8 +6,11 @@ use App\Enums\BusinessDocumentType;
 use App\Enums\CompanyJurisdiction;
 use App\Models\AuditLog;
 use App\Models\BusinessDocument;
+use App\Models\Company;
+use App\Models\Store;
 use App\Support\Invoicing\CompanyAppSettings;
 use App\Support\Invoicing\CompanyVatPolicy;
+use App\Support\Invoicing\JurisdictionRules;
 use App\Support\Invoicing\QrPngRenderer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -23,6 +26,7 @@ class BusinessDocumentPdfService
         protected CompanyBrandingService $brandingService,
         protected CompanyPdfFilenameBuilder $pdfFilenameBuilder,
         protected BusinessDocumentIsdocService $isdocService,
+        protected BusinessDocumentZugferdService $zugferdService,
         protected CanonicalInvoiceBuilder $canonicalBuilder,
         protected CompanyVatPolicy $vatPolicy,
     ) {}
@@ -55,6 +59,26 @@ class BusinessDocumentPdfService
         Pdf::view($view, $viewData)->save($visualPath);
 
         try {
+            // DE companies get the ZUGFeRD hybrid (factur-x.xml, also for
+            // ephemeral local-first documents); ISDOC stays the SK/CZ embed.
+            if ($this->zugferdService->supportsEmbedInPdf($document)) {
+                $zugferdPath = $this->tempPdfPath('pdf-zugferd-'.bin2hex(random_bytes(8)).'.pdf');
+                try {
+                    $this->zugferdService->embedInPdf($visualPath, $document, $zugferdPath);
+
+                    $binary = file_get_contents($zugferdPath);
+                    if ($binary === false) {
+                        // An unreadable hybrid must fail loudly - an empty 200
+                        // body would look like a served (broken) invoice.
+                        throw new \RuntimeException('Could not read generated ZUGFeRD PDF.');
+                    }
+
+                    return $binary;
+                } finally {
+                    @unlink($zugferdPath);
+                }
+            }
+
             if ($document->exists && $this->isdocService->supportsEmbedInPdf($document)) {
                 $isdocPath = $this->tempPdfPath('pdf-isdoc-'.uniqid().'.pdf');
                 try {
@@ -156,7 +180,7 @@ class BusinessDocumentPdfService
         $company = $document->company;
         $bankQr = null;
         $bankQrStandard = null;
-        if ($company instanceof \App\Models\Company
+        if ($company instanceof Company
             && $document->payment_bank_enabled
             && $document->type !== BusinessDocumentType::Quote
         ) {
@@ -183,16 +207,17 @@ class BusinessDocumentPdfService
         $canonical = $this->canonicalBuilder->fromDocument($document);
         $settings = CompanyAppSettings::from($company->app_settings);
         $contact = $document->resolvedBuyer();
-        $reverseChargeNote = $this->vatPolicy->reverseChargeNote($company, $contact, $settings);
+        $reverseChargeNote = $this->vatPolicy->taxClause($company, $contact, $settings);
 
         $jurisdiction = $company->jurisdiction;
         $isUs = $jurisdiction === CompanyJurisdiction::Us;
+        $isDe = $this->vatPolicy->isDeCompany($company);
 
         // sk/cs/en label localization comes from pdf_locale translations;
         // jurisdictions whose statutory tax terms a language file cannot
         // distinguish (DE USt-IdNr. vs AT UID-Nr. vs CH MWST - all German)
         // override the labels from JurisdictionRules.
-        $rules = \App\Support\Invoicing\JurisdictionRules::for($jurisdiction);
+        $rules = JurisdictionRules::for($jurisdiction);
         $vatLabel = $rules['pdf_label_override'] ? $rules['vat_name'] : __('VAT');
         $taxIdLabel = $rules['pdf_label_override'] ? $rules['tax_id_label'] : __('VAT ID');
 
@@ -208,6 +233,10 @@ class BusinessDocumentPdfService
             'showVatBreakdown' => $this->vatPolicy->showsVatBreakdown($company, $contact),
             'showSalesTaxColumn' => $isUs && (float) $canonical->taxTotal > 0,
             'isUs' => $isUs,
+            // DE mandatory-field rendering: always-shown Leistungsdatum and
+            // the German Steuernummer label.
+            'isDe' => $isDe,
+            'taxNumberLabel' => $isDe ? 'Steuernummer' : null,
             'reverseChargeNote' => $reverseChargeNote,
             'bankQr' => $bankQr,
             'bankQrStandard' => $bankQrStandard,
@@ -257,7 +286,7 @@ class BusinessDocumentPdfService
 
             $document->loadMissing(['store.user']);
             $store = $document->store;
-            if (! $store instanceof \App\Models\Store) {
+            if (! $store instanceof Store) {
                 return null;
             }
 

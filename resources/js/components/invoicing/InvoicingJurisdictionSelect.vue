@@ -1,7 +1,16 @@
 <template>
   <select :value="modelValue" class="invoicing-sf-input" @change="onChange">
-    <option v-for="j in COMPANY_JURISDICTION_VALUES" :key="j" :value="j">
-      {{ t(`invoicing.${JURISDICTION_I18N_KEYS[j]}`) }}
+    <!-- Unfinished jurisdictions stay listed but disabled; the current
+         value of an existing company remains selectable so its select
+         never breaks. -->
+    <option
+      v-for="j in COMPANY_JURISDICTION_VALUES"
+      :key="j"
+      :value="j"
+      :disabled="!isCompanyJurisdictionEnabled(j) && j !== modelValue"
+    >
+      {{ t(`invoicing.${JURISDICTION_I18N_KEYS[j]}`)
+      }}{{ isCompanyJurisdictionEnabled(j) ? '' : ` ${t('invoicing.jurisdiction_unavailable')}` }}
     </option>
   </select>
 </template>
@@ -11,6 +20,7 @@ import { useI18n } from 'vue-i18n';
 import {
   COMPANY_JURISDICTION_VALUES,
   JURISDICTION_I18N_KEYS,
+  isCompanyJurisdictionEnabled,
   type CompanyJurisdictionValue,
 } from '../../config/companyJurisdiction';
 

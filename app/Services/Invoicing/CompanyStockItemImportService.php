@@ -4,6 +4,7 @@ namespace App\Services\Invoicing;
 
 use App\Models\AuditLog;
 use App\Models\Company;
+use App\Models\CompanyWarehouse;
 use App\Support\Invoicing\CompanyStockItemImportFields;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -373,7 +374,7 @@ class CompanyStockItemImportService
         ];
     }
 
-    protected function resolveImportWarehouse(Company $company, ?string $warehouseName): \App\Models\CompanyWarehouse
+    protected function resolveImportWarehouse(Company $company, ?string $warehouseName): CompanyWarehouse
     {
         $name = trim((string) $warehouseName);
         if ($name !== '') {

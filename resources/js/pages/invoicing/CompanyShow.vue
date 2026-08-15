@@ -50,6 +50,11 @@
     />
 
     <template v-else-if="settingsSection === 'profile'">
+      <EfakturaReadinessCard
+        class="mb-4"
+        :company-id="companyId"
+        :company="company as unknown as Record<string, unknown>"
+      />
       <CompanySettingsForm
         :company-id="companyId"
         :company="company"
@@ -74,6 +79,7 @@ import CompanyAutoIssueCard from '../../components/invoicing/CompanyAutoIssueCar
 import CompanyEmailSettingsForm from '../../components/invoicing/CompanyEmailSettingsForm.vue';
 import CompanyNumberSeriesPanel from '../../components/invoicing/CompanyNumberSeriesPanel.vue';
 import CompanySettingsForm from '../../components/invoicing/CompanySettingsForm.vue';
+import EfakturaReadinessCard from '../../components/invoicing/EfakturaReadinessCard.vue';
 import InvoicingAppHeader from '../../components/invoicing/InvoicingAppHeader.vue';
 import InvoicingPageShell from '../../components/invoicing/InvoicingPageShell.vue';
 import { useInvoicingCompany } from '../../composables/useInvoicingCompany';

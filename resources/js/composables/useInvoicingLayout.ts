@@ -25,7 +25,7 @@ export interface InvoicingDocumentNavItem {
   mvpEnabled: boolean;
 }
 
-export type InvoicingToolsSection = 'profile' | 'app' | 'subscription' | 'import' | 'vat-report';
+export type InvoicingToolsSection = 'profile' | 'app' | 'subscription' | 'import' | 'vat-report' | 'audit';
 
 export interface InvoicingToolsNavItem {
   section: InvoicingToolsSection;
@@ -151,6 +151,7 @@ export function useInvoicingLayout() {
     { section: 'app', routeName: 'invoicing-company-app', labelKey: 'invoicing.settings_nav_application' },
     { section: 'import', routeName: 'invoicing-company-import', labelKey: 'invoicing.settings_nav_import' },
     { section: 'vat-report', routeName: 'invoicing-vat-report', labelKey: 'invoicing.settings_nav_vat_report' },
+    { section: 'audit', routeName: 'invoicing-audit', labelKey: 'invoicing.settings_nav_audit' },
     { section: 'subscription', routeName: 'account', labelKey: 'invoicing.settings_nav_subscription' },
   ]);
 
@@ -168,6 +169,9 @@ export function useInvoicingLayout() {
     }
     if (name === 'invoicing-vat-report') {
       return 'vat-report';
+    }
+    if (name === 'invoicing-audit') {
+      return 'audit';
     }
     if (name === 'account') {
       return 'subscription';

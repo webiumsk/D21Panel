@@ -4,6 +4,7 @@ namespace App\Services\BtcPay;
 
 use App\Models\Store;
 use App\Models\StoreApiKey;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -147,7 +148,7 @@ class StoreApiKeyService
      * List all API keys for a store.
      *
      * @param  string  $storeId  Local store UUID
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @return Collection
      */
     public function listApiKeys(string $storeId)
     {

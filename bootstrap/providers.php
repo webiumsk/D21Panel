@@ -1,7 +1,11 @@
 <?php
 
+use App\Providers\AppServiceProvider;
+use App\Providers\ComplianceServiceProvider;
+use App\Providers\InvoicingComplianceServiceProvider;
+
 return [
-    App\Providers\AppServiceProvider::class,
-    App\Providers\ComplianceServiceProvider::class,
-    App\Providers\InvoicingComplianceServiceProvider::class,
+    AppServiceProvider::class,
+    ComplianceServiceProvider::class,
+    InvoicingComplianceServiceProvider::class,
 ];

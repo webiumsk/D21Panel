@@ -3,11 +3,13 @@
 namespace Database\Factories;
 
 use App\Models\Store;
+use App\Models\User;
+use App\Models\WalletConnection;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Crypt;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\WalletConnection>
+ * @extends Factory<WalletConnection>
  */
 class WalletConnectionFactory extends Factory
 {
@@ -23,7 +25,7 @@ class WalletConnectionFactory extends Factory
             'type' => 'blink',
             'status' => 'pending',
             'encrypted_secret' => Crypt::encryptString('blink:test@example.com:password'),
-            'submitted_by_user_id' => \App\Models\User::factory(),
+            'submitted_by_user_id' => User::factory(),
         ];
     }
 

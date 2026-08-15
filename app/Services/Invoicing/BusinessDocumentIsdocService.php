@@ -47,7 +47,7 @@ class BusinessDocumentIsdocService
         $invoice = $this->build($document);
 
         $supplements = new IsdocInvoiceDocument\SupplementsList;
-        $pdfSupplement = ISDOC\Invoice\Supplement::fromPath($visualPdfPath, 'invoice-preview.pdf');
+        $pdfSupplement = IsdocInvoice\Supplement::fromPath($visualPdfPath, 'invoice-preview.pdf');
         $pdfSupplement->setPreview(true);
         $supplements->add($pdfSupplement);
         $invoice->setSupplementsList($supplements);

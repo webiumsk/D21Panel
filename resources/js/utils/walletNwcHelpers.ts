@@ -1,3 +1,5 @@
+import { lnAddressDomain } from './lnAddressWalletBrands';
+
 /** Domains/hosts that indicate NWC from a Cashu ecash wallet, not BTCPay store Lightning. */
 const CASHU_WALLET_NWC_MARKERS = [
   'minibits',
@@ -7,9 +9,13 @@ const CASHU_WALLET_NWC_MARKERS = [
   'mint.coinos',
 ] as const;
 
-const CASHU_WALLET_LN_DOMAINS = [
+/**
+ * LN address domains that stay on the Cashu path. coinos.io is intentionally
+ * absent - Coinos addresses connect natively via lnaddress (the NWC markers
+ * above still reject Coinos NWC URIs).
+ */
+export const CASHU_WALLET_LN_DOMAINS = [
   'minibits.cash',
-  'coinos.io',
 ] as const;
 
 export function normalizeNwcUri(value: string): string {
@@ -64,10 +70,28 @@ export function isCashuWalletNwcUri(value: string): boolean {
   return false;
 }
 
-/** Blink connection string: type=blink;server=...;api-key=...;wallet-id=... (all keys present, non-empty). */
+/** Lightning address at the blink.sv domain - the only domain Blink connections accept. */
+export function isBareBlinkLightningAddress(value: string): boolean {
+  return /^[^@\s;=]+@blink\.sv$/i.test(value.trim());
+}
+
+/** Canonical BTCPay Blink connection string (bare ln-address shorthand → full form). */
+export function normalizeBlinkConnectionString(value: string): string {
+  const trimmed = value.trim();
+  if (isBareBlinkLightningAddress(trimmed)) {
+    return `type=blink;ln-address=${trimmed};`;
+  }
+  return trimmed;
+}
+
+/**
+ * Blink connection string - either custodial (type=blink;server=...;api-key=...;wallet-id=...),
+ * non-custodial (type=blink;ln-address=you@blink.sv;), or the bare blink.sv address shorthand.
+ */
 export function validateBlinkConnectionString(connectionString: string): boolean {
   const trimmed = connectionString.trim();
   if (!trimmed) return false;
+  if (isBareBlinkLightningAddress(trimmed)) return true;
   if (!trimmed.includes(';')) return false;
   const parts = trimmed
     .split(';')
@@ -77,6 +101,7 @@ export function validateBlinkConnectionString(connectionString: string): boolean
   let serverVal = '';
   let apiKeyVal = '';
   let walletIdVal = '';
+  let lnAddressVal = '';
   for (const part of parts) {
     const eq = part.indexOf('=');
     if (eq === -1) continue;
@@ -86,8 +111,122 @@ export function validateBlinkConnectionString(connectionString: string): boolean
     if (key === 'server') serverVal = value;
     if (key === 'api-key' || key === 'apikey') apiKeyVal = value;
     if (key === 'wallet-id' || key === 'walletid') walletIdVal = value;
+    if (key === 'ln-address' || key === 'lnaddress' || key === 'username') lnAddressVal = value;
   }
-  return typeVal === 'blink' && !!serverVal && !!apiKeyVal && !!walletIdVal;
+  if (typeVal !== 'blink') return false;
+  if (lnAddressVal) {
+    // Plugin defaults a bare username to the blink.sv domain; other domains are rejected
+    const address = lnAddressVal.includes('@') ? lnAddressVal : `${lnAddressVal}@blink.sv`;
+    return isBareBlinkLightningAddress(address);
+  }
+  return !!serverVal && !!apiKeyVal && !!walletIdVal;
+}
+
+/** Lightning address at the blitzwalletapp.com domain - routes bare pastes to Blitz. */
+export function isBareBlitzLightningAddress(value: string): boolean {
+  return /^[^@\s;=]+@blitzwalletapp\.com$/i.test(value.trim());
+}
+
+/** Canonical BTCPay Blitz connection string (bare address shorthand → full form). */
+export function normalizeBlitzConnectionString(value: string): string {
+  const trimmed = value.trim();
+  if (isBareBlitzLightningAddress(trimmed)) {
+    return `type=blitz;ln-address=${trimmed};`;
+  }
+  return trimmed;
+}
+
+/**
+ * Blitz connection string - type=blitz;ln-address=<user[@domain]>; (aliases lnaddress,
+ * username; a bare username defaults to blitzwalletapp.com) or the bare address shorthand.
+ */
+export function validateBlitzConnectionString(connectionString: string): boolean {
+  const trimmed = connectionString.trim();
+  if (!trimmed) return false;
+  if (isBareBlitzLightningAddress(trimmed)) return true;
+  if (!trimmed.toLowerCase().includes('type=blitz')) return false;
+  const parts = trimmed
+    .split(';')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  let typeVal = '';
+  let lnAddressVal = '';
+  for (const part of parts) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim().toLowerCase();
+    const value = part.slice(eq + 1).trim();
+    if (key === 'type') typeVal = value.toLowerCase();
+    if (key === 'ln-address' || key === 'lnaddress' || key === 'username') lnAddressVal = value;
+  }
+  if (typeVal !== 'blitz' || !lnAddressVal) return false;
+  // Same domain gate as Blink: bare usernames default to blitzwalletapp.com,
+  // other domains belong to the Cashu path.
+  const address = lnAddressVal.includes('@') ? lnAddressVal : `${lnAddressVal}@blitzwalletapp.com`;
+  return isBareBlitzLightningAddress(address);
+}
+
+/** Lightning address at the flashapp.me domain - routes bare pastes to Flash. */
+export function isBareFlashLightningAddress(value: string): boolean {
+  return /^[^@\s;=]+@flashapp\.me$/i.test(value.trim());
+}
+
+/** Canonical BTCPay Flash connection string (bare address shorthand → full form). */
+export function normalizeFlashConnectionString(value: string): string {
+  const trimmed = value.trim();
+  if (isBareFlashLightningAddress(trimmed)) {
+    return `type=flash;ln-address=${trimmed};`;
+  }
+  return trimmed;
+}
+
+/**
+ * Flash connection string - type=flash;ln-address=<user[@domain]>; (aliases lnaddress,
+ * username; a bare username defaults to flashapp.me) or the bare address shorthand.
+ */
+export function validateFlashConnectionString(connectionString: string): boolean {
+  const trimmed = connectionString.trim();
+  if (!trimmed) return false;
+  if (isBareFlashLightningAddress(trimmed)) return true;
+  if (!trimmed.toLowerCase().includes('type=flash')) return false;
+  const parts = trimmed
+    .split(';')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  let typeVal = '';
+  let lnAddressVal = '';
+  for (const part of parts) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim().toLowerCase();
+    const value = part.slice(eq + 1).trim();
+    if (key === 'type') typeVal = value.toLowerCase();
+    if (key === 'ln-address' || key === 'lnaddress' || key === 'username') lnAddressVal = value;
+  }
+  if (typeVal !== 'flash' || !lnAddressVal) return false;
+  const address = lnAddressVal.includes('@') ? lnAddressVal : `${lnAddressVal}@flashapp.me`;
+  return isBareFlashLightningAddress(address);
+}
+
+/**
+ * Whether a connection secret already carries a Lightning address usable as the
+ * CashuMelt fallback (blink/blitz ln-address forms). Backend derives it server-side;
+ * this only gates whether the UI must ask for a separate fallback address.
+ */
+export function fallbackAddressDerivableFromSecret(secret: string): boolean {
+  const s = secret.trim();
+  // Any bare full Lightning address is derivable - the lnaddress type accepts
+  // every user@domain, matching WalletConnectionValidator::deriveLightningAddressFromSecret.
+  if (lnAddressDomain(s) !== null) return true;
+  const lower = s.toLowerCase();
+  if (
+    !lower.includes('type=blink') &&
+    !lower.includes('type=blitz') &&
+    !lower.includes('type=flash') &&
+    !lower.includes('type=lnaddress')
+  )
+    return false;
+  return /(?:ln-?address|username)=[^;=\s]+/i.test(s);
 }
 
 export function validateNwcUri(value: string): boolean {

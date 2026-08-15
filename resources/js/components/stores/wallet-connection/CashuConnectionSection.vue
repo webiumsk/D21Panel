@@ -51,6 +51,28 @@
         <div>
           <span
             class="block text-gray-500 text-xs uppercase tracking-wider mb-1"
+            >{{ t("stores.cashu_unit_label") }}</span
+          >
+          <p class="text-gray-200 uppercase">{{ cashuForm.unit }}</p>
+        </div>
+        <div>
+          <span
+            class="block text-gray-500 text-xs uppercase tracking-wider mb-1"
+            >{{ t("stores.cashu_enabled_checkout_label") }}</span
+          >
+          <p
+            :class="cashuForm.enabled ? 'text-emerald-300' : 'text-amber-300'"
+          >
+            {{
+              cashuForm.enabled
+                ? t("stores.cashu_enabled_on")
+                : t("stores.cashu_enabled_off")
+            }}
+          </p>
+        </div>
+        <div>
+          <span
+            class="block text-gray-500 text-xs uppercase tracking-wider mb-1"
             >{{ t("stores.cashu_trusted_mint_urls_label") }}</span
           >
           <p class="text-gray-200">
@@ -402,6 +424,40 @@
           </div>
         </div>
 
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div>
+            <label
+              for="cashu-unit"
+              class="block text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider"
+            >
+              {{ t("stores.cashu_unit_label") }}
+            </label>
+            <select
+              id="cashu-unit"
+              v-model="cashuForm.unit"
+              class="block w-full rounded-xl border-gray-600 bg-gray-900/50 text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-3"
+            >
+              <option value="sat">{{ t("stores.cashu_unit_sat") }}</option>
+              <option value="usd">{{ t("stores.cashu_unit_usd") }}</option>
+            </select>
+            <p class="mt-2 text-sm text-gray-500">
+              {{ t("stores.cashu_unit_hint") }}
+            </p>
+          </div>
+          <div class="sm:pt-9">
+            <label class="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                v-model="cashuForm.enabled"
+                type="checkbox"
+                class="mt-1 h-4 w-4 rounded border-gray-500 bg-gray-800 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span class="text-sm text-gray-300 leading-relaxed">{{
+                t("stores.cashu_enabled_checkout_label")
+              }}</span>
+            </label>
+          </div>
+        </div>
+
         <div
           v-if="cashuErrorMessage"
           class="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300"
@@ -486,6 +542,8 @@ const cashuErrors = reactive<Record<string, string>>({});
 const cashuForm = reactive({
   mint_url: DEFAULT_CASHU_MINT_URL,
   lightning_address: "",
+  enabled: true,
+  unit: "sat",
   trusted_mint_urls: "",
   max_melt_fee_reserve_sats: "",
   max_melt_fee_reserve_percent_of_minted: "",
@@ -493,10 +551,17 @@ const cashuForm = reactive({
 const cashuOriginal = reactive({
   mint_url: DEFAULT_CASHU_MINT_URL,
   lightning_address: "",
+  enabled: true,
+  unit: "sat",
   trusted_mint_urls: "",
   max_melt_fee_reserve_sats: "",
   max_melt_fee_reserve_percent_of_minted: "",
 });
+
+/** The plugin only supports sat and usd; anything else falls back to sat. */
+function normalizeCashuUnit(unit: unknown): "sat" | "usd" {
+  return unit === "usd" ? "usd" : "sat";
+}
 
 const cashuBetaAccepted = ref(false);
 
@@ -602,6 +667,8 @@ async function fetchCashuSettings() {
     const mintFromApi = (d.mint_url ?? "").trim();
     cashuForm.mint_url = mintFromApi || DEFAULT_CASHU_MINT_URL;
     cashuForm.lightning_address = d.lightning_address ?? "";
+    cashuForm.enabled = d.enabled ?? true;
+    cashuForm.unit = normalizeCashuUnit(d.unit);
     cashuForm.trusted_mint_urls =
       typeof d.trusted_mint_urls === "string" ? d.trusted_mint_urls : "";
     cashuForm.max_melt_fee_reserve_sats =
@@ -616,6 +683,8 @@ async function fetchCashuSettings() {
 
     cashuOriginal.mint_url = cashuForm.mint_url;
     cashuOriginal.lightning_address = cashuForm.lightning_address;
+    cashuOriginal.enabled = cashuForm.enabled;
+    cashuOriginal.unit = cashuForm.unit;
     cashuOriginal.trusted_mint_urls = cashuForm.trusted_mint_urls;
     cashuOriginal.max_melt_fee_reserve_sats =
       cashuForm.max_melt_fee_reserve_sats;
@@ -651,8 +720,8 @@ async function handleSaveCashu() {
     const payload = {
       mint_url: cashuForm.mint_url,
       lightning_address: cashuForm.lightning_address,
-      enabled: true,
-      unit: "sat",
+      enabled: cashuForm.enabled,
+      unit: cashuForm.unit,
       trusted_mint_urls:
         (cashuForm.trusted_mint_urls ?? "").trim() === ""
           ? null
@@ -670,6 +739,8 @@ async function handleSaveCashu() {
     cashuForm.mint_url = d.mint_url ?? cashuForm.mint_url;
     cashuForm.lightning_address =
       d.lightning_address ?? cashuForm.lightning_address;
+    cashuForm.enabled = d.enabled ?? cashuForm.enabled;
+    cashuForm.unit = normalizeCashuUnit(d.unit ?? cashuForm.unit);
     cashuForm.trusted_mint_urls =
       typeof d.trusted_mint_urls === "string" ? d.trusted_mint_urls : "";
     cashuForm.max_melt_fee_reserve_sats =
@@ -684,6 +755,8 @@ async function handleSaveCashu() {
 
     cashuOriginal.mint_url = cashuForm.mint_url;
     cashuOriginal.lightning_address = cashuForm.lightning_address;
+    cashuOriginal.enabled = cashuForm.enabled;
+    cashuOriginal.unit = cashuForm.unit;
     cashuOriginal.trusted_mint_urls = cashuForm.trusted_mint_urls;
     cashuOriginal.max_melt_fee_reserve_sats =
       cashuForm.max_melt_fee_reserve_sats;

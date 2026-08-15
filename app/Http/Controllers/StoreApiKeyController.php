@@ -239,7 +239,7 @@ class StoreApiKeyController extends Controller
         $label = $validated['label'] ?? 'E-shop Integration';
         $expirationMinutes = $validated['expiration_minutes'] ?? 60;
 
-        $token = \App\Http\Controllers\EshopIntegrationController::generateToken(
+        $token = EshopIntegrationController::generateToken(
             $store->id,
             $permissions,
             $label,

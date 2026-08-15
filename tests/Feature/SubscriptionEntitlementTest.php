@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\BtcPay\BtcPayClient;
 use App\Services\SubscriptionEntitlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -28,7 +29,7 @@ class SubscriptionEntitlementTest extends TestCase
         parent::setUp();
 
         config(['services.btcpay.base_url' => 'https://btcpay.example.test']);
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
 
         $this->freePlan = SubscriptionPlan::create([
             'code' => 'free',

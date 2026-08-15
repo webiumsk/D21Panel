@@ -56,13 +56,60 @@ class WalletConnectionDetector
             ];
         }
 
+        // Matches connection strings and the bare 'name@blink.sv' non-custodial
+        // shorthand - the latter must win over the Cashu Lightning-address heuristic.
         if ($this->looksLikeBlink($trimmed)) {
             return [
                 'kind' => 'blink',
                 'connection_type' => 'blink',
                 'store_wallet_type' => 'blink',
                 'brand' => null,
-                'normalized_secret' => $trimmed,
+                'normalized_secret' => $this->validator->formatBtcpayBlinkConnectionString($trimmed),
+                'cashu_mint_url' => null,
+                'cashu_lightning_address' => null,
+                'confidence' => 'high',
+            ];
+        }
+
+        // Legacy type=blitz; strings keep the blitz kind.
+        if ($this->looksLikeBlitz($trimmed)) {
+            return [
+                'kind' => 'blitz',
+                'connection_type' => 'blitz',
+                'store_wallet_type' => 'blitz',
+                'brand' => null,
+                'normalized_secret' => $this->validator->formatBtcpayBlitzConnectionString($trimmed),
+                'cashu_mint_url' => null,
+                'cashu_lightning_address' => null,
+                'confidence' => 'high',
+            ];
+        }
+
+        if ($this->looksLikeFlash($trimmed)) {
+            return [
+                'kind' => 'flash',
+                'connection_type' => 'flash',
+                'store_wallet_type' => 'flash',
+                'brand' => null,
+                'normalized_secret' => $this->validator->formatBtcpayFlashConnectionString($trimmed),
+                'cashu_mint_url' => null,
+                'cashu_lightning_address' => null,
+                'confidence' => 'high',
+            ];
+        }
+
+        // type=lnaddress; strings and bare addresses at curated LUD-21 domains
+        // (Coinos, ...) - must win over the Cashu Lightning-address heuristic.
+        // Legacy type=blitz/flash strings keep their own kinds above.
+        if ($this->looksLikeLnAddress($trimmed)) {
+            return [
+                'kind' => 'lnaddress',
+                'connection_type' => 'lnaddress',
+                'store_wallet_type' => 'lnaddress',
+                'brand' => $this->validator->lnAddressBrandForAddress(
+                    $this->validator->deriveLightningAddressFromSecret('lnaddress', $trimmed) ?? ''
+                ),
+                'normalized_secret' => $this->validator->formatBtcpayLnAddressConnectionString($trimmed),
                 'cashu_mint_url' => null,
                 'cashu_lightning_address' => null,
                 'confidence' => 'high',
@@ -124,6 +171,33 @@ class WalletConnectionDetector
         $parsed = $this->validator->parseBlinkConnectionString($value);
 
         return empty($parsed['errors']) && ($parsed['type'] ?? null) === 'blink';
+    }
+
+    /**
+     * Legacy type=blitz; strings only - bare blitzwalletapp.com addresses now
+     * detect as lnaddress (curated domain).
+     */
+    protected function looksLikeBlitz(string $value): bool
+    {
+        return str_contains(strtolower($value), 'type=blitz;');
+    }
+
+    /**
+     * Legacy type=flash; strings only - bare flashapp.me addresses now detect
+     * as lnaddress (curated domain).
+     */
+    protected function looksLikeFlash(string $value): bool
+    {
+        return str_contains(strtolower($value), 'type=flash;');
+    }
+
+    protected function looksLikeLnAddress(string $value): bool
+    {
+        if (str_contains(strtolower($value), 'type=lnaddress;')) {
+            return true;
+        }
+
+        return $this->validator->isCuratedLnAddressBareAddress($value);
     }
 
     protected function looksLikeDescriptor(string $value): bool

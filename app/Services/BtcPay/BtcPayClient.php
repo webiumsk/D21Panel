@@ -6,6 +6,7 @@ use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\Exceptions\BtcPayRateLimitException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -150,7 +151,7 @@ class BtcPayClient
      * Make a POST request with multipart form data (for file uploads).
      *
      * @param  string  $endpoint  API endpoint
-     * @param  \Illuminate\Http\UploadedFile  $file  The uploaded file
+     * @param  UploadedFile  $file  The uploaded file
      * @return array Response data
      */
     public function postMultipart(string $endpoint, $file): array

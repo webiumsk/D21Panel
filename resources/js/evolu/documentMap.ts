@@ -1,6 +1,7 @@
 import {
     canCancelLocalDocument,
     canDeleteLocalDocument,
+    type LocalDocumentDeletionPolicy,
 } from "./documentBulkLocal";
 import type { DocumentType, CompanyId, DocumentId } from "./schema";
 
@@ -128,6 +129,7 @@ export function documentPermissions(status: string) {
 function resolveDocumentPermissions(
     doc: EvoluDocumentRow,
     allDocuments: EvoluDocumentRow[],
+    policy: LocalDocumentDeletionPolicy = {},
 ) {
     const perms = documentPermissions(doc.status);
     if (allDocuments.length === 0) {
@@ -135,7 +137,7 @@ function resolveDocumentPermissions(
     }
     return {
         ...perms,
-        can_delete: canDeleteLocalDocument(doc, allDocuments),
+        can_delete: canDeleteLocalDocument(doc, allDocuments, policy),
         can_cancel: canCancelLocalDocument(doc),
     };
 }
@@ -144,8 +146,9 @@ export function evoluDocumentToApi(
     doc: EvoluDocumentRow,
     lines: EvoluDocumentLineRow[],
     allDocuments: EvoluDocumentRow[] = [],
+    policy: LocalDocumentDeletionPolicy = {},
 ): Record<string, unknown> {
-    const perms = resolveDocumentPermissions(doc, allDocuments);
+    const perms = resolveDocumentPermissions(doc, allDocuments, policy);
     const resolvedQuote = resolveQuoteStatus(doc);
 
     return {
@@ -210,8 +213,9 @@ export function evoluDocumentToListRow(
     doc: EvoluDocumentRow,
     contactName?: string | null,
     allDocuments: EvoluDocumentRow[] = [],
+    policy: LocalDocumentDeletionPolicy = {},
 ): Record<string, unknown> {
-    const perms = resolveDocumentPermissions(doc, allDocuments);
+    const perms = resolveDocumentPermissions(doc, allDocuments, policy);
     return {
         id: doc.id,
         type: doc.documentType,

@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\GuestBtcPayDecommissioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
@@ -37,7 +38,7 @@ class GuestInactivePurgeTest extends TestCase
      */
     protected function fakeBtcpayListInvoicesHttp(): void
     {
-        Http::fake(function (\Illuminate\Http\Client\Request $request) {
+        Http::fake(function (Request $request) {
             $url = $request->url();
             if (preg_match('#/api/v1/stores/([^/]+)/invoices(\?|$)#', $url, $m)) {
                 $storeId = $m[1];

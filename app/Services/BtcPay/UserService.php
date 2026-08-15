@@ -5,6 +5,7 @@ namespace App\Services\BtcPay;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Support\LogSanitizer;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class UserService
@@ -27,7 +28,7 @@ class UserService
      *                       - isAdministrator (optional): Whether user should be administrator (default: false)
      * @return array Created user data
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function createUser(array $data): array
     {
@@ -45,7 +46,7 @@ class UserService
             }
 
             return $this->client->post('/api/v1/users', $userData);
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             Log::error('BTCPay user creation failed', [
                 'error' => $e->getMessage(),
                 'data' => [
@@ -63,13 +64,13 @@ class UserService
      * @param  string  $userId  BTCPay user ID
      * @return array User data
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function getUser(string $userId): array
     {
         try {
             return $this->client->get("/api/v1/users/{$userId}");
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             Log::error('BTCPay user retrieval failed', [
                 'error' => $e->getMessage(),
                 'userId' => $userId,
@@ -83,13 +84,13 @@ class UserService
      *
      * @return array List of users
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function listUsers(): array
     {
         try {
             return $this->client->get('/api/v1/users');
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             Log::error('BTCPay users listing failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -103,7 +104,7 @@ class UserService
      * @param  string  $email  Email address to check
      * @return bool True if email exists, false otherwise
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function checkEmailExists(string $email): bool
     {
@@ -230,7 +231,7 @@ class UserService
      * @param  string  $label  Optional: label for the API key
      * @return array Created API key data (contains 'apiKey' field with the actual key)
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function createApiKey(string $userId, array $permissions = [], array $specificStores = [], string $label = 'satflux.io API Key'): array
     {
@@ -259,7 +260,7 @@ class UserService
             }
 
             return $this->client->post("/api/v1/users/{$userId}/api-keys", $data);
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             Log::error('BTCPay API key creation failed', [
                 'error' => $e->getMessage(),
                 'userId' => $userId,
@@ -281,13 +282,13 @@ class UserService
      * @param  string  $userId  BTCPay user ID
      * @param  string  $apiKey  The API key string to revoke
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function deleteUserApiKey(string $userId, string $apiKey): void
     {
         try {
             $this->client->delete("/api/v1/users/{$userId}/api-keys/{$apiKey}");
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             Log::error('BTCPay API key revocation failed', [
                 'error' => $e->getMessage(),
                 'userId' => $userId,
@@ -299,13 +300,13 @@ class UserService
     /**
      * Delete a BTCPay user.
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function deleteUser(string $userId): void
     {
         try {
             $this->client->delete("/api/v1/users/{$userId}");
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             Log::error('BTCPay user deletion failed', [
                 'error' => $e->getMessage(),
                 'userId' => $userId,
@@ -322,7 +323,7 @@ class UserService
      * @param  array<string, mixed>  $payload  e.g. email, name, imageUrl, currentPassword, newPassword (see BTCPay swagger)
      * @return array<string, mixed>
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function updateCurrentUserProfile(string $merchantApiKey, array $payload): array
     {
@@ -344,7 +345,7 @@ class UserService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function updateUser(string $userId, array $data): array
     {
@@ -353,14 +354,14 @@ class UserService
             // If that fails, try PUT
             try {
                 return $this->client->patch("/api/v1/users/{$userId}", $data);
-            } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+            } catch (BtcPayException $e) {
                 if (str_contains($e->getMessage(), '405') || str_contains($e->getMessage(), 'Method Not Allowed')) {
                     // PATCH not supported, try PUT
                     return $this->client->put("/api/v1/users/{$userId}", $data);
                 }
                 throw $e;
             }
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             Log::error('BTCPay user update failed', [
                 'error' => $e->getMessage(),
                 'userId' => $userId,
@@ -377,7 +378,7 @@ class UserService
      * @param  string  $userId  BTCPay user ID
      * @return array Updated user data
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function confirmUserEmail(string $userId): array
     {
@@ -391,7 +392,7 @@ class UserService
         foreach ($possibleEndpoints as $endpoint) {
             try {
                 return $this->client->post($endpoint);
-            } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+            } catch (BtcPayException $e) {
                 // Continue to next endpoint if this one doesn't exist
                 if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Not Found')) {
                     continue;
@@ -402,7 +403,7 @@ class UserService
         }
 
         // If all endpoints failed, throw the last exception
-        throw new \App\Services\BtcPay\Exceptions\BtcPayException('No email confirmation endpoint found');
+        throw new BtcPayException('No email confirmation endpoint found');
     }
 
     /**
@@ -444,7 +445,7 @@ class UserService
                     ]);
 
                     return true;
-                } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+                } catch (BtcPayException $e) {
                     // Continue to next endpoint if this one doesn't exist
                     if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Not Found')) {
                         continue;
@@ -465,7 +466,7 @@ class UserService
 
             if ($invitationPath) {
                 // Use the same base URL as BTCPay API to maintain session/cookies if needed
-                $response = \Illuminate\Support\Facades\Http::baseUrl($baseUrl)
+                $response = Http::baseUrl($baseUrl)
                     ->withHeaders([
                         'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                         'User-Agent' => 'BTCPay-satflux.io/1.0',
@@ -507,13 +508,13 @@ class UserService
      *
      * @return string|null BTCPay user ID or null if not found
      *
-     * @throws \App\Services\BtcPay\Exceptions\BtcPayException
+     * @throws BtcPayException
      */
     public function getAdminBtcPayUserId(): ?string
     {
         try {
             // Cache the result since it doesn't change frequently
-            return \Illuminate\Support\Facades\Cache::remember('btcpay:admin_user_id', 3600, function () {
+            return Cache::remember('btcpay:admin_user_id', 3600, function () {
                 // Try different possible endpoints to get current user info
                 $possibleEndpoints = [
                     '/api/v1/api-keys/current',
@@ -529,20 +530,20 @@ class UserService
                         $userId = $response['id'] ?? $response['userId'] ?? $response['user']['id'] ?? null;
 
                         if ($userId) {
-                            \Illuminate\Support\Facades\Log::info('Retrieved admin BTCPay user ID', [
+                            Log::info('Retrieved admin BTCPay user ID', [
                                 'user_id' => $userId,
                                 'endpoint' => $endpoint,
                             ]);
 
                             return $userId;
                         }
-                    } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+                    } catch (BtcPayException $e) {
                         // Continue to next endpoint if this one doesn't exist
                         if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Not Found')) {
                             continue;
                         }
                         // If it's a different error, log and try next
-                        \Illuminate\Support\Facades\Log::warning('Failed to get admin user ID from endpoint', [
+                        Log::warning('Failed to get admin user ID from endpoint', [
                             'endpoint' => $endpoint,
                             'error' => $e->getMessage(),
                         ]);
@@ -556,7 +557,7 @@ class UserService
                         if (isset($user['isAdministrator']) && $user['isAdministrator'] === true) {
                             $adminId = $user['id'] ?? $user['userId'] ?? null;
                             if ($adminId) {
-                                \Illuminate\Support\Facades\Log::info('Found admin BTCPay user ID via user list', [
+                                Log::info('Found admin BTCPay user ID via user list', [
                                     'user_id' => $adminId,
                                 ]);
 
@@ -565,17 +566,17 @@ class UserService
                         }
                     }
                 } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Failed to find admin user via user list', [
+                    Log::error('Failed to find admin user via user list', [
                         'error' => $e->getMessage(),
                     ]);
                 }
 
-                \Illuminate\Support\Facades\Log::error('Could not determine admin BTCPay user ID');
+                Log::error('Could not determine admin BTCPay user ID');
 
                 return null;
             });
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
-            \Illuminate\Support\Facades\Log::error('Failed to get admin BTCPay user ID', [
+        } catch (BtcPayException $e) {
+            Log::error('Failed to get admin BTCPay user ID', [
                 'error' => $e->getMessage(),
             ]);
 

@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\WalletConnection;
+use App\Services\BtcPay\BtcPayClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -23,8 +25,8 @@ class StoreTest extends TestCase
         config(['services.btcpay.base_url' => 'http://localhost']);
 
         // Clear cache and force fresh BtcPayClient with new config
-        \Illuminate\Support\Facades\Cache::flush();
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        Cache::flush();
+        $this->app->forgetInstance(BtcPayClient::class);
 
         // Mock BTCPay API responses (closure so POST vs GET to same URL return different bodies)
         $baseUrl = rtrim(config('services.btcpay.base_url'), '/');
@@ -382,6 +384,23 @@ class StoreTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonPath('data.wallet_type', 'aqua_boltz');
         $this->assertSame('aqua_boltz', $store->fresh()->wallet_type);
+    }
+
+    public function test_patch_wallet_type_accepts_blitz(): void
+    {
+        $user = User::factory()->create();
+        $store = Store::factory()->create([
+            'user_id' => $user->id,
+            'wallet_type' => null,
+        ]);
+
+        $response = $this->actingAs($user)->patchJson("/api/stores/{$store->id}/wallet-type", [
+            'wallet_type' => 'blitz',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.wallet_type', 'blitz');
+        $this->assertSame('blitz', $store->fresh()->wallet_type);
     }
 
     public function test_patch_wallet_type_idempotent_when_same(): void

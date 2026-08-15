@@ -12,6 +12,7 @@ use App\Models\CompanyContact;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\WebhookEvent;
+use App\Services\BtcPay\BtcPayClient;
 use App\Services\Invoicing\DocumentSequenceService;
 use App\Services\Invoicing\SubscriptionBillingInvoiceService;
 use App\Services\SubscriptionEntitlementService;
@@ -36,7 +37,7 @@ class SubscriptionBillingInvoiceTest extends TestCase
             'services.btcpay.base_url' => 'https://btcpay.example.test',
             'services.btcpay.api_key' => 'test-server-key',
         ]);
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
     }
 
     protected function seedProPlan(): SubscriptionPlan

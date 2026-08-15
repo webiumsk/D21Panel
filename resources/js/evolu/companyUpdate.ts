@@ -27,6 +27,10 @@ export type LocalCompanyContactPatch = {
     tax_id?: string | null;
     vat_number?: string | null;
     commercial_register?: string | null;
+    register_court?: string | null;
+    register_number?: string | null;
+    managing_directors?: string | null;
+    supervisory_board_chair?: string | null;
     issuer_name?: string | null;
     issuer_phone?: string | null;
     issuer_email?: string | null;
@@ -105,6 +109,26 @@ export function updateLocalCompanyContact(
         const cr = parseOptional(patch.commercial_register, Opt512);
         if (!cr.ok) return cr;
         update.commercialRegister = cr.value;
+    }
+    if (patch.register_court !== undefined) {
+        const v = parseOptional(patch.register_court, Opt128);
+        if (!v.ok) return v;
+        update.registerCourt = v.value;
+    }
+    if (patch.register_number !== undefined) {
+        const v = parseOptional(patch.register_number, Opt64);
+        if (!v.ok) return v;
+        update.registerNumber = v.value;
+    }
+    if (patch.managing_directors !== undefined) {
+        const v = parseOptional(patch.managing_directors, Opt512);
+        if (!v.ok) return v;
+        update.managingDirectors = v.value;
+    }
+    if (patch.supervisory_board_chair !== undefined) {
+        const v = parseOptional(patch.supervisory_board_chair, Opt128);
+        if (!v.ok) return v;
+        update.supervisoryBoardChair = v.value;
     }
     if (patch.issuer_name !== undefined) {
         const v = parseOptional(patch.issuer_name, Opt255);

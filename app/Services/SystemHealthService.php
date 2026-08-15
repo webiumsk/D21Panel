@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WebhookEvent;
+use App\Support\ErrorRateCounter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -135,7 +136,7 @@ class SystemHealthService
     /** @return array{ok: bool, detail: string} */
     protected function checkErrors(): array
     {
-        $count = \App\Support\ErrorRateCounter::currentHourCount();
+        $count = ErrorRateCounter::currentHourCount();
         if ($count === null) {
             return ['ok' => false, 'detail' => 'error counter unavailable (cache read failed)'];
         }

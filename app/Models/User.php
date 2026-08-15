@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -282,7 +283,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
      * Get the current active subscription for the user.
      * Returns the most recent active subscription, or null if none exists.
      */
-    public function currentSubscription(): ?\App\Models\Subscription
+    public function currentSubscription(): ?Subscription
     {
         return $this->subscriptions()
             ->select('subscriptions.*')
@@ -298,7 +299,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
      * Returns the plan for the current subscription, or falls back to the plan
      * matching the user's role (pro, enterprise, free).
      */
-    public function currentSubscriptionPlan(): ?\App\Models\SubscriptionPlan
+    public function currentSubscriptionPlan(): ?SubscriptionPlan
     {
         $subscription = $this->currentSubscription();
         if ($subscription) {
@@ -437,7 +438,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
      *
      * @return string The decrypted BTCPay API key
      *
-     * @throws \Illuminate\Http\Exceptions\HttpResponseException
+     * @throws HttpResponseException
      */
     public function getBtcPayApiKeyOrFail(): string
     {

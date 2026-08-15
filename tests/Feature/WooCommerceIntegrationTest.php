@@ -8,6 +8,7 @@ use App\Models\Store;
 use App\Models\StoreIntegration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class WooCommerceIntegrationTest extends TestCase
@@ -56,7 +57,7 @@ class WooCommerceIntegrationTest extends TestCase
             'invoicing_enabled' => '1',
         ];
         $code = bin2hex(random_bytes(32));
-        \Illuminate\Support\Facades\Cache::put('woocommerce_connect_'.$code, $payload, now()->addMinutes(10));
+        Cache::put('woocommerce_connect_'.$code, $payload, now()->addMinutes(10));
 
         $this->getJson('/api/integrations/woocommerce/oauth-exchange?code='.$code)
             ->assertOk()

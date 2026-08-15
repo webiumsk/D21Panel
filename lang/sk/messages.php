@@ -128,4 +128,7 @@ return [
 
     'business_invoicing_available_in_pro' => 'Firemná fakturácia je dostupná v pláne Pro. Pre vytváranie faktúr si prosím aktivujte Pro.',
     'company_limit_reached' => 'Dosiahli ste maximálny počet firiem (:max) pre váš plán.',
+
+    // SEPA Instant QR
+    'sepa_certificate_files_required' => 'Nahrajte buď PKCS#12 (.p12/.pfx) súbor, alebo PEM certifikát spolu s privátnym kľúčom.',
 ];

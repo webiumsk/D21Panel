@@ -6,8 +6,10 @@ use App\Enums\BusinessDocumentStatus;
 use App\Enums\CompanyJurisdiction;
 use App\Models\BusinessDocument;
 use App\Models\Company;
+use App\Models\User;
 use App\Services\Invoicing\PayBySquareGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -23,7 +25,7 @@ class PayBySquareGeneratorTest extends TestCase
         }
 
         $company = Company::create([
-            'user_id' => \App\Models\User::factory()->create()->id,
+            'user_id' => User::factory()->create()->id,
             'legal_name' => 'Acme s.r.o.',
             'jurisdiction' => CompanyJurisdiction::EuSk,
             'iban' => 'SK31 1200 0000 1987 4754 7509',
@@ -54,8 +56,8 @@ class PayBySquareGeneratorTest extends TestCase
         // Without chillerlan installed the renderer falls back to the
         // qrserver.com API - fake it so the test never leaves the machine
         // (the old file_get_contents fallback used to make a real request).
-        \Illuminate\Support\Facades\Http::fake([
-            'api.qrserver.com/*' => \Illuminate\Support\Facades\Http::response('png-bytes'),
+        Http::fake([
+            'api.qrserver.com/*' => Http::response('png-bytes'),
         ]);
 
         $qr = $service->generateQrDataUri($company, $document);

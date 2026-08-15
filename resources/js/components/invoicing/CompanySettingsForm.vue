@@ -131,6 +131,26 @@
             <label class="invoicing-sf-label">{{ t('invoicing.commercial_register') }}</label>
             <input v-model="contactForm.commercial_register" class="invoicing-sf-input" />
           </div>
+          <!-- DE Geschaeftsbrief corporate data - mandatory on GmbH/UG
+               invoice footers (Registergericht, HRB, Geschaeftsfuehrer). -->
+          <template v-if="contactForm.jurisdiction === 'eu_de'">
+            <div>
+              <label class="invoicing-sf-label">{{ t('invoicing.register_court') }}</label>
+              <input v-model="contactForm.register_court" class="invoicing-sf-input" :placeholder="t('invoicing.register_court_placeholder')" />
+            </div>
+            <div>
+              <label class="invoicing-sf-label">{{ t('invoicing.register_number') }}</label>
+              <input v-model="contactForm.register_number" class="invoicing-sf-input" placeholder="HRB 12345" />
+            </div>
+            <div>
+              <label class="invoicing-sf-label">{{ t('invoicing.managing_directors') }}</label>
+              <input v-model="contactForm.managing_directors" class="invoicing-sf-input" :placeholder="t('invoicing.managing_directors_placeholder')" />
+            </div>
+            <div>
+              <label class="invoicing-sf-label">{{ t('invoicing.supervisory_board_chair') }}</label>
+              <input v-model="contactForm.supervisory_board_chair" class="invoicing-sf-input" />
+            </div>
+          </template>
           <div>
             <label class="invoicing-sf-label">{{ t('invoicing.issuer_name') }}</label>
             <input v-model="contactForm.issuer_name" class="invoicing-sf-input" />
@@ -427,7 +447,7 @@
 import { asApiError } from "../../utils/apiError";
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { invoicingApi } from "../../services/api";
 import CompanyEfakturaSettingsForm from './CompanyEfakturaSettingsForm.vue';
 import TaxLimitAlert from './TaxLimitAlert.vue';
@@ -509,6 +529,7 @@ const emit = defineEmits<{
 const { t, te, locale } = useI18n();
 const { notifySaved } = useInvoicingSaveFeedback();
 const router = useRouter();
+const route = useRoute();
 const storesStore = useStoresStore();
 const flashStore = useFlashStore();
 const localFirst = computed(() => props.localFirst ?? isInvoicingLocalFirst());
@@ -565,6 +586,10 @@ const contactForm = reactive({
   tax_id: '',
   vat_number: '',
   commercial_register: '',
+  register_court: '',
+  register_number: '',
+  managing_directors: '',
+  supervisory_board_chair: '',
   issuer_name: '',
   issuer_phone: '',
   issuer_email: '',
@@ -656,11 +681,20 @@ const showEfakturaTab = computed(() =>
 );
 const countryOptions = computed(() => countriesForJurisdiction(contactForm.jurisdiction));
 
-watch(showEfakturaTab, (visible) => {
-  if (!visible && activeTab.value === 'efaktura') {
-    activeTab.value = 'contact';
-  }
-});
+// One watcher covers both the ?tab=efaktura deep-link (readiness checklist)
+// and the visibility fallback: the query opens the tab only while it is
+// actually visible, and losing visibility falls back to the contact tab.
+watch(
+  [showEfakturaTab, () => route.query.tab],
+  ([visible, tab]) => {
+    if (visible && tab === 'efaktura') {
+      activeTab.value = 'efaktura';
+    } else if (!visible && activeTab.value === 'efaktura') {
+      activeTab.value = 'contact';
+    }
+  },
+  { immediate: true },
+);
 
 function countryLabel(code: string): string {
   const key = `invoicing.country_${code.toLowerCase()}`;
@@ -825,6 +859,10 @@ function applyCompany(c: Record<string, any>) {
   contactForm.tax_id = c.tax_id ?? '';
   contactForm.vat_number = c.vat_number ?? '';
   contactForm.commercial_register = c.commercial_register ?? '';
+  contactForm.register_court = c.register_court ?? '';
+  contactForm.register_number = c.register_number ?? '';
+  contactForm.managing_directors = c.managing_directors ?? '';
+  contactForm.supervisory_board_chair = c.supervisory_board_chair ?? '';
   contactForm.issuer_name = c.issuer_name ?? '';
   contactForm.issuer_phone = c.issuer_phone ?? '';
   contactForm.issuer_email = c.issuer_email ?? '';
@@ -938,6 +976,10 @@ async function saveContact() {
           taxId: contactForm.tax_id || null,
           vatNumber: contactForm.vat_number || null,
           commercialRegister: contactForm.commercial_register || null,
+          registerCourt: contactForm.register_court || null,
+          registerNumber: contactForm.register_number || null,
+          managingDirectors: contactForm.managing_directors || null,
+          supervisoryBoardChair: contactForm.supervisory_board_chair || null,
           street: contactForm.street || null,
           city: contactForm.city || null,
           postalCode: contactForm.postal_code || null,

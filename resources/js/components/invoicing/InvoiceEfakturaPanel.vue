@@ -43,9 +43,15 @@
         </p>
       </div>
 
+      <!-- Preflight: the send would fail server-side without a resolvable
+           buyer Peppol ID - explain it upfront instead of a failed submit. -->
+      <p v-if="preflightMissingIds" class="text-xs text-amber-600">
+        {{ t('invoicing.efaktura_preflight_missing_ids') }}
+      </p>
+
       <div class="flex flex-col gap-2">
         <button
-          v-if="canSend"
+          v-if="canSend && !preflightMissingIds"
           type="button"
           class="w-full invoicing-btn-secondary text-sm"
           :disabled="busy"
@@ -78,6 +84,7 @@ import {
   isEfakturaConfigured,
   isSkDomesticContact,
 } from '../../composables/useCompanyEfakturaSettings';
+import { resolvePeppolEndpoint } from '../../utils/peppolEndpoint';
 import {
   fetchEphemeralEfakturaBridge,
   fetchEphemeralEfakturaStatus,
@@ -121,6 +128,19 @@ const rows = ref<ComplianceRow[]>([]);
 const resolvedBridgeCompanyId = ref<string | null>(null);
 
 const configured = computed(() => isEfakturaConfigured(props.company));
+
+// Server backstop stays (gateway fails with a clear message), but the
+// missing-IDs case is fully detectable client-side before the round-trip.
+const preflightMissingIds = computed(
+  () =>
+    props.selectedContact !== null
+    && resolvePeppolEndpoint({
+      peppol_participant_id: props.selectedContact.peppol_participant_id as string | null,
+      tax_id: props.selectedContact.tax_id as string | null,
+      registration_number: props.selectedContact.registration_number as string | null,
+      country: props.selectedContact.country as string | null,
+    }) === null,
+);
 
 const effectiveBridgeCompanyId = computed(
   () => props.bridgeCompanyId ?? resolvedBridgeCompanyId.value,

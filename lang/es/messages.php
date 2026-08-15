@@ -128,4 +128,7 @@ return [
 
     'business_invoicing_available_in_pro' => 'La facturación empresarial está disponible en el plan Pro. Actualice para crear facturas.',
     'company_limit_reached' => 'Ha alcanzado el número máximo de empresas (:max) de su plan.',
+
+    // SEPA Instant QR
+    'sepa_certificate_files_required' => 'Sube un archivo PKCS#12 (.p12/.pfx) o el certificado PEM junto con su clave privada.',
 ];

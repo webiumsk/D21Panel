@@ -11,6 +11,8 @@ use App\Models\CompanyContact;
 use App\Models\IntegrationDocumentInbox;
 use App\Models\StoreIntegration;
 use App\Services\Invoicing\BusinessDocumentIssueService;
+use App\Services\Invoicing\BusinessDocumentPdfService;
+use App\Services\Invoicing\CompanyPdfFilenameBuilder;
 use App\Services\Invoicing\DocumentTotalsCalculator;
 use App\Services\SubscriptionEntitlementService;
 use App\Support\Invoicing\CompanyAppSettings;
@@ -283,8 +285,8 @@ class WooCommerceDocumentService
     public function renderInboxPdf(
         StoreIntegration $integration,
         IntegrationDocumentInbox $inbox,
-        \App\Services\Invoicing\BusinessDocumentPdfService $pdfService,
-        \App\Services\Invoicing\CompanyPdfFilenameBuilder $filenameBuilder,
+        BusinessDocumentPdfService $pdfService,
+        CompanyPdfFilenameBuilder $filenameBuilder,
     ): array {
         $this->assertInboxAccess($integration, $inbox);
         $company = $this->resolveCompany($integration);

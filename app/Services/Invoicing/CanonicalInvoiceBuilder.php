@@ -28,7 +28,7 @@ class CanonicalInvoiceBuilder
         array $linePayloads,
         float $documentDiscountPercent = 0,
         ?BusinessDocument $document = null,
-        ?\App\Models\CompanyContact $contact = null,
+        ?CompanyContact $contact = null,
     ): CanonicalInvoice {
         $settings = CompanyAppSettings::from($company->app_settings);
         $roundingMethod = (string) $settings->get('rounding_method', 'per_line');
@@ -201,7 +201,7 @@ class CanonicalInvoiceBuilder
      */
     protected function assemble(
         Company $company,
-        ?\App\Models\CompanyContact $contact,
+        ?CompanyContact $contact,
         ?BusinessDocument $document,
         array $lines,
         float $documentDiscountPercent,

@@ -9,6 +9,9 @@ use App\Models\CompanyWarehouse;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\Invoicing\CompanyStockBalanceService;
+use App\Services\Invoicing\CompanyStockMovementService;
+use App\Services\Invoicing\DocumentSequenceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\CreatesCompanyStock;
@@ -136,12 +139,12 @@ class CompanyWarehouseTest extends TestCase
             'sale_unit_price' => 1.5,
         ], quantity: 0);
 
-        app(\App\Services\Invoicing\CompanyStockBalanceService::class)
+        app(CompanyStockBalanceService::class)
             ->setQuantity($default, $item, 10);
-        app(\App\Services\Invoicing\CompanyStockBalanceService::class)
+        app(CompanyStockBalanceService::class)
             ->setQuantity($branch, $item, 4);
 
-        app(\App\Services\Invoicing\DocumentSequenceService::class)->seedDefaultsForCompany($this->company);
+        app(DocumentSequenceService::class)->seedDefaultsForCompany($this->company);
 
         $create = $this->actingAs($this->proUser)
             ->postJson("/api/invoicing/companies/{$this->company->id}/documents", [
@@ -209,10 +212,10 @@ class CompanyWarehouseTest extends TestCase
             'sale_unit_price' => 10,
         ], quantity: 0);
 
-        app(\App\Services\Invoicing\CompanyStockBalanceService::class)
+        app(CompanyStockBalanceService::class)
             ->setQuantity($dropship, $item, 50);
 
-        app(\App\Services\Invoicing\DocumentSequenceService::class)->seedDefaultsForCompany($this->company);
+        app(DocumentSequenceService::class)->seedDefaultsForCompany($this->company);
 
         $create = $this->actingAs($this->proUser)
             ->postJson("/api/invoicing/companies/{$this->company->id}/documents", [
@@ -359,9 +362,9 @@ class CompanyWarehouseTest extends TestCase
         ], quantity: 1);
         // Record a real movement (balances alone do not create history),
         // then drain the balance so only the history blocks deletion.
-        app(\App\Services\Invoicing\CompanyStockMovementService::class)
+        app(CompanyStockMovementService::class)
             ->recordManualChange($item, $warehouse, previousQuantity: 0);
-        app(\App\Services\Invoicing\CompanyStockBalanceService::class)
+        app(CompanyStockBalanceService::class)
             ->setQuantity($warehouse, $item, 0);
 
         $this->actingAs($this->proUser)

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Compliance\ComplianceGate;
 use App\Services\GuestProvisioningService;
 use App\Services\GuestRecoveryService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -94,7 +95,7 @@ class GuestAuthController extends Controller
     /**
      * Start a guest recovery challenge (sign the returned message with the same key as enrollment).
      */
-    public function recoveryChallenge(): \Illuminate\Http\JsonResponse
+    public function recoveryChallenge(): JsonResponse
     {
         $challenge = $this->guestRecoveryService->createChallenge();
 
@@ -109,7 +110,7 @@ class GuestAuthController extends Controller
     /**
      * Complete guest recovery: verify Ed25519 signature and start a session for the matching guest user.
      */
-    public function recoveryRestore(Request $request): \Illuminate\Http\JsonResponse
+    public function recoveryRestore(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'challenge_id' => ['required', 'uuid'],

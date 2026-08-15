@@ -9,6 +9,7 @@ use App\Models\BusinessDocument;
 use App\Models\BusinessDocumentLine;
 use App\Models\BusinessRecurringProfile;
 use App\Support\Invoicing\BankSymbolNormalizer;
+use App\Support\Invoicing\CompanyVatPolicy;
 use Carbon\Carbon;
 
 class RecurringDocumentGeneratorService
@@ -120,7 +121,7 @@ class RecurringDocumentGeneratorService
             $taxRate = (float) ($line['tax_rate'] ?? 0);
             $lineNet = $qty * $unitPrice * (1 - $lineDiscount / 100);
             $buyer = $profile->contact;
-            $vatPolicy = app(\App\Support\Invoicing\CompanyVatPolicy::class);
+            $vatPolicy = app(CompanyVatPolicy::class);
             $taxRate = $vatPolicy->resolveLineTaxRate($profile->company, $buyer, $taxRate);
             $lineTax = $vatPolicy->calculatesVatAmounts($profile->company, $buyer) ? $lineNet * ($taxRate / 100) : 0;
 

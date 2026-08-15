@@ -252,6 +252,12 @@ const router = createRouter({
             meta: { requiresAuth: true },
         },
         {
+            path: '/stores/:id/sepa',
+            name: 'stores-sepa',
+            component: () => import('../pages/stores/Sepa.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
             path: '/stores/:id/apps/:appId',
             name: 'stores-apps-show',
             component: () => import('../pages/stores/AppsShow.vue'),
@@ -348,6 +354,24 @@ const router = createRouter({
             path: '/admin/system-health',
             name: 'admin-system-health',
             component: () => import('../pages/admin/SystemHealth.vue'),
+            meta: { requiresAuth: true, requiresAdmin: true },
+        },
+        {
+            path: '/admin/regwatch',
+            name: 'admin-regwatch',
+            component: () => import('../pages/admin/regwatch/Changes.vue'),
+            meta: { requiresAuth: true, requiresAdmin: true },
+        },
+        {
+            path: '/admin/regwatch/rules',
+            name: 'admin-regwatch-rules',
+            component: () => import('../pages/admin/regwatch/Rules.vue'),
+            meta: { requiresAuth: true, requiresAdmin: true },
+        },
+        {
+            path: '/admin/efaktura-cpds',
+            name: 'admin-efaktura-cpds',
+            component: () => import('../pages/admin/EfakturaCpdsProviders.vue'),
             meta: { requiresAuth: true, requiresAdmin: true },
         },
         {

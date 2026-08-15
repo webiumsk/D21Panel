@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Store;
 use App\Services\BtcPay\BtcPayFileUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +17,7 @@ class ProductImageController extends Controller
      * Upload a product / PoS / crowdfund perk image.
      * Uses BTCPay Server Files API (same as ticket images) so files persist on BTCPay, not Satflux local disk.
      */
-    public function upload(Request $request, \App\Models\Store $store)
+    public function upload(Request $request, Store $store)
     {
         $user = $request->user();
 

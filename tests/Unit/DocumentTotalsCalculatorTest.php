@@ -3,6 +3,8 @@
 namespace Tests\Unit;
 
 use App\Enums\CompanyJurisdiction;
+use App\Models\BusinessDocument;
+use App\Models\BusinessDocumentLine;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\Invoicing\DocumentTotalsCalculator;
@@ -70,14 +72,14 @@ class DocumentTotalsCalculatorTest extends TestCase
             'default_currency' => 'EUR',
         ]);
 
-        $document = new \App\Models\BusinessDocument([
+        $document = new BusinessDocument([
             'currency' => 'EUR',
             'discount_percent' => 0,
         ]);
         $document->setRelation('company', $company);
         $document->setRelation('contact', null);
         $document->setRelation('lines', collect([
-            new \App\Models\BusinessDocumentLine([
+            new BusinessDocumentLine([
                 'sort_order' => 0,
                 'name' => 'Service',
                 'quantity' => 1,
@@ -107,14 +109,14 @@ class DocumentTotalsCalculatorTest extends TestCase
             'default_currency' => 'EUR',
         ]);
 
-        $document = new \App\Models\BusinessDocument([
+        $document = new BusinessDocument([
             'currency' => 'EUR',
             'discount_percent' => 0,
         ]);
         $document->setRelation('company', $company);
         $document->setRelation('contact', null);
         $document->setRelation('lines', collect([
-            new \App\Models\BusinessDocumentLine([
+            new BusinessDocumentLine([
                 'sort_order' => 1,
                 'name' => 'Second',
                 'quantity' => 1,
@@ -122,7 +124,7 @@ class DocumentTotalsCalculatorTest extends TestCase
                 'tax_rate' => 0,
                 'line_total' => 0,
             ]),
-            new \App\Models\BusinessDocumentLine([
+            new BusinessDocumentLine([
                 'sort_order' => 0,
                 'name' => 'First',
                 'quantity' => 1,

@@ -132,8 +132,8 @@ class StoreProvisioningService
      */
     protected function assertDescriptorAvailable(string $walletType, string $connectionString): void
     {
-        if ($walletType === 'blink') {
-            return; // Blink tokens are not unique per store
+        if (in_array($walletType, ['blink', 'blitz', 'flash', 'lnaddress'], true)) {
+            return; // Blink tokens and Lightning addresses are not unique per store
         }
 
         $duplicateCheck = $this->walletConnectionService->checkDescriptorDuplicate($connectionString, null);
@@ -338,7 +338,13 @@ class StoreProvisioningService
      */
     protected function createWalletConnection(Store $store, User $user, array $data): void
     {
-        $connectionType = $data['wallet_type'] === 'blink' ? 'blink' : 'aqua_descriptor';
+        $connectionType = match ($data['wallet_type']) {
+            'blink' => 'blink',
+            'blitz' => 'blitz',
+            'flash' => 'flash',
+            'lnaddress' => 'lnaddress',
+            default => 'aqua_descriptor',
+        };
 
         try {
             // For Aqua/Boltz descriptors, check for duplicates BEFORE creating the
@@ -373,7 +379,8 @@ class StoreProvisioningService
                 $connectionType,
                 $data['connection_string'],
                 $user,
-                'pending'
+                'pending',
+                $data['fallback_lightning_address'] ?? null
             );
 
             Log::info('Wallet connection created (pending - config bot will run)', [

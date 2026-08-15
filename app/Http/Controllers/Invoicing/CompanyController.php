@@ -16,8 +16,11 @@ use App\Services\Invoicing\CompanyBrandingService;
 use App\Services\Invoicing\CompanyDataResetService;
 use App\Services\Invoicing\DocumentSequenceService;
 use App\Support\Invoicing\CompanyAppSettings;
+use App\Support\Invoicing\CompanyEfakturaEligibility;
+use App\Support\Invoicing\CompanyEfakturaSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class CompanyController extends Controller
 {
@@ -128,16 +131,16 @@ class CompanyController extends Controller
         CompanyBrandingService $brandingService,
     ): JsonResponse {
         $incoming = $this->normalizeWriteOnlySettings($request->validatedSettings());
-        $eligibility = app(\App\Support\Invoicing\CompanyEfakturaEligibility::class);
+        $eligibility = app(CompanyEfakturaEligibility::class);
         if ($this->hasMeaningfulEfakturaSettings($incoming)) {
             if (! $eligibility->supportsCompany($company)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'efaktura' => ['E-faktura settings are available only for full VAT payers.'],
                 ]);
             }
         }
         $current = CompanyAppSettings::from($company->app_settings)->toArray();
-        $merged = \App\Support\Invoicing\CompanyEfakturaSettings::mergeIncoming(
+        $merged = CompanyEfakturaSettings::mergeIncoming(
             array_merge($current, $incoming),
             $incoming,
         );

@@ -1618,6 +1618,7 @@ import {
   clearSessionAccountMnemonic,
   deriveRecoveryPublicKeyHex,
   getStoredAccountMnemonic,
+  isEvoluUnavailableError,
   previewOwnerSwitchImpact,
   storeAccountMnemonic,
   type OwnerSwitchImpact,
@@ -2507,7 +2508,15 @@ async function handleRecoveryEnrolled(payload: {
   try {
     await authStore.enrollGuestRecoveryPublicKey(payload.recoveryPublicKeyHex);
     storeGuestMnemonic(payload.mnemonic);
-    await initEvoluFromAccountSeedIfNeeded(payload.mnemonic);
+    try {
+      await initEvoluFromAccountSeedIfNeeded(payload.mnemonic);
+    } catch (evoluError) {
+      // Enrollment succeeded server-side; unavailable local-first storage
+      // (private window without OPFS) must not report it as failed.
+      if (!isEvoluUnavailableError(evoluError)) {
+        throw evoluError;
+      }
+    }
     storedGuestMnemonic.value = payload.mnemonic;
     flashStore.success(t("account.recovery_phrase_saved"));
   } catch (rawError) {

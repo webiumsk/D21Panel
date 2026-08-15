@@ -97,6 +97,17 @@
               {{ platformStats.pos_orders_paid_30d }} (30d)
             </p>
           </div>
+          <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <p class="text-gray-400 text-xs font-medium mb-1">
+              {{ t("admin.dashboard.volume_sats") }}
+            </p>
+            <p class="text-2xl font-bold text-white">
+              {{ loading ? "..." : formatSats(platformStats.volume_sats_total) }}
+            </p>
+            <p v-if="platformStats.volume_sats_30d > 0" class="text-xs text-emerald-400 mt-1">
+              {{ formatSats(platformStats.volume_sats_30d) }} (30d)
+            </p>
+          </div>
           <div
             class="bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-purple-500/50 transition-all cursor-pointer"
             @click="$router.push('/support/wallet-connections')"
@@ -686,6 +697,100 @@
           }}</span>
         </div>
 
+        <!-- RegWatch (admin only) -->
+        <div
+          v-if="userRole === 'admin'"
+          class="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-amber-500/50 transition-all group cursor-pointer"
+          @click="$router.push('/admin/regwatch')"
+        >
+          <div class="flex items-start justify-between mb-4">
+            <div class="p-3 bg-amber-500/10 rounded-lg">
+              <svg
+                class="w-6 h-6 text-amber-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
+                />
+              </svg>
+            </div>
+            <svg
+              class="w-5 h-5 text-gray-400 group-hover:text-amber-400 transition-colors"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-white mb-2">
+            {{ t("admin.dashboard.regwatch") }}
+          </h3>
+          <p class="text-gray-400 text-sm mb-4">
+            {{ t("admin.dashboard.regwatch_desc") }}
+          </p>
+          <span class="text-sm text-amber-400 font-medium">{{
+            t("admin.dashboard.view_section")
+          }}</span>
+        </div>
+
+        <!-- E-faktura CPDS presets (admin only) -->
+        <RouterLink
+          v-if="userRole === 'admin'"
+          to="/admin/efaktura-cpds"
+          class="block bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-emerald-500/50 transition-all group cursor-pointer"
+        >
+          <div class="flex items-start justify-between mb-4">
+            <div class="p-3 bg-emerald-500/10 rounded-lg">
+              <svg
+                class="w-6 h-6 text-emerald-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+            <svg
+              class="w-5 h-5 text-gray-400 group-hover:text-emerald-400 transition-colors"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-white mb-2">
+            {{ t("admin.dashboard.efaktura_cpds") }}
+          </h3>
+          <p class="text-gray-400 text-sm mb-4">
+            {{ t("admin.dashboard.efaktura_cpds_desc") }}
+          </p>
+          <span class="text-sm text-emerald-400 font-medium">{{
+            t("admin.dashboard.view_section")
+          }}</span>
+        </RouterLink>
+
         <!-- Support Tools (if support role) -->
         <div
           v-if="userRole === 'support' || userRole === 'admin'"
@@ -765,6 +870,8 @@ const platformStats = ref({
   apps_total: 0,
   pos_orders_paid_total: 0,
   pos_orders_paid_30d: 0,
+  volume_sats_total: 0,
+  volume_sats_30d: 0,
   pos_orders_amount_30d_sats: 0,
   pos_orders_amount_30d_eur: 0,
   pos_orders_amount_total_sats: 0,
@@ -815,6 +922,10 @@ function posAmountForDay(
   return amountCurrency.value === "sats"
     ? (d.pos_amount_sats ?? 0)
     : (d.pos_amount_eur ?? 0);
+}
+
+function formatSats(value: number): string {
+  return new Intl.NumberFormat("en-US").format(Math.round(value || 0)) + " sats";
 }
 
 function formatPosAmount(n: number): string {

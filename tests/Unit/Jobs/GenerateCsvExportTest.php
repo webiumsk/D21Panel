@@ -7,6 +7,7 @@ use App\Jobs\GenerateXlsxExport;
 use App\Models\Export;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\BtcPay\BtcPayClient;
 use App\Services\BtcPay\InvoiceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -21,7 +22,7 @@ class GenerateCsvExportTest extends TestCase
     {
         parent::setUp();
         config(['services.btcpay.base_url' => 'https://btcpay.test']);
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
     }
 
     #[Test]
@@ -51,7 +52,7 @@ class GenerateCsvExportTest extends TestCase
         // Local disk does not support temporaryUrl; job will fail there and call markAsFailed
         try {
             $job = new GenerateCsvExport($export);
-            $job->handle(app(\App\Services\BtcPay\InvoiceService::class));
+            $job->handle(app(InvoiceService::class));
         } catch (\Throwable $e) {
             // Expected when temporaryUrl is not supported
         }
@@ -78,7 +79,7 @@ class GenerateCsvExportTest extends TestCase
 
         $job = new GenerateCsvExport($export);
         try {
-            $job->handle(app(\App\Services\BtcPay\InvoiceService::class));
+            $job->handle(app(InvoiceService::class));
         } catch (\Throwable $e) {
             // Job may rethrow after markAsFailed
         }
@@ -163,7 +164,7 @@ class GenerateCsvExportTest extends TestCase
 
     private function failingInvoiceService(): InvoiceService
     {
-        return new class(app(\App\Services\BtcPay\BtcPayClient::class)) extends InvoiceService
+        return new class(app(BtcPayClient::class)) extends InvoiceService
         {
             public function listInvoices(string $storeId, array $filters = [], ?int $skip = null, ?int $take = null, ?string $userApiKey = null): array
             {

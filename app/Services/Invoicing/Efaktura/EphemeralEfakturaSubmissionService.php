@@ -170,6 +170,29 @@ class EphemeralEfakturaSubmissionService
             ->first();
     }
 
+    /**
+     * Latest submission per Evolu document id - powers the "e" badge in the
+     * local-first invoice list.
+     *
+     * @param  list<string>  $evoluDocumentIds
+     * @return array<string, EphemeralEfakturaSubmission>
+     */
+    public function latestForDocuments(User $user, array $evoluDocumentIds): array
+    {
+        $latest = [];
+
+        EphemeralEfakturaSubmission::query()
+            ->where('user_id', $user->id)
+            ->whereIn('evolu_document_id', $evoluDocumentIds)
+            ->orderByDesc('updated_at')
+            ->get()
+            ->each(function (EphemeralEfakturaSubmission $row) use (&$latest) {
+                $latest[$row->evolu_document_id] ??= $row;
+            });
+
+        return $latest;
+    }
+
     public function refresh(User $user, string $evoluDocumentId): ?EphemeralEfakturaSubmission
     {
         $row = $this->latestForDocument($user, $evoluDocumentId);
@@ -260,8 +283,7 @@ class EphemeralEfakturaSubmissionService
      */
     protected function fetchRemotePayload(CompanyEfakturaSettings $settings, string $externalId): ?array
     {
-        $detailPath = (string) config('efaktura.providers.sapi_sk.send_detail_path', '');
-        if ($detailPath === '') {
+        if ($this->client->sentDocumentDetailPathTemplate($settings->sapiBaseUrl()) === null) {
             return null;
         }
 

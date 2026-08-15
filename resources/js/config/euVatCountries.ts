@@ -8,6 +8,8 @@ const EU_VAT_COUNTRY_CODES = new Set([
   'DE',
   'DK',
   'EE',
+  // VIES alias for Greece.
+  'EL',
   'ES',
   'FI',
   'FR',

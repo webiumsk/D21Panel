@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Store;
+use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\LightningAddressService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -58,7 +59,7 @@ class LightningAddressController extends Controller
                     'unlimited' => $maxAddresses === null,
                 ],
             ]);
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             $statusCode = $e->getStatusCode() ?: 500;
             $errorMessage = $e->getMessage();
 
@@ -94,7 +95,7 @@ class LightningAddressController extends Controller
             return response()->json([
                 'data' => $address,
             ]);
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             $statusCode = $e->getStatusCode() ?: 500;
             $errorMessage = $e->getMessage();
 
@@ -150,7 +151,7 @@ class LightningAddressController extends Controller
                 $userApiKey
             );
             // Address exists - this is an update, not a new creation
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             // Address doesn't exist - this is a new creation
             if ($e->getStatusCode() === 404) {
                 $isNewAddress = true;
@@ -171,7 +172,7 @@ class LightningAddressController extends Controller
                         );
                         $currentCount += is_array($list) ? count($list) : 0;
                     }
-                } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+                } catch (BtcPayException $e) {
                     Log::warning('Failed to list addresses for limit check', [
                         'store_id' => $store->id,
                         'error' => $e->getMessage(),
@@ -263,7 +264,7 @@ class LightningAddressController extends Controller
                 'data' => $address,
                 'message' => 'Lightning address saved successfully',
             ]);
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             $statusCode = $e->getStatusCode() ?: 500;
             $errorMessage = $e->getMessage();
 
@@ -307,7 +308,7 @@ class LightningAddressController extends Controller
             return response()->json([
                 'message' => 'Lightning address deleted successfully',
             ]);
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             $statusCode = $e->getStatusCode() ?: 500;
             $errorMessage = $e->getMessage();
 

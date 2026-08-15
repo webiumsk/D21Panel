@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\WalletConnection;
+use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\LightningService;
 use App\Services\WalletConnectionService;
 use Illuminate\Console\Command;
@@ -123,7 +124,7 @@ class AttemptWalletConnectionConfig extends Command
                         'message' => $result['message'] ?? 'unknown',
                     ]);
                 }
-            } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+            } catch (BtcPayException $e) {
                 Log::debug('AttemptWalletConnectionConfig: BTCPay API error', [
                     'connection_id' => $connection->id,
                     'error' => $e->getMessage(),

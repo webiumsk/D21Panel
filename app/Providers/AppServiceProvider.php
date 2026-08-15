@@ -3,7 +3,23 @@
 namespace App\Providers;
 
 use App\Contracts\Invoicing\UsSalesTaxCalculator;
+use App\Models\App;
+use App\Models\BankImportBatch;
+use App\Models\BankTransaction;
+use App\Models\BusinessDocument;
+use App\Models\BusinessExpense;
+use App\Models\BusinessExpenseAttachment;
+use App\Models\BusinessRecurringProfile;
+use App\Models\Company;
+use App\Models\CompanyContact;
+use App\Models\CompanyDocumentSequence;
+use App\Models\CompanyStockItem;
+use App\Models\CompanyWarehouse;
+use App\Models\PosTerminal;
 use App\Models\Store;
+use App\Models\StoreApiKey;
+use App\Models\StoreEmailRule;
+use App\Models\WalletConnection;
 use App\Pdf\DomPdfDriver;
 use App\Policies\StorePolicy;
 use App\Services\Invoicing\UsSalesTax\StripeTaxUsSalesTaxCalculator;
@@ -11,6 +27,7 @@ use App\Services\Invoicing\UsSalesTax\UsSalesTaxCalculationService;
 use App\Support\ErrorRateCounter;
 use App\Support\ProductionConfigValidator;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Event;
@@ -129,29 +146,29 @@ class AppServiceProvider extends ServiceProvider
     protected function registerRouteBindings(): void
     {
         // Root bindings (UUID lookup; ownership enforced by middleware)
-        Route::bind('store', fn ($value) => \App\Models\Store::where('id', $value)->firstOrFail());
-        Route::bind('company', fn ($value) => \App\Models\Company::where('id', $value)->firstOrFail());
-        Route::bind('connection', fn ($value) => \App\Models\WalletConnection::where('id', $value)->firstOrFail());
+        Route::bind('store', fn ($value) => Store::where('id', $value)->firstOrFail());
+        Route::bind('company', fn ($value) => Company::where('id', $value)->firstOrFail());
+        Route::bind('connection', fn ($value) => WalletConnection::where('id', $value)->firstOrFail());
 
         // Children scoped to {company}
-        $this->bindScopedToParent('businessDocument', \App\Models\BusinessDocument::class, 'company', 'company_id');
-        $this->bindScopedToParent('contact', \App\Models\CompanyContact::class, 'company', 'company_id');
-        $this->bindScopedToParent('businessExpense', \App\Models\BusinessExpense::class, 'company', 'company_id');
-        $this->bindScopedToParent('bankTransaction', \App\Models\BankTransaction::class, 'company', 'company_id');
-        $this->bindScopedToParent('stockItem', \App\Models\CompanyStockItem::class, 'company', 'company_id');
-        $this->bindScopedToParent('warehouse', \App\Models\CompanyWarehouse::class, 'company', 'company_id');
-        $this->bindScopedToParent('recurringProfile', \App\Models\BusinessRecurringProfile::class, 'company', 'company_id');
-        $this->bindScopedToParent('sequence', \App\Models\CompanyDocumentSequence::class, 'company', 'company_id');
-        $this->bindScopedToParent('batch', \App\Models\BankImportBatch::class, 'company', 'company_id');
+        $this->bindScopedToParent('businessDocument', BusinessDocument::class, 'company', 'company_id');
+        $this->bindScopedToParent('contact', CompanyContact::class, 'company', 'company_id');
+        $this->bindScopedToParent('businessExpense', BusinessExpense::class, 'company', 'company_id');
+        $this->bindScopedToParent('bankTransaction', BankTransaction::class, 'company', 'company_id');
+        $this->bindScopedToParent('stockItem', CompanyStockItem::class, 'company', 'company_id');
+        $this->bindScopedToParent('warehouse', CompanyWarehouse::class, 'company', 'company_id');
+        $this->bindScopedToParent('recurringProfile', BusinessRecurringProfile::class, 'company', 'company_id');
+        $this->bindScopedToParent('sequence', CompanyDocumentSequence::class, 'company', 'company_id');
+        $this->bindScopedToParent('batch', BankImportBatch::class, 'company', 'company_id');
 
         // Children scoped to {store}
-        $this->bindScopedToParent('app', \App\Models\App::class, 'store', 'store_id');
-        $this->bindScopedToParent('apiKey', \App\Models\StoreApiKey::class, 'store', 'store_id');
-        $this->bindScopedToParent('store_email_rule', \App\Models\StoreEmailRule::class, 'store', 'store_id');
-        $this->bindScopedToParent('pos_terminal', \App\Models\PosTerminal::class, 'store', 'store_id');
+        $this->bindScopedToParent('app', App::class, 'store', 'store_id');
+        $this->bindScopedToParent('apiKey', StoreApiKey::class, 'store', 'store_id');
+        $this->bindScopedToParent('store_email_rule', StoreEmailRule::class, 'store', 'store_id');
+        $this->bindScopedToParent('pos_terminal', PosTerminal::class, 'store', 'store_id');
 
         // Attachment scoped to {businessExpense}
-        $this->bindScopedToParent('businessExpenseAttachment', \App\Models\BusinessExpenseAttachment::class, 'businessExpense', 'business_expense_id');
+        $this->bindScopedToParent('businessExpenseAttachment', BusinessExpenseAttachment::class, 'businessExpense', 'business_expense_id');
 
         // {export} stays unscoped on purpose: it has no route parent and the
         // API contract is 403 for foreign exports (ExportController checks).
@@ -162,7 +179,7 @@ class AppServiceProvider extends ServiceProvider
      * when the parent is present on the route (parents resolve first - they
      * appear earlier in the URI).
      *
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelClass
+     * @param  class-string<Model>  $modelClass
      */
     protected function bindScopedToParent(string $param, string $modelClass, string $parentParam, string $foreignKey): void
     {
@@ -170,7 +187,7 @@ class AppServiceProvider extends ServiceProvider
             $query = $modelClass::query()->where('id', $value);
 
             $parent = $route->parameter($parentParam);
-            if ($parent instanceof \Illuminate\Database\Eloquent\Model) {
+            if ($parent instanceof Model) {
                 $query->where($foreignKey, $parent->getKey());
             }
 

@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 /**
- * @property \Illuminate\Support\Carbon|null $blink_alert_snoozed_until
- * @property \Illuminate\Support\Carbon|null $blink_alert_dismissed_at
+ * @property Carbon|null $blink_alert_snoozed_until
+ * @property Carbon|null $blink_alert_dismissed_at
  */
 class Store extends Model
 {
@@ -30,6 +31,8 @@ class Store extends Model
         'timezone',
         'preferred_exchange',
         'wallet_type',
+        'cashu_fallback_enabled',
+        'cashu_fallback_address',
         'blink_alert_snoozed_until',
         'blink_alert_dismissed_at',
         'metadata',
@@ -63,10 +66,32 @@ class Store extends Model
         return [
             'metadata' => 'array',
             'auto_report_enabled' => 'boolean',
+            'cashu_fallback_enabled' => 'boolean',
             'blink_alert_snoozed_until' => 'datetime',
             'blink_alert_dismissed_at' => 'datetime',
             'webhook_secret' => 'encrypted', // Encrypt HMAC secret at rest (like User.btcpay_api_key)
         ];
+    }
+
+    /**
+     * Marks the store as a pure Cashu store: CashuMelt becomes the primary payment
+     * method, so any Lightning connection is dropped (when switching) and the
+     * parallel-fallback flags are cleared.
+     */
+    public function markAsPureCashu(bool $switchingFromLightning): void
+    {
+        if ($switchingFromLightning) {
+            $this->walletConnection()->delete();
+        }
+
+        if (($this->wallet_type ?? null) === null || $switchingFromLightning) {
+            $this->update([
+                'wallet_type' => 'cashu',
+                'cashu_fallback_enabled' => false,
+                'cashu_fallback_address' => null,
+            ]);
+            $this->refresh();
+        }
     }
 
     /**

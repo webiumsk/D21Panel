@@ -2,6 +2,8 @@
 
 namespace App\Support\Invoicing;
 
+use Illuminate\Support\Str;
+
 /**
  * Excel stock item import column definitions (SuperFaktúra-compatible).
  */
@@ -92,7 +94,7 @@ final class CompanyStockItemImportFields
         $header = trim(mb_strtolower($header));
         $header = preg_replace('/\s+/', ' ', $header) ?? $header;
 
-        return \Illuminate\Support\Str::ascii($header);
+        return Str::ascii($header);
     }
 
     public static function isInstructionColumn(string $header): bool

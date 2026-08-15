@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\UserService;
 use App\Support\LogSanitizer;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -90,7 +92,7 @@ class EmailVerificationController extends Controller
 
         try {
             $user = User::findOrFail($id);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'message' => 'User not found.',
             ], 404);
@@ -310,7 +312,7 @@ class EmailVerificationController extends Controller
                                     'btcpay_user_id' => $user->btcpay_user_id,
                                 ]);
                             }
-                        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+                        } catch (BtcPayException $e) {
                             // Log full error details for debugging
                             $errorMessage = $e->getMessage();
                             Log::warning('BTCPay API key creation failed', [
@@ -325,7 +327,7 @@ class EmailVerificationController extends Controller
                             // We'll continue - user can use server-level API key for now
                         }
                     }
-                } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+                } catch (BtcPayException $e) {
                     Log::error('BTCPay user creation/linking failed during email verification', [
                         'user_id' => $user->id,
                         'email' => LogSanitizer::email($user->email),

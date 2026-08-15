@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Services\Boltz\SettlementLedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
@@ -35,7 +36,7 @@ class StoreSettlementTest extends TestCase
      */
     protected function fakeBtcPay(array $overrides = []): void
     {
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($overrides) {
+        Http::fake(function (Request $request) use ($overrides) {
             $url = $request->url();
 
             foreach ($overrides as $fragment => $response) {

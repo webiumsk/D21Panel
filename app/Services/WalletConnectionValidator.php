@@ -2,15 +2,30 @@
 
 namespace App\Services;
 
+use App\Models\WalletConnection;
+use Illuminate\Support\Facades\Log;
+
 class WalletConnectionValidator
 {
     /**
+     * Curated LN address domains → wallet brand for the universal lnaddress type.
+     * Branding only - any LUD-21 verify domain works via the save-time probe.
+     * Mirrors resources/js/utils/lnAddressWalletBrands.ts.
+     */
+    public const LN_ADDRESS_WALLET_BRANDS = [
+        'blitzwalletapp.com' => 'blitz',
+        'flashapp.me' => 'flash',
+        'coinos.io' => 'coinos',
+    ];
+
+    /**
      * Parse Blink connection string.
      *
-     * Format: type=blink;server=https://api.blink.sv/graphql;api-key=blink_xxx;wallet-id=xxx
+     * Custodial (api-key): type=blink;server=https://api.blink.sv/graphql;api-key=blink_xxx;wallet-id=xxx
+     * Non-custodial (EU):  type=blink;ln-address=yourname@blink.sv;
      *
      * @param  string  $connectionString  Connection string to parse
-     * @return array Parsed values with keys: 'type', 'server', 'api_key', 'wallet_id', 'errors'
+     * @return array Parsed values with keys: 'type', 'server', 'api_key', 'wallet_id', 'ln_address', 'variant', 'errors'
      */
     public function parseBlinkConnectionString(string $connectionString): array
     {
@@ -20,6 +35,8 @@ class WalletConnectionValidator
             'server' => null,
             'api_key' => null,
             'wallet_id' => null,
+            'ln_address' => null,
+            'variant' => null,
             'errors' => [],
         ];
 
@@ -58,6 +75,11 @@ class WalletConnectionValidator
                     case 'walletid':
                         $result['wallet_id'] = $value;
                         break;
+                    case 'ln-address':
+                    case 'lnaddress':
+                    case 'username':
+                        $result['ln_address'] = $value;
+                        break;
                 }
             }
 
@@ -65,28 +87,472 @@ class WalletConnectionValidator
             if ($result['type'] !== 'blink') {
                 $result['errors'][] = "Type must be 'blink'";
             }
-            if (empty($result['server'])) {
-                $result['errors'][] = 'Server is required';
-            } elseif (! filter_var($result['server'], FILTER_VALIDATE_URL)) {
-                $result['errors'][] = 'Server must be a valid URL';
+
+            if ($result['ln_address'] !== null) {
+                // Non-custodial variant: ln-address only, no API key needed
+                $result['variant'] = 'ln_address';
+                $address = $this->normalizeBlinkLnAddress($result['ln_address']);
+                if (! $this->isBareBlinkLightningAddress($address)) {
+                    $result['errors'][] = "Invalid ln-address. Must be a blink.sv Lightning address like 'yourname@blink.sv'";
+                } else {
+                    $result['ln_address'] = $address;
+                }
+            } else {
+                $result['variant'] = 'api_key';
+                if (empty($result['server'])) {
+                    $result['errors'][] = 'Server is required';
+                } elseif (! filter_var($result['server'], FILTER_VALIDATE_URL)) {
+                    $result['errors'][] = 'Server must be a valid URL';
+                }
+                if (empty($result['api_key'])) {
+                    $result['errors'][] = 'API key is required';
+                }
+                if (empty($result['wallet_id'])) {
+                    $result['errors'][] = 'Wallet ID is required';
+                }
             }
-            if (empty($result['api_key'])) {
-                $result['errors'][] = 'API key is required';
-            }
-            if (empty($result['wallet_id'])) {
-                $result['errors'][] = 'Wallet ID is required';
-            }
+        } elseif ($this->isBareBlinkLightningAddress($connectionString)) {
+            // Non-custodial shorthand: merchant pasted just their Blink Lightning address
+            $result['type'] = 'blink';
+            $result['variant'] = 'ln_address';
+            $result['ln_address'] = $connectionString;
         } else {
             // Legacy format: just a URL or token (allow for backward compatibility)
             if (filter_var($connectionString, FILTER_VALIDATE_URL) !== false) {
                 // Valid URL format
                 $result['server'] = $connectionString;
             } else {
-                $result['errors'][] = 'Invalid connection string format. Expected: type=blink;server=...;api-key=...;wallet-id=...';
+                $result['errors'][] = 'Invalid connection string format. Expected: type=blink;ln-address=yourname@blink.sv; or type=blink;server=...;api-key=...;wallet-id=...';
             }
         }
 
         return $result;
+    }
+
+    /**
+     * The plugin defaults a bare username to the blink.sv domain - mirror that.
+     */
+    public function normalizeBlinkLnAddress(string $value): string
+    {
+        $value = trim($value);
+
+        return str_contains($value, '@') ? $value : $value.'@blink.sv';
+    }
+
+    /**
+     * Lightning address at the blink.sv domain. Also gates bare pastes - other
+     * Lightning addresses stay ambiguous (Cashu uses the same shape).
+     */
+    public function isBareBlinkLightningAddress(string $value): bool
+    {
+        return (bool) preg_match('/^[^@\s;=]+@blink\.sv$/i', trim($value));
+    }
+
+    /**
+     * Which Blink format a stored secret uses.
+     *
+     * @return 'api_key'|'ln_address'|null Null when the secret is not a parseable Blink string
+     */
+    public function blinkVariant(string $secret): ?string
+    {
+        $parsed = $this->parseBlinkConnectionString($secret);
+
+        return empty($parsed['errors']) ? $parsed['variant'] : null;
+    }
+
+    /**
+     * Canonical BTCPay connection string for a Blink secret (expands the bare
+     * ln-address shorthand; api-key strings pass through unchanged).
+     */
+    public function formatBtcpayBlinkConnectionString(string $secret): string
+    {
+        $parsed = $this->parseBlinkConnectionString($secret);
+        if (empty($parsed['errors']) && $parsed['variant'] === 'ln_address' && $parsed['ln_address']) {
+            return 'type=blink;ln-address='.$parsed['ln_address'].';';
+        }
+
+        return trim($secret);
+    }
+
+    /**
+     * The Blitz plugin defaults a bare username to the blitzwalletapp.com domain - mirror that.
+     */
+    public function normalizeBlitzLnAddress(string $value): string
+    {
+        $value = trim($value);
+
+        return str_contains($value, '@') ? $value : $value.'@blitzwalletapp.com';
+    }
+
+    /**
+     * Lightning address at the blitzwalletapp.com domain. Gates bare pastes the same
+     * way blink.sv does - other Lightning addresses stay ambiguous (Cashu shape).
+     */
+    public function isBareBlitzLightningAddress(string $value): bool
+    {
+        return (bool) preg_match('/^[^@\s;=]+@blitzwalletapp\.com$/i', trim($value));
+    }
+
+    /**
+     * Parse a Blitz connection secret: a bare you@blitzwalletapp.com address or
+     * type=blitz;ln-address=<user[@domain]>; (aliases: lnaddress, username - the
+     * plugin reads only ln-address, receive-only, no api key).
+     *
+     * @return array{type: string|null, ln_address: string|null, errors: array<int, string>}
+     */
+    public function parseBlitzConnectionString(string $connectionString): array
+    {
+        $trimmed = trim($connectionString);
+        $result = ['type' => null, 'ln_address' => null, 'errors' => []];
+
+        if ($trimmed === '') {
+            $result['errors'][] = 'Empty Blitz connection string.';
+
+            return $result;
+        }
+
+        if ($this->isBareBlitzLightningAddress($trimmed)) {
+            $result['type'] = 'blitz';
+            $result['ln_address'] = $trimmed;
+
+            return $result;
+        }
+
+        if (! str_contains(strtolower($trimmed), 'type=blitz')) {
+            $result['errors'][] = 'Not a Blitz connection string.';
+
+            return $result;
+        }
+
+        $kv = [];
+        foreach (array_filter(array_map('trim', explode(';', $trimmed))) as $pair) {
+            if (! str_contains($pair, '=')) {
+                continue;
+            }
+            [$key, $value] = explode('=', $pair, 2);
+            $kv[strtolower(trim($key))] = trim($value);
+        }
+
+        $result['type'] = strtolower($kv['type'] ?? '');
+        if ($result['type'] !== 'blitz') {
+            $result['errors'][] = 'Connection string type must be blitz.';
+
+            return $result;
+        }
+
+        $lnAddress = $kv['ln-address'] ?? $kv['lnaddress'] ?? $kv['username'] ?? null;
+        if ($lnAddress === null || $lnAddress === '') {
+            $result['errors'][] = "The key 'ln-address' (your Blitz Wallet Lightning address or username) is required for blitz connection strings.";
+
+            return $result;
+        }
+
+        $normalized = $this->normalizeBlitzLnAddress($lnAddress);
+        // Same domain gate as Blink: other Lightning addresses belong to the Cashu path,
+        // not a Blitz secret (the plugin would accept them but satflux routes by domain).
+        if (! $this->isBareBlitzLightningAddress($normalized)) {
+            $result['errors'][] = 'Blitz ln-address must be a blitzwalletapp.com address (or a bare username).';
+
+            return $result;
+        }
+
+        $result['ln_address'] = $normalized;
+
+        return $result;
+    }
+
+    /**
+     * Canonical BTCPay connection string for a Blitz secret (expands the bare
+     * address and username shorthands).
+     */
+    public function formatBtcpayBlitzConnectionString(string $secret): string
+    {
+        $parsed = $this->parseBlitzConnectionString($secret);
+        if (empty($parsed['errors']) && $parsed['ln_address']) {
+            return 'type=blitz;ln-address='.$parsed['ln_address'].';';
+        }
+
+        return trim($secret);
+    }
+
+    /**
+     * The Flash plugin defaults a bare username to the flashapp.me domain - mirror that.
+     */
+    public function normalizeFlashLnAddress(string $value): string
+    {
+        $value = trim($value);
+
+        return str_contains($value, '@') ? $value : $value.'@flashapp.me';
+    }
+
+    /**
+     * Lightning address at the flashapp.me domain. Gates bare pastes the same
+     * way blink.sv/blitzwalletapp.com do.
+     */
+    public function isBareFlashLightningAddress(string $value): bool
+    {
+        return (bool) preg_match('/^[^@\s;=]+@flashapp\.me$/i', trim($value));
+    }
+
+    /**
+     * Parse a Flash connection secret: a bare you@flashapp.me address or
+     * type=flash;ln-address=<user[@domain]>; (aliases: lnaddress, username -
+     * the plugin reads only ln-address, receive-only, no api key).
+     *
+     * @return array{type: string|null, ln_address: string|null, errors: array<int, string>}
+     */
+    public function parseFlashConnectionString(string $connectionString): array
+    {
+        $trimmed = trim($connectionString);
+        $result = ['type' => null, 'ln_address' => null, 'errors' => []];
+
+        if ($trimmed === '') {
+            $result['errors'][] = 'Empty Flash connection string.';
+
+            return $result;
+        }
+
+        if ($this->isBareFlashLightningAddress($trimmed)) {
+            $result['type'] = 'flash';
+            $result['ln_address'] = $trimmed;
+
+            return $result;
+        }
+
+        if (! str_contains(strtolower($trimmed), 'type=flash')) {
+            $result['errors'][] = 'Not a Flash connection string.';
+
+            return $result;
+        }
+
+        $kv = [];
+        foreach (array_filter(array_map('trim', explode(';', $trimmed))) as $pair) {
+            if (! str_contains($pair, '=')) {
+                continue;
+            }
+            [$key, $value] = explode('=', $pair, 2);
+            $kv[strtolower(trim($key))] = trim($value);
+        }
+
+        $result['type'] = strtolower($kv['type'] ?? '');
+        if ($result['type'] !== 'flash') {
+            $result['errors'][] = 'Connection string type must be flash.';
+
+            return $result;
+        }
+
+        $lnAddress = $kv['ln-address'] ?? $kv['lnaddress'] ?? $kv['username'] ?? null;
+        if ($lnAddress === null || $lnAddress === '') {
+            $result['errors'][] = "The key 'ln-address' (your Flash Wallet Lightning address or username) is required for flash connection strings.";
+
+            return $result;
+        }
+
+        $normalized = $this->normalizeFlashLnAddress($lnAddress);
+        if (! $this->isBareFlashLightningAddress($normalized)) {
+            $result['errors'][] = 'Flash ln-address must be a flashapp.me address (or a bare username).';
+
+            return $result;
+        }
+
+        $result['ln_address'] = $normalized;
+
+        return $result;
+    }
+
+    /**
+     * Canonical BTCPay connection string for a Flash secret (expands the bare
+     * address and username shorthands).
+     */
+    public function formatBtcpayFlashConnectionString(string $secret): string
+    {
+        $parsed = $this->parseFlashConnectionString($secret);
+        if (empty($parsed['errors']) && $parsed['ln_address']) {
+            return 'type=flash;ln-address='.$parsed['ln_address'].';';
+        }
+
+        return trim($secret);
+    }
+
+    /**
+     * Domain part of a Lightning address, lowercased; null when not an address.
+     */
+    public function lnAddressDomain(string $address): ?string
+    {
+        $trimmed = trim($address);
+        if (! preg_match('/^[^@\s;=]+@([^@\s;=]+\.[^@\s;=]{2,})$/', $trimmed, $matches)) {
+            return null;
+        }
+
+        return strtolower($matches[1]);
+    }
+
+    /**
+     * Wallet brand for a Lightning address at a curated LUD-21 domain, else null.
+     *
+     * @return 'blitz'|'flash'|'coinos'|null
+     */
+    public function lnAddressBrandForAddress(string $address): ?string
+    {
+        $domain = $this->lnAddressDomain($address);
+
+        return $domain !== null ? (self::LN_ADDRESS_WALLET_BRANDS[$domain] ?? null) : null;
+    }
+
+    /**
+     * Bare Lightning address at one of the curated LUD-21 wallet domains.
+     */
+    public function isCuratedLnAddressBareAddress(string $value): bool
+    {
+        return $this->lnAddressBrandForAddress($value) !== null;
+    }
+
+    /**
+     * Parse a universal LN address connection secret: a bare user@domain address
+     * (any domain - LUD-21 support is verified by the save-time probe) or
+     * type=lnaddress;ln-address=user@domain; (aliases: lnaddress, username).
+     * No default domain - a full address is always required.
+     *
+     * @return array{type: string|null, ln_address: string|null, errors: array<int, string>}
+     */
+    public function parseLnAddressConnectionString(string $connectionString): array
+    {
+        $trimmed = trim($connectionString);
+        $result = ['type' => null, 'ln_address' => null, 'errors' => []];
+
+        if ($trimmed === '') {
+            $result['errors'][] = 'Empty LN address connection string.';
+
+            return $result;
+        }
+
+        if (! str_contains($trimmed, ';') && ! str_contains($trimmed, '=')) {
+            if ($this->lnAddressDomain($trimmed) === null) {
+                $result['errors'][] = 'Not a Lightning address (expected user@domain).';
+
+                return $result;
+            }
+
+            $result['type'] = 'lnaddress';
+            $result['ln_address'] = $trimmed;
+
+            return $result;
+        }
+
+        if (! str_contains(strtolower($trimmed), 'type=lnaddress')) {
+            $result['errors'][] = 'Not an lnaddress connection string.';
+
+            return $result;
+        }
+
+        $kv = [];
+        foreach (array_filter(array_map('trim', explode(';', $trimmed))) as $pair) {
+            if (! str_contains($pair, '=')) {
+                continue;
+            }
+            [$key, $value] = explode('=', $pair, 2);
+            $kv[strtolower(trim($key))] = trim($value);
+        }
+
+        $result['type'] = strtolower($kv['type'] ?? '');
+        if ($result['type'] !== 'lnaddress') {
+            $result['errors'][] = 'Connection string type must be lnaddress.';
+
+            return $result;
+        }
+
+        $lnAddress = $kv['ln-address'] ?? $kv['lnaddress'] ?? $kv['username'] ?? null;
+        if ($lnAddress === null || $lnAddress === '') {
+            $result['errors'][] = "The key 'ln-address' (your wallet's Lightning address) is required for lnaddress connection strings.";
+
+            return $result;
+        }
+
+        if ($this->lnAddressDomain($lnAddress) === null) {
+            $result['errors'][] = 'lnaddress requires a full Lightning address - use user@domain (e.g. you@yourwallet.com).';
+
+            return $result;
+        }
+
+        $result['ln_address'] = trim($lnAddress);
+
+        return $result;
+    }
+
+    /**
+     * Canonical BTCPay connection string for an lnaddress secret (expands the
+     * bare address shorthand).
+     */
+    public function formatBtcpayLnAddressConnectionString(string $secret): string
+    {
+        $parsed = $this->parseLnAddressConnectionString($secret);
+        if (empty($parsed['errors']) && $parsed['ln_address']) {
+            return 'type=lnaddress;ln-address='.$parsed['ln_address'].';';
+        }
+
+        return trim($secret);
+    }
+
+    /**
+     * Wallet brand for an lnaddress connection - decrypts the secret and maps
+     * the address domain through the curated list (pattern: resolveAquaBoltzBrand).
+     *
+     * @return 'blitz'|'flash'|'coinos'|null
+     */
+    public function resolveLnAddressBrand(?WalletConnection $connection): ?string
+    {
+        if (! $connection || $connection->type !== 'lnaddress') {
+            return null;
+        }
+
+        try {
+            $parsed = $this->parseLnAddressConnectionString($connection->reveal());
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! empty($parsed['errors']) || ! $parsed['ln_address']) {
+            return null;
+        }
+
+        return $this->lnAddressBrandForAddress($parsed['ln_address']);
+    }
+
+    /**
+     * Lightning address contained in a connection secret, when the secret has one:
+     * blink ln-address variant and blitz secrets carry it, everything else does not.
+     * Used to default the CashuMelt fallback address.
+     */
+    public function deriveLightningAddressFromSecret(string $type, string $secret): ?string
+    {
+        if ($type === 'blink') {
+            $parsed = $this->parseBlinkConnectionString($secret);
+            if (empty($parsed['errors']) && ($parsed['variant'] ?? null) === 'ln_address') {
+                return $parsed['ln_address'] ?: null;
+            }
+
+            return null;
+        }
+
+        if ($type === 'blitz') {
+            $parsed = $this->parseBlitzConnectionString($secret);
+
+            return empty($parsed['errors']) ? ($parsed['ln_address'] ?: null) : null;
+        }
+
+        if ($type === 'flash') {
+            $parsed = $this->parseFlashConnectionString($secret);
+
+            return empty($parsed['errors']) ? ($parsed['ln_address'] ?: null) : null;
+        }
+
+        if ($type === 'lnaddress') {
+            $parsed = $this->parseLnAddressConnectionString($secret);
+
+            return empty($parsed['errors']) ? ($parsed['ln_address'] ?: null) : null;
+        }
+
+        return null;
     }
 
     /**
@@ -246,7 +712,9 @@ class WalletConnectionValidator
         if (preg_match('/[?&]lud16=([^&]+)/i', $uri, $matches)) {
             $lud16 = urldecode($matches[1]);
             $domain = strtolower((string) str($lud16)->after('@'));
-            foreach (['minibits.cash', 'coinos.io'] as $cashuDomain) {
+            // coinos.io is intentionally absent - Coinos LN addresses connect natively
+            // via lnaddress (the NWC markers above still reject Coinos NWC URIs).
+            foreach (['minibits.cash'] as $cashuDomain) {
                 if ($domain === $cashuDomain || str_ends_with($domain, '.'.$cashuDomain)) {
                     return true;
                 }
@@ -315,7 +783,7 @@ class WalletConnectionValidator
      */
     public function validate(string $type, string $value): array
     {
-        \Illuminate\Support\Facades\Log::info('WalletConnectionValidator::validate called', [
+        Log::info('WalletConnectionValidator::validate called', [
             'type' => $type,
             'value_length' => strlen($value),
             'value_preview' => substr($value, 0, 100).'...',
@@ -326,13 +794,13 @@ class WalletConnectionValidator
 
         if ($type === 'blink') {
             $returnType = 'blink';
-            \Illuminate\Support\Facades\Log::info('Validating Blink connection string', [
+            Log::info('Validating Blink connection string', [
                 'type' => $type,
             ]);
 
             // Validate Blink connection string format
             $parsed = $this->parseBlinkConnectionString($value);
-            \Illuminate\Support\Facades\Log::info('Blink connection string parsed', [
+            Log::info('Blink connection string parsed', [
                 'type' => $type,
                 'parsed_errors' => $parsed['errors'] ?? [],
                 'parsed_type' => $parsed['type'] ?? 'NULL',
@@ -342,16 +810,16 @@ class WalletConnectionValidator
             if (! empty($parsed['errors'])) {
                 $errors = array_merge($errors, $parsed['errors']);
             } elseif (! $this->validateBlinkToken($value)) {
-                $errors[] = 'Invalid Blink connection string format. Expected: type=blink;server=https://...;api-key=...;wallet-id=...';
+                $errors[] = 'Invalid Blink connection string format. Expected: type=blink;ln-address=yourname@blink.sv; or type=blink;server=https://...;api-key=...;wallet-id=...';
             }
         } elseif ($type === 'aqua_descriptor') {
             $returnType = 'aqua_descriptor';
-            \Illuminate\Support\Facades\Log::info('Validating Aqua descriptor', [
+            Log::info('Validating Aqua descriptor', [
                 'type' => $type,
             ]);
 
             $isValid = $this->validateAquaDescriptor($value);
-            \Illuminate\Support\Facades\Log::info('Aqua descriptor validation result', [
+            Log::info('Aqua descriptor validation result', [
                 'type' => $type,
                 'is_valid' => $isValid,
             ]);
@@ -364,8 +832,26 @@ class WalletConnectionValidator
             if (! $this->validateNwcUri($value)) {
                 $errors[] = 'Invalid NWC connection. Must start with nostr+walletconnect: and include relay= and secret= parameters.';
             }
+        } elseif ($type === 'blitz') {
+            $returnType = 'blitz';
+            $parsed = $this->parseBlitzConnectionString($value);
+            if (! empty($parsed['errors'])) {
+                $errors[] = 'Invalid Blitz connection. Expected your Blitz Wallet Lightning address (you@blitzwalletapp.com) or type=blitz;ln-address=you;';
+            }
+        } elseif ($type === 'flash') {
+            $returnType = 'flash';
+            $parsed = $this->parseFlashConnectionString($value);
+            if (! empty($parsed['errors'])) {
+                $errors[] = 'Invalid Flash connection. Expected your Flash Wallet Lightning address (you@flashapp.me) or type=flash;ln-address=you;';
+            }
+        } elseif ($type === 'lnaddress') {
+            $returnType = 'lnaddress';
+            $parsed = $this->parseLnAddressConnectionString($value);
+            if (! empty($parsed['errors'])) {
+                $errors[] = 'Invalid Lightning address connection. Expected your wallet Lightning address (you@yourwallet.com) or type=lnaddress;ln-address=you@yourwallet.com;';
+            }
         } else {
-            \Illuminate\Support\Facades\Log::error('Unsupported wallet connection type', [
+            Log::error('Unsupported wallet connection type', [
                 'type' => $type,
             ]);
             throw new \InvalidArgumentException("Unsupported wallet connection type: {$type}");
@@ -378,7 +864,7 @@ class WalletConnectionValidator
             'error' => ! empty($errors) ? implode('; ', $errors) : null,
         ];
 
-        \Illuminate\Support\Facades\Log::info('WalletConnectionValidator::validate result', [
+        Log::info('WalletConnectionValidator::validate result', [
             'type' => $type,
             'valid' => $result['valid'],
             'errors_count' => count($errors),
@@ -422,7 +908,7 @@ class WalletConnectionValidator
      *
      * @return 'aqua'|'bull'|null
      */
-    public function resolveAquaBoltzBrand(?\App\Models\WalletConnection $connection): ?string
+    public function resolveAquaBoltzBrand(?WalletConnection $connection): ?string
     {
         if (! $connection) {
             return null;

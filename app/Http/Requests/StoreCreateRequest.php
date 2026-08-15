@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Services\WalletConnectionValidator;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,7 +20,7 @@ class StoreCreateRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -27,17 +29,20 @@ class StoreCreateRequest extends FormRequest
             'default_currency' => ['required', 'string', 'max:10'], // Allow BTC, SATS, and 3-letter codes
             'timezone' => ['required', 'string', 'timezone'],
             'preferred_exchange' => ['nullable', 'string', 'max:255'],
-            // Omit on first-step create; set later when user picks Blink / Aqua / Cashu.
-            'wallet_type' => ['nullable', 'string', Rule::in(['blink', 'aqua_boltz', 'cashu', 'nwc'])],
+            // Omit on first-step create; set later when user picks Blink / Aqua / Cashu / Blitz.
+            'wallet_type' => ['nullable', 'string', Rule::in(['blink', 'aqua_boltz', 'cashu', 'nwc', 'blitz', 'flash', 'lnaddress'])],
 
-            // Blink/Aqua wallet connection string (Blink token or Aqua descriptor).
+            // Blink/Aqua/Blitz/LN-address wallet connection string.
             'connection_string' => [
                 'nullable',
                 'string',
                 'max:2000',
-                // Only when configuring Blink or Aqua descriptor during create; Cashu uses mint/LN fields.
-                'prohibited_unless:wallet_type,blink,aqua_boltz',
+                // Only when configuring a connection during create; Cashu uses mint/LN fields.
+                'prohibited_unless:wallet_type,blink,aqua_boltz,blitz,flash,lnaddress',
             ],
+
+            // Optional CashuMelt fallback address for Lightning wallet types.
+            'fallback_lightning_address' => ['nullable', 'string', 'max:320', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
 
             // Cashu plugin settings.
             'mint_url' => ['required_if:wallet_type,cashu', 'string', 'url', 'starts_with:https://'],
@@ -52,11 +57,11 @@ class StoreCreateRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             // If connection_string is provided, validate it matches the wallet_type
-            if ($this->filled('connection_string') && in_array($this->wallet_type, ['blink', 'aqua_boltz'], true)) {
+            if ($this->filled('connection_string') && in_array($this->wallet_type, ['blink', 'aqua_boltz', 'blitz', 'flash', 'lnaddress'], true)) {
                 $connectionString = $this->connection_string;
                 $walletType = $this->wallet_type;
 
-                $connectionValidator = app(\App\Services\WalletConnectionValidator::class);
+                $connectionValidator = app(WalletConnectionValidator::class);
 
                 if ($walletType === 'blink') {
                     // Validate Blink connection string format
@@ -76,8 +81,14 @@ class StoreCreateRequest extends FormRequest
                             $validator->errors()->add('connection_string', $error);
                         }
                     }
-                } elseif ($walletType === 'cashu') {
-                    // connection_string is prohibited by validation rules; no extra validation needed.
+                } else {
+                    // blitz, flash or lnaddress - the in_array gate above leaves no other values.
+                    $validation = $connectionValidator->validate($walletType, $connectionString);
+                    if (! $validation['valid']) {
+                        foreach ($validation['errors'] as $error) {
+                            $validator->errors()->add('connection_string', $error);
+                        }
+                    }
                 }
             }
         });

@@ -6,6 +6,8 @@ Satflux **nie je** digitálny poštár. Modul Business Invoicing generuje Peppol
 
 Modul e-faktúry sa zobrazuje a používa len pre slovenské firmy so stavom DPH **Platiteľ DPH** (`vat_status = payer`). Neplatitelia a čiastoční platitelia (§7 / §7a) ho v UI nevidia a API ho odmietne.
 
+Rozsah povinností zákona sa pritom líši: **vystavovať** e-faktúry musia od 1.1.2027 len platitelia DPH, ale **prijímať** ich musia všetky zdaniteľné osoby, ktorým platiteľ fakturuje. Inbound (prijímanie) v Satflux je zatiaľ tiež obmedzený na platiteľov (rovnaká eligibilita v `pollAll`/`pollCompany`) - rozšírenie prijímania na neplatiteľov je vedomý otvorený bod pred fázou 2 zákona (1.7.2030).
+
 ## Kto čo rieši
 
 | Úloha | Zodpovednosť |
@@ -25,22 +27,21 @@ Modul e-faktúry sa zobrazuje a používa len pre slovenské firmy so stavom DPH
 - Async odoslanie cez `SubmitBusinessDocumentCompliance` job (za `EFAKTURA_ENABLED=true`)
 - SAPI-SK JSON `document/send` (metadata + UBL payload) podľa špecifikácie CPDS
 - Inbound polling `efaktura:poll-inbound` - import UBL do **nákladov** + acknowledge
-- API: `POST .../efaktura/send`, `POST .../efaktura/poll-inbound`, `GET .../efaktura/compliance`, `POST .../efaktura/compliance/refresh`
-- Voliteľný scheduler `efaktura:sync-compliance-status` (ak je nastavený `EFAKTURA_SAPI_SEND_DETAIL_PATH`)
+- API: `POST .../efaktura/send`, `POST .../efaktura/poll-inbound`, `GET .../efaktura/compliance`, `POST .../efaktura/compliance/refresh`, `POST .../efaktura/test-connection`, `POST .../efaktura/compliance-bulk` (+ ephemeral varianty pre local-first)
+- Voliteľný scheduler `efaktura:sync-compliance-status` (globálny `EFAKTURA_SAPI_SEND_DETAIL_PATH` alebo per-preset detail path)
+- **Derivované Peppol ID**: sender ID sa automaticky odvodí z DIČ (`0245`) alebo IČO (`0208`) firmy; explicitná hodnota v nastaveniach ho prebije
+- **Presety poštárov (CPDS)**: admin ich spravuje na `/admin/efaktura-cpds`; aktívne presety predvypĺňajú base URL v sprievodcovi a ich hosty sú dôveryhodné pre SSRF kontrolu
+- **Viditeľnosť**: indikátor "Odošle sa ako eFaktúra" na formulári faktúry, "e" badge so stavom v zozname, preflight kontrola odberateľa pred odoslaním, readiness checklist pre SK platiteľov (aj pred globálnym zapnutím)
 
-## Nastavenie (merchant)
+## Nastavenie (merchant) - sprievodca
 
-1. Na [portáli Finančnej správy](https://www.financnasprava.sk) vyberte digitálneho poštára pre firmu.
-2. U poskytovateľa získajte **SAPI-SK** `client_id`, `client_secret` a **Peppol participant ID** (napr. `0245:2023980035`).
-3. V profile firmy (`eu_sk`) v Satflux nastavte (API `PATCH .../app-settings`):
-   - `efaktura_enabled: true`
-   - `efaktura_sapi_base_url` - API endpoint vášho CPDS (napr. `https://dev.epostak.sk`)
-   - `efaktura_peppol_participant_id`
-   - `efaktura_sapi_client_id`
-   - `efaktura_sapi_client_secret` (uložené encrypted)
-   - `efaktura_auto_send: true` (voliteľné)
-   - `efaktura_inbound_enabled: true` (prijímanie cez poll)
-4. U odberateľov SK doplňte IČO/DIČ na kontakte, prípadne voliteľné **Peppol ID odberateľa** v kontakte (ak DIČ/IČO nestačí).
+Záložka **E-faktúra** v nastaveniach firmy (`eu_sk`, platiteľ DPH) je 3-krokový sprievodca:
+
+1. **Vyberte digitálneho poštára** - dropdown s presetmi (spravuje admin) alebo "Iný (zadať URL)". Výber na [portáli Finančnej správy](https://www.financnasprava.sk) ostáva na merchantovi.
+2. **Prepojte svoj účet** - `client_id` + `client_secret` od poštára a tlačidlo **Otestovať pripojenie** (jednorazový OAuth pokus, úspech sa uloží ako `efaktura_connection_tested_at`).
+3. **Možnosti** - auto-send (pri prvom zapnutí modulu predvolene zaškrtnutý), inbound. Peppol participant ID je v "Rozšírené" - bežný merchant ho nerieši, derivuje sa z DIČ/IČO.
+
+U odberateľov SK stačí doplniť IČO/DIČ na kontakte (voliteľne explicitné **Peppol ID odberateľa**). Readiness checklist na zozname faktúr ukazuje počet kontaktov, ktorým údaje chýbajú.
 
 Každý merchant si vyberá iného digitálneho poštára - **base URL musí byť per firma**, nie globálne.
 
@@ -53,9 +54,27 @@ EFAKTURA_PROVIDER=sapi_sk
 # EFAKTURA_SAPI_SEND_DETAIL_PATH=/sapi/v1/document/send/{id}  # voliteľné; CPDS-špecifické sledovanie stavu
 ```
 
-`EFAKTURA_ENABLED=false` je default - bez globálneho zapnutia sa gateway nebinduje na SAPI (ostáva noop) a v UI sa nezobrazí záložka E-faktúra ani panel na faktúre (`GET /api/config` → `efaktura_enabled`).
+`EFAKTURA_ENABLED=false` je default - bez globálneho zapnutia sa gateway nebinduje na SAPI (ostáva noop) a v UI sa nezobrazí záložka E-faktúra ani panel na faktúre (`GET /api/config` → `efaktura_enabled`). Readiness checklist pre SK platiteľov sa zobrazuje aj pri vypnutom module (redukovaný "pripravte si kontakty" stav; termín povinnosti ide z `efaktura_mandatory_from` v `/api/config`).
 
 Po zmene `.env`: `php artisan optimize:clear`
+
+## Aktivácia (ops runbook)
+
+1. Cez admin editor `/admin/efaktura-cpds` doplňte **overené** presety poštárov (RegWatch pravidlo: žiadne neoverené URL; per-preset `send_detail_path` s `{id}` placeholderom prebíja globálny).
+2. Nastavte `EFAKTURA_ENABLED=true` (+ voliteľne `EFAKTURA_SAPI_ALLOWED_HOSTS`), potom `php artisan optimize:clear` a **reštart queue workerov** (config je v nich cachovaný).
+3. `php artisan schedule:list` - overte registráciu `efaktura:poll-inbound` (15 min) a `efaktura:sync-compliance-status` (30 min).
+4. `php artisan efaktura:doctor` - globálny stav + per-company readiness (eligibilita, derivované Peppol ID, allowlist verdikt base URL, credentials, configured). `--company=<uuid>` obmedzí na jednu firmu, `--live` spraví reálnu SAPI-SK autentifikáciu.
+
+### Sandbox E2E checklist (manuálne, pred produkčným zapnutím)
+
+Všetky CPDS volania sú zatiaľ overené len cez `Http::fake` - proti reálnemu sandboxu poštára treba ručne overiť:
+
+- [ ] token grant (`efaktura:doctor --live`)
+- [ ] `document/send` happy path + akceptácia UBL validátorom poštára
+- [ ] 422 recipient-not-found mapovanie ("Recipient is not registered in the Peppol network.")
+- [ ] idempotency-key retry (opakovaný send toho istého dokumentu)
+- [ ] status detail (`send_detail_path` daného CPDS) + `efaktura:sync-compliance-status`
+- [ ] inbound list/detail/acknowledge + import do nákladov
 
 ## Architektúra
 

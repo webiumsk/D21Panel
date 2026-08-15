@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Services\BtcPay\Exceptions\BtcPayException;
+use App\Services\BtcPay\InvoiceService;
 use App\Services\BtcPay\SubscriptionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -59,7 +61,7 @@ class SyncSubscriptionsFromBtcPay extends Command
 
                 $this->info('Found '.count($subscriptionsList).' subscriptions in BTCPay');
 
-            } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+            } catch (BtcPayException $e) {
                 if ($e->getStatusCode() === 404) {
                     $this->warn('Direct subscriptions endpoint returned 404, trying via offerings/subscribers...');
 
@@ -244,7 +246,7 @@ class SyncSubscriptionsFromBtcPay extends Command
 
                     $subscriberData = $this->subscriptionService->getSubscriber($storeId, $offeringId, $customerSelector);
 
-                } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+                } catch (BtcPayException $e) {
                     if ($e->getStatusCode() === 404) {
                         // User doesn't have a subscription for this offering - skip
                         continue;
@@ -364,7 +366,7 @@ class SyncSubscriptionsFromBtcPay extends Command
         $this->info('Fetching invoices from subscription store to find subscriptions...');
 
         try {
-            $invoiceService = app(\App\Services\BtcPay\InvoiceService::class);
+            $invoiceService = app(InvoiceService::class);
 
             // Fetch recent invoices (last 100 should be enough)
             $invoices = $invoiceService->listInvoices($storeId, [], 0, 100);
@@ -456,7 +458,7 @@ class SyncSubscriptionsFromBtcPay extends Command
                     $user->forceFill($updateData)->save();
                     $synced++;
 
-                } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+                } catch (BtcPayException $e) {
                     // If we can't get subscription details, at least store the subscription ID
                     $user->update([
                         'btcpay_subscription_id' => $subscriptionId,

@@ -5,10 +5,13 @@ namespace Tests\Feature;
 use App\Enums\BusinessDocumentStatus;
 use App\Enums\BusinessExpenseStatus;
 use App\Enums\CompanyJurisdiction;
+use App\Enums\IntegrationDocumentInboxStatus;
 use App\Models\BusinessDocument;
 use App\Models\BusinessExpense;
 use App\Models\BusinessExpenseAttachment;
 use App\Models\Company;
+use App\Models\IntegrationDocumentInbox;
+use App\Models\Store;
 use App\Models\StoreIntegration;
 use App\Models\User;
 use App\Services\DataRetentionService;
@@ -185,18 +188,18 @@ class DataRetentionTest extends TestCase
             'default_currency' => 'EUR',
             'jurisdiction' => CompanyJurisdiction::EuSk,
         ]);
-        $store = \App\Models\Store::factory()->create([
+        $store = Store::factory()->create([
             'user_id' => $user->id,
             'company_id' => $company->id,
         ]);
         $integration = StoreIntegration::createForStore($store)['integration'];
 
-        \App\Models\IntegrationDocumentInbox::create([
+        IntegrationDocumentInbox::create([
             'store_integration_id' => $integration->id,
             'woocommerce_order_id' => 9001,
             'evolu_document_id' => '00000000-0000-4000-8000-000000000099',
             'payload_json' => ['buyer' => ['email' => 'buyer@example.com']],
-            'status' => \App\Enums\IntegrationDocumentInboxStatus::Dismissed,
+            'status' => IntegrationDocumentInboxStatus::Dismissed,
         ]);
 
         config(['data_retention.integration_inbox_closed_days' => 0]);
@@ -204,7 +207,7 @@ class DataRetentionTest extends TestCase
         $stats = app(DataRetentionService::class)->run(dryRun: false);
 
         $this->assertGreaterThanOrEqual(1, $stats['integration_inbox_closed_deleted']);
-        $this->assertSame(0, \App\Models\IntegrationDocumentInbox::query()->count());
+        $this->assertSame(0, IntegrationDocumentInbox::query()->count());
     }
 
     #[Test]

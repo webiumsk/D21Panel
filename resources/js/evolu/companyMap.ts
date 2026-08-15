@@ -12,6 +12,10 @@ export type InvoicingCompanyRecord = {
     tax_id: string | null;
     vat_number: string | null;
     commercial_register: string | null;
+    register_court: string | null;
+    register_number: string | null;
+    managing_directors: string | null;
+    supervisory_board_chair: string | null;
     street: string | null;
     city: string | null;
     postal_code: string | null;
@@ -50,6 +54,10 @@ export type EvoluCompanyRow = {
     taxId: string | null;
     vatNumber: string | null;
     commercialRegister: string | null;
+    registerCourt: string | null;
+    registerNumber: string | null;
+    managingDirectors: string | null;
+    supervisoryBoardChair: string | null;
     street: string | null;
     city: string | null;
     postalCode: string | null;
@@ -125,6 +133,10 @@ export function evoluCompanyToApi(
         tax_id: row.taxId,
         vat_number: row.vatNumber,
         commercial_register: row.commercialRegister,
+        register_court: row.registerCourt,
+        register_number: row.registerNumber,
+        managing_directors: row.managingDirectors,
+        supervisory_board_chair: row.supervisoryBoardChair,
         street: row.street,
         city: row.city,
         postal_code: row.postalCode,

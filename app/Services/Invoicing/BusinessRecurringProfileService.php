@@ -228,7 +228,7 @@ class BusinessRecurringProfileService
             $contact = $profile->relationLoaded('contact')
                 ? $profile->contact
                 : ($profile->company_contact_id
-                    ? \App\Models\CompanyContact::query()->find($profile->company_contact_id)
+                    ? CompanyContact::query()->find($profile->company_contact_id)
                     : null);
             $amounts = $this->canonicalBuilder->computeLineAmounts($company, $line, $contact);
 

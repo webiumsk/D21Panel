@@ -6,10 +6,12 @@ use App\Models\App;
 use App\Models\PosOrder;
 use App\Models\Store;
 use App\Services\BtcPay\AppService;
+use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\InvoiceService;
 use App\Services\InvoiceSourceService;
 use App\Services\StoreInvoiceStatsService;
 use App\Services\SubscriptionEntitlementService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -108,7 +110,7 @@ class StoreDashboardController extends Controller
                     if (! in_array($status, ['Settled', 'Complete'], true) || ! $createdTime) {
                         continue;
                     }
-                    $invoiceDate = \Carbon\Carbon::parse($createdTime)->startOfDay();
+                    $invoiceDate = Carbon::parse($createdTime)->startOfDay();
                     $dateKey = $invoiceDate->format('Y-m-d');
                     if ($invoiceDate->isAfter(now()->subDays(7)->startOfDay()) && isset($salesLast7Days[$dateKey])) {
                         $salesLast7Days[$dateKey]['count']++;
@@ -194,7 +196,7 @@ class StoreDashboardController extends Controller
                             $apps[] = $formattedApp;
                         }
                     }
-                } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+                } catch (BtcPayException $e) {
                     Log::warning('BTCPay apps listing failed for dashboard', [
                         'store_id' => $store->id,
                         'error' => $e->getMessage(),
@@ -279,7 +281,7 @@ class StoreDashboardController extends Controller
                     'total_revenue_default_currency' => $totalRevenueDefault,
                     'default_currency' => $defaultCurrency,
                 ];
-            } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+            } catch (BtcPayException $e) {
                 Log::error('BTCPay API error when loading dashboard', [
                     'store_id' => $store->id,
                     'error' => $e->getMessage(),
@@ -401,7 +403,7 @@ class StoreDashboardController extends Controller
             if (! $createdTime) {
                 continue;
             }
-            $invoiceDate = \Carbon\Carbon::parse($createdTime)->startOfDay();
+            $invoiceDate = Carbon::parse($createdTime)->startOfDay();
             $dateKey = $invoiceDate->format('Y-m-d');
             if (isset($sales7[$dateKey])) {
                 $sales7[$dateKey]['count']++;

@@ -135,7 +135,7 @@ class CompanyDocumentSequenceTest extends TestCase
         $year = now()->format('Y');
         BusinessDocument::create([
             'company_id' => $this->company->id,
-            'type' => \App\Enums\BusinessDocumentType::Proforma,
+            'type' => BusinessDocumentType::Proforma,
             'status' => BusinessDocumentStatus::Issued,
             'number' => "PF{$year}0001",
             'total' => 10,

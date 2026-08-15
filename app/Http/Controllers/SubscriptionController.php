@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\SubscriptionService as BtcPaySubscriptionService;
 use App\Services\Invoicing\SubscriptionBillingInvoiceService;
 use App\Services\SubscriptionCheckoutRegistry;
 use App\Services\SubscriptionCreditLedgerService;
 use App\Services\SubscriptionEntitlementService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -135,7 +137,7 @@ class SubscriptionController extends Controller
                 'checkoutId' => $checkout['checkoutId'],
                 'expiresAt' => $checkout['expiresAt'] ?? null,
             ]);
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             $statusCode = $e->getStatusCode() ?: 500;
             $errorMessage = $e->getMessage();
 
@@ -352,7 +354,7 @@ class SubscriptionController extends Controller
                 'user' => $user->makeVisible('role'),
             ]);
 
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             Log::error('Failed to process subscription success', [
                 'checkout_id' => $checkoutPlanId,
                 'error' => $e->getMessage(),
@@ -435,7 +437,7 @@ class SubscriptionController extends Controller
                 'creditHistory' => $creditHistory,
             ]);
 
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             if ($e->getStatusCode() === 404) {
                 // User doesn't have a subscription yet
                 return response()->json([
@@ -495,7 +497,7 @@ class SubscriptionController extends Controller
                 'details' => $credits,
             ]);
 
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             Log::error('Failed to get credit balance', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
@@ -582,7 +584,7 @@ class SubscriptionController extends Controller
                 'expiresAt' => $checkout['expiresAt'] ?? null,
             ]);
 
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             if ($e->getStatusCode() === 404) {
                 return response()->json([
                     'message' => 'Active subscription required before purchasing credits.',
@@ -602,7 +604,7 @@ class SubscriptionController extends Controller
         }
     }
 
-    private function subscriptionBlockedForGuestResponse(Request $request): ?\Illuminate\Http\JsonResponse
+    private function subscriptionBlockedForGuestResponse(Request $request): ?JsonResponse
     {
         $user = $request->user();
         if ($user instanceof User && (bool) ($user->is_guest ?? false)) {

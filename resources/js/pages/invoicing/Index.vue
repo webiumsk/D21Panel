@@ -111,8 +111,12 @@
     </div>
 
     <div v-else-if="loadError" class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-8 text-center mb-4">
-      <p class="text-sm font-medium text-amber-950">{{ t('invoicing.local_db_load_failed_title') }}</p>
-      <p class="text-sm text-amber-900 mt-2 max-w-md mx-auto">{{ t('invoicing.local_db_load_failed_detail') }}</p>
+      <p class="text-sm font-medium text-amber-950">
+        {{ multiTabBlocked ? t('invoicing.local_db_multitab_blocked_title') : t('invoicing.local_db_load_failed_title') }}
+      </p>
+      <p class="text-sm text-amber-900 mt-2 max-w-md mx-auto">
+        {{ multiTabBlocked ? t('invoicing.local_db_multitab_blocked_detail') : t('invoicing.local_db_load_failed_detail') }}
+      </p>
       <div class="flex flex-wrap items-center justify-center gap-3 mt-4">
         <button type="button" class="invoicing-btn-primary" @click="retryCompaniesLoad">
           {{ t('invoicing.local_db_retry') }}
@@ -248,6 +252,7 @@ const {
   loading,
   forbidden,
   loadError,
+  multiTabBlocked,
   refresh,
 } = useInvoicingCompanies();
 

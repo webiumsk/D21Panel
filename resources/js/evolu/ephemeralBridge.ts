@@ -326,7 +326,14 @@ export function buildEphemeralSnapshot(
             default_currency: company?.default_currency,
             jurisdiction: company?.jurisdiction,
             vat_payer: company?.vat_payer,
+            // vat_status was silently missing - the server PDF fell back to
+            // vat_payer and mislabeled §7a companies as full payers.
+            vat_status: company?.vat_status,
             vat_rate_default: company?.vat_rate_default,
+            register_court: company?.register_court,
+            register_number: company?.register_number,
+            managing_directors: company?.managing_directors,
+            supervisory_board_chair: company?.supervisory_board_chair,
             legal_footer_note: company?.legal_footer_note,
             issuer_name: company?.issuer_name,
             issuer_phone: company?.issuer_phone,
@@ -635,6 +642,20 @@ export async function fetchEphemeralEfakturaStatus(
         params: { evolu_document_id: evoluDocumentId },
     });
     return Array.isArray(res.data?.data) ? res.data.data : [];
+}
+
+/** Latest submission per Evolu document id for the invoice-list badge. */
+export async function fetchEphemeralEfakturaStatusBulk(
+    evoluDocumentIds: string[],
+): Promise<Record<string, EphemeralEfakturaComplianceRow>> {
+    if (evoluDocumentIds.length === 0) {
+        return {};
+    }
+    const res = await api.post(`${EPHEMERAL_EFAKTURA_STATUS_PATH}-bulk`, {
+        evolu_document_ids: evoluDocumentIds,
+    });
+    const data = res.data?.data;
+    return data && typeof data === "object" ? (data as Record<string, EphemeralEfakturaComplianceRow>) : {};
 }
 
 export async function sendEphemeralEfaktura(

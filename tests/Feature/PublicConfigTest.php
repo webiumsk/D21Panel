@@ -21,6 +21,10 @@ class PublicConfigTest extends TestCase
                 'btcpay_base_url' => 'https://btcpay.example.com',
                 'btcpay_lightning_address_domain' => 'btcpay.example.com',
                 'efaktura_enabled' => false,
+                // The deadline is public even while the module is off;
+                // presets appear only when e-faktura is globally on.
+                'efaktura_mandatory_from' => (string) config('efaktura.mandatory_from'),
+                'efaktura_cpds_presets' => [],
             ]);
     }
 

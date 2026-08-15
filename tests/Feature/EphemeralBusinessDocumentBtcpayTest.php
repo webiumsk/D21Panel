@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\EphemeralBtcpayCheckout;
 use App\Models\Store;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -127,7 +128,7 @@ class EphemeralBusinessDocumentBtcpayTest extends TestCase
             'btcpay_store_id' => 'btcpay-store-1',
         ]);
 
-        \App\Models\EphemeralBtcpayCheckout::query()->create([
+        EphemeralBtcpayCheckout::query()->create([
             'user_id' => $user->id,
             'store_id' => $store->id,
             'btcpay_invoice_id' => 'btcpay-inv-old',
@@ -166,7 +167,7 @@ class EphemeralBusinessDocumentBtcpayTest extends TestCase
 
         // Pending checkout exists but for a DIFFERENT amount (document was
         // edited/re-frozen) - it must not be reused.
-        \App\Models\EphemeralBtcpayCheckout::query()->create([
+        EphemeralBtcpayCheckout::query()->create([
             'user_id' => $user->id,
             'store_id' => $store->id,
             'btcpay_invoice_id' => 'btcpay-inv-old',
@@ -203,7 +204,7 @@ class EphemeralBusinessDocumentBtcpayTest extends TestCase
             'btcpay_store_id' => 'btcpay-store-1',
         ]);
 
-        \App\Models\EphemeralBtcpayCheckout::query()->create([
+        EphemeralBtcpayCheckout::query()->create([
             'user_id' => $user->id,
             'store_id' => $store->id,
             'btcpay_invoice_id' => 'btcpay-inv-paid',
@@ -251,7 +252,7 @@ class EphemeralBusinessDocumentBtcpayTest extends TestCase
             'btcpay_store_id' => 'btcpay-store-1',
         ]);
 
-        \App\Models\EphemeralBtcpayCheckout::query()->create([
+        EphemeralBtcpayCheckout::query()->create([
             'user_id' => $user->id,
             'store_id' => $store->id,
             'btcpay_invoice_id' => 'btcpay-inv-pending',
@@ -304,7 +305,7 @@ class EphemeralBusinessDocumentBtcpayTest extends TestCase
             'btcpay_store_id' => 'btcpay-store-1',
         ]);
 
-        \App\Models\EphemeralBtcpayCheckout::query()->create([
+        EphemeralBtcpayCheckout::query()->create([
             'user_id' => $user->id,
             'store_id' => $store->id,
             'btcpay_invoice_id' => 'btcpay-inv-pending',
@@ -351,7 +352,7 @@ class EphemeralBusinessDocumentBtcpayTest extends TestCase
             'btcpay_store_id' => 'btcpay-store-1',
         ]);
 
-        \App\Models\EphemeralBtcpayCheckout::query()->create([
+        EphemeralBtcpayCheckout::query()->create([
             'user_id' => $user->id,
             'store_id' => $store->id,
             'btcpay_invoice_id' => 'btcpay-inv-pending',
@@ -399,7 +400,7 @@ class EphemeralBusinessDocumentBtcpayTest extends TestCase
             'btcpay_store_id' => 'btcpay-store-1',
         ]);
 
-        \App\Models\EphemeralBtcpayCheckout::query()->create([
+        EphemeralBtcpayCheckout::query()->create([
             'user_id' => $user->id,
             'store_id' => $store->id,
             'btcpay_invoice_id' => 'btcpay-inv-pending',
@@ -475,7 +476,7 @@ class EphemeralBusinessDocumentBtcpayTest extends TestCase
         $user = $this->createProUser();
         $store = Store::factory()->create(['user_id' => $user->id]);
 
-        \App\Models\EphemeralBtcpayCheckout::query()->create([
+        EphemeralBtcpayCheckout::query()->create([
             'user_id' => $user->id,
             'store_id' => $store->id,
             'btcpay_invoice_id' => 'btcpay-inv-paid',

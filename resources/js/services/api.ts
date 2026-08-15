@@ -149,7 +149,7 @@ export interface CreateStorePayload {
     default_currency: string;
     timezone: string;
     /** Omit on first-step create; configure wallet in a follow-up step. */
-    wallet_type?: 'blink' | 'aqua_boltz' | 'cashu' | null;
+    wallet_type?: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'aqua_boltz' | 'cashu' | null;
     preferred_exchange?: string;
     connection_string?: string;
     mint_url?: string;
@@ -175,7 +175,7 @@ export const storesApi = {
         const { data } = await api.delete<{ message?: string; btcpay_deleted?: boolean }>(`/stores/${storeId}`);
         return data;
     },
-    async setWalletType(storeId: string, walletType: 'blink' | 'aqua_boltz' | 'cashu'): Promise<Store> {
+    async setWalletType(storeId: string, walletType: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'aqua_boltz' | 'cashu' | 'nwc'): Promise<Store> {
         const { data } = await api.patch<ApiEnvelope<Store>>(`/stores/${storeId}/wallet-type`, { wallet_type: walletType });
         return data.data;
     },
@@ -227,10 +227,10 @@ export const storesApi = {
 
 export interface WalletConnectionDetails {
     id: string;
-    type: 'blink' | 'aqua_boltz' | 'cashu' | 'nwc' | 'aqua_descriptor';
+    type: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'aqua_boltz' | 'cashu' | 'nwc' | 'aqua_descriptor';
     status: string;
     configuration_source?: string | null;
-    brand?: 'aqua' | 'bull' | null;
+    brand?: 'aqua' | 'bull' | 'blitz' | 'flash' | 'coinos' | null;
     masked_secret?: string | null;
     submitted_at?: string | null;
     secret_updated_at?: string | null;
@@ -264,6 +264,7 @@ export interface CashuSettings {
     lightning_address?: string | null;
     trusted_mint_urls?: string[] | string | null;
     enabled?: boolean;
+    unit?: "sat" | "usd" | string | null;
     max_melt_fee_reserve_sats?: number | string | null;
     max_melt_fee_reserve_percent_of_minted?: number | string | null;
 }
@@ -277,6 +278,7 @@ export interface SamRockOtp {
 export interface SamRockCompleteResult extends SamRockOtp {
     status: string | null;
     error_message: string | null;
+    cashu_fallback_configured?: boolean;
 }
 
 // Wallet domain API - wallet connection, Cashu plugin settings, SamRock pairing.
@@ -287,7 +289,7 @@ export const walletApi = {
             const { data } = await api.get<ApiEnvelope<WalletConnectionDetails | null>>(`/stores/${storeId}/wallet-connection`);
             return data.data;
         },
-        async create(storeId: string, payload: { type: string; secret: string }): Promise<void> {
+        async create(storeId: string, payload: { type: string; secret: string; fallback_lightning_address?: string }): Promise<void> {
             await api.post(`/stores/${storeId}/wallet-connection`, payload);
         },
         async reveal(storeId: string, confirmation: SensitiveActionConfirmation): Promise<WalletSecretReveal> {
@@ -298,6 +300,14 @@ export const walletApi = {
         async test(storeId: string, payload: { connection_string: string; crypto_code: string }): Promise<{ success?: boolean; message?: string; requires_manual_config?: boolean }> {
             const { data } = await api.post<{ success?: boolean; message?: string; requires_manual_config?: boolean }>(`/stores/${storeId}/wallet-connection/test`, payload);
             return data;
+        },
+        /** Server-side LUD-21 verify probe for unknown Lightning-address domains. */
+        async lnaddressProbe(storeId: string, address: string): Promise<{ lud21: boolean; reason: string }> {
+            const { data } = await api.post<ApiEnvelope<{ lud21: boolean; reason: string }>>(
+                `/stores/${storeId}/wallet-connection/lnaddress-probe`,
+                { address },
+            );
+            return data.data;
         },
     },
     cashu: {
@@ -333,7 +343,7 @@ export const walletApi = {
             const { data } = await api.get<Blob>(`/stores/${storeId}/samrock/otps/${encodeURIComponent(otp)}/qr`, { responseType: 'blob', params });
             return data;
         },
-        async complete(storeId: string, payload: { otp: string }): Promise<SamRockCompleteResult> {
+        async complete(storeId: string, payload: { otp: string; fallback_lightning_address: string }): Promise<SamRockCompleteResult> {
             const { data } = await api.post<ApiEnvelope<SamRockCompleteResult>>(`/stores/${storeId}/samrock/complete`, payload);
             return data.data;
         },
@@ -887,6 +897,23 @@ export const invoicingApi = {
             const { data } = await api.post<ApiEnvelope<T>>(`/invoicing/companies/${companyId}/efaktura/poll-inbound`);
             return data.data ?? ({} as T);
         },
+        async testConnection<T = unknown>(companyId: string, payload: Record<string, unknown> = {}): Promise<T> {
+            const { data } = await api.post<ApiEnvelope<T>>(`/invoicing/companies/${companyId}/efaktura/test-connection`, payload);
+            return data.data ?? ({} as T);
+        },
+        // Latest compliance status per document id for the list badge.
+        async complianceBulk<T = unknown>(companyId: string, documentIds: string[]): Promise<T> {
+            const { data } = await api.post<ApiEnvelope<T>>(`/invoicing/companies/${companyId}/efaktura/compliance-bulk`, {
+                document_ids: documentIds,
+            });
+            return data.data ?? ({} as T);
+        },
+        // Local-first variant - credentials live in Evolu, so they travel in
+        // the body and nothing is persisted server-side.
+        async testConnectionEphemeral<T = unknown>(payload: Record<string, unknown>): Promise<T> {
+            const { data } = await api.post<ApiEnvelope<T>>('/invoicing/ephemeral/efaktura/test-connection', payload);
+            return data.data ?? ({} as T);
+        },
     },
     usSalesTax: {
         async preview<T = unknown>(companyId: string, payload: Record<string, unknown>): Promise<T> {
@@ -1020,6 +1047,46 @@ export const adminFaqApi = {
             api.put(`/admin/faq/categories/${id}`, data),
         delete: (id: string) => 
             api.delete(`/admin/faq/categories/${id}`),
+    },
+};
+
+export const adminRegwatchApi = {
+    changes: {
+        index: (params?: { status?: string; source_id?: string; page?: number }) =>
+            api.get('/admin/regwatch/changes', { params }),
+        show: (id: string) =>
+            api.get(`/admin/regwatch/changes/${id}`),
+        updateStatus: (id: string, status: string) =>
+            api.put(`/admin/regwatch/changes/${id}/status`, { status }),
+    },
+    sources: {
+        index: () =>
+            api.get('/admin/regwatch/sources'),
+    },
+    jurisdictions: {
+        index: () =>
+            api.get('/admin/regwatch/jurisdictions'),
+    },
+    rules: {
+        index: (params?: { jurisdiction_id?: string; topic?: string; verified?: string; page?: number }) =>
+            api.get('/admin/regwatch/rules', { params }),
+        show: (id: string) =>
+            api.get(`/admin/regwatch/rules/${id}`),
+        update: (id: string, data: Record<string, unknown>) =>
+            api.put(`/admin/regwatch/rules/${id}`, data),
+    },
+};
+
+export const adminEfakturaApi = {
+    cpdsProviders: {
+        index: () =>
+            api.get('/admin/efaktura/cpds-providers'),
+        store: (data: Record<string, unknown>) =>
+            api.post('/admin/efaktura/cpds-providers', data),
+        update: (id: string, data: Record<string, unknown>) =>
+            api.put(`/admin/efaktura/cpds-providers/${id}`, data),
+        destroy: (id: string) =>
+            api.delete(`/admin/efaktura/cpds-providers/${id}`),
     },
 };
 

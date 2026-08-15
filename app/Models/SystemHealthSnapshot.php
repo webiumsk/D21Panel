@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * @property bool $healthy
  * @property array<string, array{ok?: bool, detail?: string, duration_ms?: int}> $checks
- * @property \Illuminate\Support\Carbon $created_at
+ * @property Carbon $created_at
  */
 class SystemHealthSnapshot extends Model
 {

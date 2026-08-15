@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * One actual payment on a BTCPay invoice, as synced from Greenfield invoice payment-methods.
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * public Boltz pair fee snapshot (see net_quality + estimate_basis) - the Boltz plugin exposes
  * no swap reports via API and BTCPay's Greenfield reports endpoint is disabled upstream.
  *
- * @property \Illuminate\Support\Carbon|null $paid_at
+ * @property Carbon|null $paid_at
  * @property array<string, mixed>|null $flags
  * @property string|null $payment_status
  * @property string|null $settlement_asset

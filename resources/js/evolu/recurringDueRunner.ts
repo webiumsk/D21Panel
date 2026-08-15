@@ -1,6 +1,7 @@
 import type { Evolu } from "@evolu/common/local-first";
 import {
     allCompaniesDetailQuery,
+    allContactsQuery,
     allDocumentLinesQuery,
     allDocumentsQuery,
     allNumberSeriesQuery,
@@ -8,7 +9,8 @@ import {
     allRecurringProfilesQuery,
 } from "./client";
 import type { EvoluCompanyRow } from "./companyMap";
-import type { DocumentLinePayload } from "./documentCrud";
+import type { EvoluContactRow } from "./contactMap";
+import { taxOptionsForProfile } from "./recurringVatPolicy";
 import type { EvoluDocumentLineRow, EvoluDocumentRow } from "./documentMap";
 import type { EvoluNumberSeriesRow } from "./numberSeriesMap";
 import { generateLocalRecurringDocument } from "./recurringCrud";
@@ -34,6 +36,7 @@ const MAX_CATCHUP_ROUNDS = 48;
 
 type RunnerSnapshot = {
     companies: EvoluCompanyRow[];
+    contacts: EvoluContactRow[];
     profiles: EvoluRecurringProfileRow[];
     profileLines: EvoluRecurringProfileLineRow[];
     documents: EvoluDocumentRow[];
@@ -42,8 +45,9 @@ type RunnerSnapshot = {
 };
 
 async function loadRunnerSnapshot(evolu: Evolu<InvoicingLocalSchema>): Promise<RunnerSnapshot> {
-    const [companies, profiles, profileLines, documents, documentLines, series] = await Promise.all([
+    const [companies, contacts, profiles, profileLines, documents, documentLines, series] = await Promise.all([
         evolu.loadQuery(allCompaniesDetailQuery),
+        evolu.loadQuery(allContactsQuery),
         evolu.loadQuery(allRecurringProfilesQuery),
         evolu.loadQuery(allRecurringProfileLinesQuery),
         evolu.loadQuery(allDocumentsQuery),
@@ -53,23 +57,12 @@ async function loadRunnerSnapshot(evolu: Evolu<InvoicingLocalSchema>): Promise<R
 
     return {
         companies: toAppRows<EvoluCompanyRow>(companies),
+        contacts: toAppRows<EvoluContactRow>(contacts),
         profiles: toAppRows<EvoluRecurringProfileRow>(profiles),
         profileLines: toAppRows<EvoluRecurringProfileLineRow>(profileLines),
         documents: toAppRows<EvoluDocumentRow>(documents),
         documentLines: toAppRows<EvoluDocumentLineRow>(documentLines),
         series: toAppRows<EvoluNumberSeriesRow>(series),
-    };
-}
-
-function taxOptionsForCompany(company: EvoluCompanyRow) {
-    const defaultVat = Number(company.vatRateDefault ?? 23);
-    return {
-        defaultVat,
-        lineTaxApplies: () => company.vatPayer === 1,
-        lineTaxRate: (line: DocumentLinePayload) => {
-            const rate = Number(line.tax_rate);
-            return Number.isFinite(rate) ? rate : defaultVat;
-        },
     };
 }
 
@@ -96,13 +89,22 @@ export async function processDueLocalRecurringProfiles(
 
             let issuedThisRound = 0;
             for (const profile of dueProfiles) {
-                const company = snapshot.companies.find((row) => row.id === profile.companyId);
+                // Resolve the profile, company and contact from the same
+                // fresh snapshot the generation uses - earlier iterations of
+                // this loop (or a concurrent edit) may have changed them
+                // since the round's due-list snapshot.
+                const fresh = await loadRunnerSnapshot(evolu);
+                const freshProfile = fresh.profiles.find((row) => row.id === profile.id) ?? profile;
+                const company = fresh.companies.find((row) => row.id === freshProfile.companyId);
                 if (!company) {
                     errors += 1;
                     continue;
                 }
 
-                const fresh = await loadRunnerSnapshot(evolu);
+                const contact = freshProfile.contactId
+                    ? fresh.contacts.find((row) => row.id === freshProfile.contactId) ?? null
+                    : null;
+
                 const result = await generateLocalRecurringDocument(
                     evolu,
                     profile.id as RecurringProfileId,
@@ -112,7 +114,7 @@ export async function processDueLocalRecurringProfiles(
                     fresh.documents,
                     fresh.documentLines,
                     fresh.series,
-                    taxOptionsForCompany(company),
+                    taxOptionsForProfile(company, contact),
                 );
 
                 if (!result.ok) {
@@ -122,10 +124,10 @@ export async function processDueLocalRecurringProfiles(
 
                 generated.push({
                     profileId: profile.id,
-                    companyId: profile.companyId,
+                    companyId: freshProfile.companyId,
                     documentId: result.value.documentId,
                     number: result.value.number,
-                    title: profile.title,
+                    title: freshProfile.title,
                 });
                 issuedThisRound += 1;
             }

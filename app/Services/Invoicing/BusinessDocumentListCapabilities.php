@@ -3,6 +3,7 @@
 namespace App\Services\Invoicing;
 
 use App\Enums\BusinessDocumentStatus;
+use App\Enums\CompanyJurisdiction;
 use App\Models\BankTransactionMatch;
 use App\Models\BusinessDocument;
 use App\Models\Company;
@@ -53,8 +54,8 @@ class BusinessDocumentListCapabilities
                 || isset($derivedSourceIds[$document->id]);
 
             $result[$document->id] = [
-                'can_update' => $document->canUpdate(),
-                'can_delete' => $this->canDelete($document, $latestId, $hasBlocking),
+                'can_update' => $document->canUpdate($company),
+                'can_delete' => $this->canDelete($document, $company, $latestId, $hasBlocking),
                 'can_cancel' => $document->canCancel(),
                 'can_unmark_paid' => $document->canUnmarkPaid(),
             ];
@@ -63,8 +64,16 @@ class BusinessDocumentListCapabilities
         return $result;
     }
 
-    protected function canDelete(BusinessDocument $document, ?string $latestId, bool $hasBlocking): bool
-    {
+    protected function canDelete(
+        BusinessDocument $document,
+        Company $company,
+        ?string $latestId,
+        bool $hasBlocking
+    ): bool {
+        if ($document->status !== BusinessDocumentStatus::Draft && $company->jurisdiction === CompanyJurisdiction::EuDe) {
+            return false;
+        }
+
         if (in_array($document->status, [
             BusinessDocumentStatus::Draft,
             BusinessDocumentStatus::Cancelled,

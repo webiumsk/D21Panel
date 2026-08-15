@@ -28,6 +28,10 @@ export type ResolveBulkTargetsOptions = LocalDocumentFilterOptions & {
     allDocuments: EvoluDocumentRow[];
 };
 
+export type LocalDocumentDeletionPolicy = {
+    jurisdictionByCompanyId?: ReadonlyMap<string, string | null | undefined>;
+};
+
 export function resolveBulkTargets(options: ResolveBulkTargetsOptions): EvoluDocumentRow[] {
     const { companyId, selectAll, selectedIds, allDocuments, ...filterOpts } = options;
 
@@ -76,8 +80,16 @@ export function isLatestForCompanyType(
 export function canDeleteLocalDocument(
     doc: EvoluDocumentRow,
     allDocuments: EvoluDocumentRow[],
+    policy: LocalDocumentDeletionPolicy = {},
 ): boolean {
     if (hasBlockingRelations(doc, allDocuments)) {
+        return false;
+    }
+
+    if (
+        doc.status !== "draft"
+        && policy.jurisdictionByCompanyId?.get(String(doc.companyId)) === "eu_de"
+    ) {
         return false;
     }
 
@@ -139,6 +151,7 @@ export async function bulkDeleteLocal(
     rows: EvoluDocumentRow[],
     allDocuments: EvoluDocumentRow[],
     allSeries?: EvoluNumberSeriesRow[],
+    policy: LocalDocumentDeletionPolicy = {},
 ): Promise<BulkResult> {
     let processed = 0;
     let skipped = 0;
@@ -151,7 +164,7 @@ export async function bulkDeleteLocal(
     const { releaseIssuedNumber } = await import("./numberReleaseBridge");
 
     for (const row of sortRowsForSequentialDelete(rows)) {
-        if (!canDeleteLocalDocument(row, remainingDocs)) {
+        if (!canDeleteLocalDocument(row, remainingDocs, policy)) {
             skipped++;
             continue;
         }

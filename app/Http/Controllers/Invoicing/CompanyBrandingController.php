@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Services\Invoicing\CompanyBrandingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -72,11 +73,11 @@ class CompanyBrandingController extends Controller
 
     protected function streamImage(?string $path): Response|StreamedResponse
     {
-        if (! $path || ! \Illuminate\Support\Facades\Storage::disk(CompanyBrandingService::DISK)->exists($path)) {
+        if (! $path || ! Storage::disk(CompanyBrandingService::DISK)->exists($path)) {
             abort(404);
         }
 
-        $disk = \Illuminate\Support\Facades\Storage::disk(CompanyBrandingService::DISK);
+        $disk = Storage::disk(CompanyBrandingService::DISK);
 
         return response()->stream(function () use ($disk, $path) {
             echo $disk->get($path);

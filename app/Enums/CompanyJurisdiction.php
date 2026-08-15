@@ -15,6 +15,19 @@ enum CompanyJurisdiction: string
     case Offshore = 'offshore';
     case Asia = 'asia';
 
+    /**
+     * Jurisdictions with a complete market setup (VAT policy, clauses,
+     * e-invoicing) - the only ones selectable for new companies; the rest
+     * are visible but disabled until their market work lands. Mirror of
+     * ENABLED_COMPANY_JURISDICTIONS in config/companyJurisdiction.ts.
+     *
+     * @return list<self>
+     */
+    public static function enabled(): array
+    {
+        return [self::EuSk, self::EuCz, self::EuDe, self::Us];
+    }
+
     public function supportsPayBySquare(): bool
     {
         // PayBySquare is the Slovak QR standard - German/Austrian/Swiss

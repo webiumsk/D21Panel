@@ -199,6 +199,22 @@ export function turnoverForCurrency(summary: VatSummary, currency: string): numb
     return summary.byCurrency.find((row) => row.currency === currency)?.base ?? 0;
 }
 
+/**
+ * The VAT-limit status worth surfacing for a company: the progress of its net
+ * turnover (in `currency`) toward `limit`, but only once it is actually
+ * approaching (level != ok). Returns null when there is no limit, or turnover
+ * is still comfortably below it - i.e. when nothing should be shown.
+ */
+export function activeVatLimitStatus(
+    summary: VatSummary,
+    limit: number,
+    currency: string,
+): VatLimitProgress | null {
+    if (!(limit > 0)) return null;
+    const progress = vatLimitProgress(turnoverForCurrency(summary, currency), limit);
+    return progress && progress.level !== 'ok' ? progress : null;
+}
+
 function csvCell(value: string | number): string {
     return `"${String(value).replace(/"/g, '""')}"`;
 }

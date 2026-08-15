@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BusinessDocumentQuoteStatus;
 use App\Enums\BusinessDocumentStatus;
 use App\Enums\BusinessDocumentType;
+use App\Enums\CompanyJurisdiction;
 use App\Support\Invoicing\BuyerSnapshot;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -160,8 +161,12 @@ class BusinessDocument extends Model
         return $this->hasOne(BankTransactionMatch::class, 'business_document_id');
     }
 
-    public function canUpdate(): bool
+    public function canUpdate(?Company $company = null): bool
     {
+        if ($this->hasGermanGobdIssuedContentLock($company)) {
+            return false;
+        }
+
         return in_array($this->status, [
             BusinessDocumentStatus::Draft,
             BusinessDocumentStatus::Issued,
@@ -185,8 +190,12 @@ class BusinessDocument extends Model
      * Draft and cancelled documents are always deletable.
      * Issued/paid only when this is the newest document for the company and has no active derivatives.
      */
-    public function canDelete(): bool
+    public function canDelete(?Company $company = null): bool
     {
+        if ($this->hasGermanGobdIssuedContentLock($company)) {
+            return false;
+        }
+
         if (in_array($this->status, [
             BusinessDocumentStatus::Draft,
             BusinessDocumentStatus::Cancelled,
@@ -202,6 +211,19 @@ class BusinessDocument extends Model
         }
 
         return $this->isLatestForCompany() && ! $this->hasBlockingRelations();
+    }
+
+    protected function hasGermanGobdIssuedContentLock(?Company $company = null): bool
+    {
+        if ($this->status === BusinessDocumentStatus::Draft) {
+            return false;
+        }
+
+        $company ??= $this->relationLoaded('company')
+            ? $this->company
+            : $this->company()->first(['id', 'jurisdiction']);
+
+        return $company?->jurisdiction === CompanyJurisdiction::EuDe;
     }
 
     public function isLatestForCompany(): bool

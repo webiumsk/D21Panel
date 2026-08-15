@@ -68,6 +68,12 @@
       </InvoicingAppHeader>
     </template>
 
+  <EfakturaReadinessCard
+    class="mb-4"
+    :company-id="companyId"
+    :company="localFirst ? (localCompanyForInbox as unknown as Record<string, unknown> | null) : null"
+  />
+
   <div
     v-if="showIntegrationInbox && localCompanyForInbox"
     id="woocommerce-integration-inbox"
@@ -341,6 +347,13 @@
               >
                 @
               </th>
+              <th
+                v-if="showEfakturaColumn"
+                class="w-10 px-1 py-3 text-center"
+                :title="t('invoicing.col_efaktura_status')"
+              >
+                e
+              </th>
               <th class="px-4 py-3 min-w-[160px]">
                 {{ t("invoicing.col_title") }}
               </th>
@@ -441,6 +454,16 @@
                   :title="t('invoicing.email_indicator_disabled')"
                 >
                   @
+                </span>
+              </td>
+              <td v-if="showEfakturaColumn" class="px-1 py-3 text-center align-middle">
+                <span
+                  v-if="efakturaStatuses[d.id]"
+                  class="invoice-email-indicator cursor-default"
+                  :class="efakturaBadgeClass(efakturaStatuses[d.id])"
+                  :title="efakturaBadgeTitle(efakturaStatuses[d.id])"
+                >
+                  e
                 </span>
               </td>
               <td class="px-4 py-3 text-gray-600 align-middle">
@@ -947,6 +970,14 @@
               <div class="min-w-0">
                 <p class="font-semibold text-gray-900 truncate">
                   {{ documentListNumber(d) }}
+                  <span
+                    v-if="efakturaStatuses[d.id]"
+                    class="ml-1 inline-flex h-4 w-4 items-center justify-center rounded border text-[10px] font-bold align-middle"
+                    :class="efakturaBadgeClass(efakturaStatuses[d.id])"
+                    :title="efakturaBadgeTitle(efakturaStatuses[d.id])"
+                  >
+                    e
+                  </span>
                 </p>
                 <p
                   v-if="d.contact?.name"
@@ -1184,6 +1215,7 @@ import InvoicingMobileCard from "../../components/invoicing/InvoicingMobileCard.
 import InvoicingRowActionsMenu from "../../components/invoicing/InvoicingRowActionsMenu.vue";
 import InvoicingIcons from "../../components/invoicing/icons/InvoicingIcons.vue";
 import { appSettingsFromCompany } from "../../composables/useCompanyAppSettings";
+import EfakturaReadinessCard from "../../components/invoicing/EfakturaReadinessCard.vue";
 import IntegrationInboxPanel from "../../components/invoicing/IntegrationInboxPanel.vue";
 import { useInvoicingDocumentListFilters } from "../../composables/useInvoicingDocumentListFilters";
 import { useCompanyVatPolicy } from "../../composables/useCompanyVatPolicy";
@@ -1215,8 +1247,10 @@ import {
   downloadEphemeralPdfMerge,
   downloadEphemeralPdfZip,
   downloadEphemeralUbl,
+  fetchEphemeralEfakturaStatusBulk,
   type EphemeralSnapshotPayload,
 } from "../../evolu/ephemeralBridge";
+import { useEfakturaFeature } from "../../composables/useEfakturaFeature";
 import {
   bulkCancelLocalAsync,
   bulkDeleteLocal,
@@ -1277,6 +1311,12 @@ const localCompanyJurisdiction = computed(() => {
     | string
     | undefined;
 });
+
+const localDeletionPolicy = computed(() => ({
+  jurisdictionByCompanyId: new Map(
+    localDoc?.companyRows.value.map((row) => [String(row.id), String(row.jurisdiction ?? "")]) ?? [],
+  ),
+}));
 
 const localCompanyForInbox = computed(() => {
   if (!localFirst || !localDoc) return null;
@@ -2035,6 +2075,7 @@ async function runBulkLocal(action: string) {
       targets,
       allDocuments,
       toAppRows<EvoluNumberSeriesRow>(localDoc.seriesRows.value),
+      localDeletionPolicy.value,
     );
     success.value = t("invoicing.bulk_result", {
       processed: result.processed,
@@ -2264,6 +2305,7 @@ async function load() {
       });
       companyName.value = summaryCompanyName.value;
       applyLocalDocumentPage();
+      void refreshEfakturaStatuses();
       return;
     }
 
@@ -2276,12 +2318,75 @@ async function load() {
     totalCount.value = docs.total ?? documents.value.length;
     currentPage.value = docs.current_page ?? 1;
     lastPage.value = docs.last_page ?? 1;
+    void refreshEfakturaStatuses();
   } catch (e: unknown) {
     const err = e as { response?: { data?: { message?: string } }; message?: string };
     error.value = err?.response?.data?.message || err?.message || t("common.error");
   } finally {
     loading.value = false;
   }
+}
+
+// "e" badge: latest e-faktura submission per visible document. Best-effort -
+// the column only appears when at least one row has a submission, so non-SK
+// merchants never see it.
+const efakturaStatuses = ref<Record<string, string>>({});
+const showEfakturaColumn = computed(() => Object.keys(efakturaStatuses.value).length > 0);
+const { load: loadEfakturaFeature } = useEfakturaFeature();
+// Monotonic token: a slower response from a previous filter/page/company
+// load must never overwrite the statuses of the current document set.
+let efakturaRefreshToken = 0;
+
+async function refreshEfakturaStatuses() {
+  const token = ++efakturaRefreshToken;
+  const ids = documents.value.map((d) => String(d.id)).filter(Boolean).slice(0, 100);
+  efakturaStatuses.value = {};
+  if (ids.length === 0 || !(await loadEfakturaFeature())) {
+    return;
+  }
+
+  try {
+    const map: Record<string, string> = {};
+    if (localFirst) {
+      const rows = await fetchEphemeralEfakturaStatusBulk(ids);
+      for (const [id, row] of Object.entries(rows)) {
+        if (row?.status) map[id] = String(row.status);
+      }
+    } else {
+      const rows = await invoicingApi.efaktura.complianceBulk<Record<string, { status?: string }>>(
+        companyId.value,
+        ids,
+      );
+      for (const [id, row] of Object.entries(rows ?? {})) {
+        if (row?.status) map[id] = String(row.status);
+      }
+    }
+    if (token !== efakturaRefreshToken) {
+      return;
+    }
+    efakturaStatuses.value = map;
+  } catch {
+    // The badge is informational only - a failed lookup hides the column.
+  }
+}
+
+function efakturaBadgeClass(status: string): string {
+  if (status === "approved") {
+    return "border-emerald-500 text-emerald-600 bg-emerald-50";
+  }
+  if (status === "failed" || status === "rejected") {
+    return "border-red-400 text-red-600 bg-red-50";
+  }
+  if (status === "submitted" || status === "pending") {
+    return "border-indigo-400 text-indigo-600 bg-indigo-50";
+  }
+  return "border-gray-300 text-gray-500 bg-gray-50";
+}
+
+function efakturaBadgeTitle(status: string): string {
+  return t("invoicing.efaktura_badge_title", {
+    status: t(`invoicing.efaktura_panel_status_${status}`),
+  });
 }
 
 function openCreditNoteStart() {
@@ -2568,6 +2673,9 @@ async function deleteDoc(d: {
         d.id as DocumentId,
         toAppRows<EvoluDocumentRow>(localDoc.documentRows.value),
         toAppRows<EvoluNumberSeriesRow>(localDoc.seriesRows.value),
+        // GoBD: the single-delete path must carry the same jurisdiction
+        // policy as the bulk path - the hidden button alone is not a guard.
+        localDeletionPolicy.value,
       );
       if (!result.ok) {
         error.value =

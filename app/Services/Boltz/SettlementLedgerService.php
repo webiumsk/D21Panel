@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Models\StoreSettlement;
 use App\Models\User;
 use App\Services\BtcPay\InvoiceService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -145,7 +146,7 @@ class SettlementLedgerService
                     'category' => $category,
                     'destination' => isset($payment['destination']) ? (string) $payment['destination'] : null,
                     'payment_status' => isset($payment['status']) ? (string) $payment['status'] : null,
-                    'paid_at' => isset($payment['receivedDate']) ? \Illuminate\Support\Carbon::parse($payment['receivedDate']) : null,
+                    'paid_at' => isset($payment['receivedDate']) ? Carbon::parse($payment['receivedDate']) : null,
                     'gross_sats' => $grossSats,
                     'invoice_currency' => isset($invoice['currency']) ? strtoupper((string) $invoice['currency']) : null,
                     'invoice_amount' => isset($invoice['amount']) && is_numeric($invoice['amount']) ? (string) $invoice['amount'] : null,

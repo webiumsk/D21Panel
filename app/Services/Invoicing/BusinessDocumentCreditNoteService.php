@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\BusinessDocument;
 use App\Models\BusinessDocumentLine;
 use App\Models\Company;
+use App\Support\Invoicing\CompanyVatPolicy;
 use Illuminate\Validation\ValidationException;
 
 class BusinessDocumentCreditNoteService
@@ -105,7 +106,7 @@ class BusinessDocumentCreditNoteService
             $taxRate = (float) ($line['tax_rate'] ?? 0);
             $lineNet = $qty * $unitPrice * (1 - $lineDiscount / 100);
             $buyer = $document->resolvedBuyer();
-            $vatPolicy = app(\App\Support\Invoicing\CompanyVatPolicy::class);
+            $vatPolicy = app(CompanyVatPolicy::class);
             $taxRate = $vatPolicy->resolveLineTaxRate($company, $buyer, $taxRate);
             $lineTax = $vatPolicy->calculatesVatAmounts($company, $buyer) ? $lineNet * ($taxRate / 100) : 0;
 

@@ -13,9 +13,12 @@ use App\Models\IntegrationDocumentInbox;
 use App\Models\Store;
 use App\Models\StoreIntegration;
 use App\Models\User;
+use App\Services\Integrations\IntegrationAutoIssueService;
+use App\Services\Invoicing\BusinessDocumentEmailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class WooAutoIssueTest extends TestCase
@@ -157,7 +160,7 @@ class WooAutoIssueTest extends TestCase
 
         $entry = IntegrationDocumentInbox::findOrFail($response->json('data.inbox_id'));
         $this->company->refresh();
-        $document = app(\App\Services\Integrations\IntegrationAutoIssueService::class)
+        $document = app(IntegrationAutoIssueService::class)
             ->buildDocument($this->company, $entry, $profile);
 
         $this->assertSame('de', $document->pdf_locale);
@@ -425,8 +428,8 @@ class WooAutoIssueTest extends TestCase
             ->json('data.inbox_id');
 
         (new SendWooAutoInvoiceEmail($inboxId))->handle(
-            app(\App\Services\Integrations\IntegrationAutoIssueService::class),
-            app(\App\Services\Invoicing\BusinessDocumentEmailService::class),
+            app(IntegrationAutoIssueService::class),
+            app(BusinessDocumentEmailService::class),
         );
 
         Mail::assertSent(BusinessDocumentEmail::class);
@@ -440,9 +443,9 @@ class WooAutoIssueTest extends TestCase
         $this->createProfile();
 
         // Entry deleted (imported) before the queued email ran.
-        (new SendWooAutoInvoiceEmail((string) \Illuminate\Support\Str::uuid()))->handle(
-            app(\App\Services\Integrations\IntegrationAutoIssueService::class),
-            app(\App\Services\Invoicing\BusinessDocumentEmailService::class),
+        (new SendWooAutoInvoiceEmail((string) Str::uuid()))->handle(
+            app(IntegrationAutoIssueService::class),
+            app(BusinessDocumentEmailService::class),
         );
 
         $this->assertTrue(true); // no exception - skip path

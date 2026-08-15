@@ -28,12 +28,12 @@ return new class extends Migration
             Schema::table('users', function (Blueprint $table) {
                 $table->string('name')->nullable()->change();
             });
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // If Schema builder fails, try raw SQL for PostgreSQL
             if ($driver === 'pgsql') {
                 try {
                     DB::statement('ALTER TABLE users ALTER COLUMN name DROP NOT NULL');
-                } catch (\Exception $e2) {
+                } catch (Exception $e2) {
                     // Column might already be nullable, ignore
                 }
             }

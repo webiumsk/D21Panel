@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    activeVatLimitStatus,
     buildVatSummary,
     turnoverForCurrency,
     vatLimitProgress,
@@ -259,6 +260,39 @@ describe('vatSummaryToCsv', () => {
     it('produces only a header for an empty summary', () => {
         const csv = vatSummaryToCsv(buildVatSummary([], [], YEAR));
         expect(csv).toBe('﻿"Currency","Rate (%)","Base","VAT","Gross"');
+    });
+});
+
+describe('activeVatLimitStatus', () => {
+    function summaryWithBase(base: number, currency = 'EUR') {
+        const documents = [
+            doc({ id: 'd1', currency, subtotal: String(base), taxTotal: '0', total: String(base) }),
+        ];
+        return buildVatSummary(documents, [line('d1', String(base), '0')], YEAR);
+    }
+
+    it('returns null when no limit is set', () => {
+        expect(activeVatLimitStatus(summaryWithBase(90000), 0, 'EUR')).toBeNull();
+    });
+
+    it('returns null while comfortably below the threshold', () => {
+        expect(activeVatLimitStatus(summaryWithBase(30000), 50000, 'EUR')).toBeNull();
+    });
+
+    it('surfaces the progress once approaching (>=80%)', () => {
+        const status = activeVatLimitStatus(summaryWithBase(40000), 50000, 'EUR');
+        expect(status?.level).toBe('approaching');
+        expect(status?.percent).toBe(80);
+    });
+
+    it('surfaces exceeded', () => {
+        expect(activeVatLimitStatus(summaryWithBase(60000), 50000, 'EUR')?.level).toBe('exceeded');
+    });
+
+    it('measures turnover in the given currency only', () => {
+        const summary = summaryWithBase(40000, 'CZK');
+        expect(activeVatLimitStatus(summary, 50000, 'EUR')).toBeNull();
+        expect(activeVatLimitStatus(summary, 50000, 'CZK')?.level).toBe('approaching');
     });
 });
 

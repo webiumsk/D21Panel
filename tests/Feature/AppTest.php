@@ -6,6 +6,7 @@ use App\Models\App;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -202,7 +203,7 @@ class AppTest extends TestCase
         $crowdfundId = 'cf-test-id';
         $storeBtcpayId = 'test-crowdfund-store';
 
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($crowdfundId, $storeBtcpayId) {
+        Http::fake(function (Request $request) use ($crowdfundId, $storeBtcpayId) {
             $url = $request->url();
             if (str_contains($url, "/api/v1/apps/crowdfund/{$crowdfundId}")) {
                 if ($request->method() === 'GET') {
@@ -270,7 +271,7 @@ class AppTest extends TestCase
 
         $response->assertStatus(200);
 
-        Http::assertSent(function (\Illuminate\Http\Client\Request $request) use ($crowdfundId) {
+        Http::assertSent(function (Request $request) use ($crowdfundId) {
             if ($request->method() !== 'PUT') {
                 return false;
             }

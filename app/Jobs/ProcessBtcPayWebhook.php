@@ -5,7 +5,9 @@ namespace App\Jobs;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\WebhookEvent;
+use App\Services\BtcPay\SubscriptionService;
 use App\Services\Invoicing\BusinessDocumentPaymentWebhookService;
+use App\Services\Invoicing\BusinessExpenseIsdocPackService;
 use App\Services\Invoicing\SubscriptionBillingInvoiceService;
 use App\Services\StoreEmailRuleDispatcher;
 use App\Services\SubscriptionCreditLedgerService;
@@ -167,7 +169,7 @@ class ProcessBtcPayWebhook implements ShouldQueue
             $metadata = $invoiceData['metadata'] ?? [];
 
             if (($metadata['purpose'] ?? null) === 'expense_isdoc_pack' && $invoiceId) {
-                $fulfilled = app(\App\Services\Invoicing\BusinessExpenseIsdocPackService::class)
+                $fulfilled = app(BusinessExpenseIsdocPackService::class)
                     ->fulfillPaidInvoice(
                         $invoiceId,
                         isset($metadata['userId']) ? (string) $metadata['userId'] : null,
@@ -367,7 +369,7 @@ class ProcessBtcPayWebhook implements ShouldQueue
                 ?? $subscriber['planId']
                 ?? ($payload['metadata']['planId'] ?? null);
 
-            $planRole = app(\App\Services\BtcPay\SubscriptionService::class)->resolvePlanNameFromId($planId);
+            $planRole = app(SubscriptionService::class)->resolvePlanNameFromId($planId);
             if (! $planRole) {
                 Log::warning('Subscription plan started webhook - unknown plan', [
                     'customer_email' => $customerEmail,
@@ -382,7 +384,7 @@ class ProcessBtcPayWebhook implements ShouldQueue
                 ?? $subscriber['subscriptionId']
                 ?? null;
 
-            $btcpaySubscriptionService = app(\App\Services\BtcPay\SubscriptionService::class);
+            $btcpaySubscriptionService = app(SubscriptionService::class);
             $subscriptionService = app(SubscriptionEntitlementService::class);
 
             if ($btcpaySubscriptionService->subscriberIsInTrial($subscriber)) {
@@ -519,7 +521,7 @@ class ProcessBtcPayWebhook implements ShouldQueue
         $storeId = config('services.btcpay.subscription_store_id');
 
         try {
-            $subscriptionService = app(\App\Services\BtcPay\SubscriptionService::class);
+            $subscriptionService = app(SubscriptionService::class);
             $subscription = $subscriptionService->getSubscription($storeId, $subscriptionId);
 
             $status = $subscription['status'] ?? null;
@@ -599,7 +601,7 @@ class ProcessBtcPayWebhook implements ShouldQueue
         $storeId = config('services.btcpay.subscription_store_id');
 
         try {
-            $subscriptionService = app(\App\Services\BtcPay\SubscriptionService::class);
+            $subscriptionService = app(SubscriptionService::class);
             $subscription = $subscriptionService->getSubscription($storeId, $subscriptionId);
 
             // Get expiration from subscription
@@ -669,7 +671,7 @@ class ProcessBtcPayWebhook implements ShouldQueue
         $storeId = config('services.btcpay.subscription_store_id');
 
         try {
-            $subscriptionService = app(\App\Services\BtcPay\SubscriptionService::class);
+            $subscriptionService = app(SubscriptionService::class);
             $subscription = $subscriptionService->getSubscription($storeId, $subscriptionId);
 
             // Get expiration from subscription

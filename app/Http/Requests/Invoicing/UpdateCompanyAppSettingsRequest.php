@@ -38,8 +38,11 @@ class UpdateCompanyAppSettingsRequest extends FormRequest
             'show_summary_on_quotes' => ['sometimes', 'boolean'],
             'runs_eshop' => ['sometimes', 'boolean'],
             'embed_isdoc_in_pdf' => ['sometimes', 'boolean'],
+            'embed_zugferd_in_pdf' => ['sometimes', 'boolean'],
             'reverse_charge' => ['sometimes', 'boolean'],
             'reverse_charge_note' => ['nullable', 'string', 'max:2000'],
+            'export_goods' => ['sometimes', 'boolean'],
+            'export_note' => ['nullable', 'string', 'max:2000'],
             'us_sales_tax_provider' => ['sometimes', 'string', 'in:manual,stripe_tax,avalara'],
             'stripe_tax_secret_key' => ['nullable', 'string', 'max:255'],
             'efaktura_enabled' => ['sometimes', 'boolean'],
@@ -47,7 +50,9 @@ class UpdateCompanyAppSettingsRequest extends FormRequest
             'efaktura_inbound_enabled' => ['sometimes', 'boolean'],
             'efaktura_provider' => ['sometimes', 'string', 'in:sapi_sk'],
             'efaktura_sapi_base_url' => ['nullable', 'string', 'url', 'max:255'],
-            'efaktura_peppol_participant_id' => ['nullable', 'string', 'max:64'],
+            // Peppol scheme syntax (e.g. 0245:2023980035) - reject typos
+            // early; identifiers never contain whitespace.
+            'efaktura_peppol_participant_id' => ['nullable', 'string', 'max:64', 'regex:/^\d{4}:\S+$/'],
             'efaktura_sapi_client_id' => ['nullable', 'string', 'max:128'],
             'efaktura_sapi_client_secret' => ['nullable', 'string', 'max:255'],
         ];

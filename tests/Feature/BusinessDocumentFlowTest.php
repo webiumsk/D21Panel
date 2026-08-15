@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\BusinessDocumentStatus;
 use App\Enums\CompanyJurisdiction;
+use App\Models\BusinessDocument;
 use App\Models\Company;
 use App\Models\CompanyContact;
 use App\Models\Store;
@@ -135,7 +136,7 @@ class BusinessDocumentFlowTest extends TestCase
             'btcpay_store_id' => 'btcpay-store-1',
         ]);
 
-        $doc = \App\Models\BusinessDocument::create([
+        $doc = BusinessDocument::create([
             'company_id' => $company->id,
             'store_id' => $store->id,
             'type' => 'invoice',

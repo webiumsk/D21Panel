@@ -4,6 +4,9 @@
 
 export type DetectedWalletKind =
   | 'blink'
+  | 'blitz'
+  | 'flash'
+  | 'lnaddress'
   | 'nwc'
   | 'aqua_descriptor'
   | 'cashu'
@@ -14,9 +17,11 @@ export type AquaBoltzBrand = 'aqua' | 'bull';
 
 export type WalletConnectionDetection = {
   kind: DetectedWalletKind;
-  connectionType: 'blink' | 'nwc' | 'aqua_descriptor' | null;
-  storeWalletType: 'blink' | 'nwc' | 'aqua_boltz' | 'cashu' | null;
+  connectionType: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'nwc' | 'aqua_descriptor' | null;
+  storeWalletType: 'blink' | 'blitz' | 'flash' | 'lnaddress' | 'nwc' | 'aqua_boltz' | 'cashu' | null;
   brand: AquaBoltzBrand | null;
+  /** Curated wallet brand when kind is lnaddress (blitzwalletapp.com, flashapp.me, coinos.io). */
+  lnAddressBrand: LnAddressWalletBrand | null;
   normalizedSecret: string | null;
   cashuMintUrl: string | null;
   cashuLightningAddress: string | null;
@@ -24,11 +29,22 @@ export type WalletConnectionDetection = {
 };
 
 import { isValidAquaBoltzDescriptor } from './aquaBoltzDescriptor';
+import {
+  isCuratedLnAddressBareAddress,
+  lnAddressBrandForAddress,
+  normalizeLnAddressConnectionString,
+  lnAddressFromConnectionSecret,
+  type LnAddressWalletBrand,
+} from './lnAddressWalletBrands';
 import { detectWalletBrandFromDescriptor } from './aquaBoltzWalletBrand';
 import {
   extractNwcLud16,
+  isBareBlinkLightningAddress,
   isCashuWalletNwcUri,
   looksLikeNwcUri,
+  normalizeBlinkConnectionString,
+  normalizeBlitzConnectionString,
+  normalizeFlashConnectionString,
   normalizeNwcUri,
 } from './walletNwcHelpers';
 
@@ -91,6 +107,7 @@ function unknown(): WalletConnectionDetection {
     connectionType: null,
     storeWalletType: null,
     brand: null,
+    lnAddressBrand: null,
     normalizedSecret: null,
     cashuMintUrl: null,
     cashuLightningAddress: null,
@@ -112,6 +129,7 @@ export function detectWalletConnectionInput(input: string): WalletConnectionDete
         connectionType: null,
         storeWalletType: null,
         brand: null,
+        lnAddressBrand: null,
         normalizedSecret: null,
         cashuMintUrl: null,
         cashuLightningAddress: lud16,
@@ -124,6 +142,7 @@ export function detectWalletConnectionInput(input: string): WalletConnectionDete
       connectionType: 'nwc',
       storeWalletType: 'nwc',
       brand: null,
+      lnAddressBrand: null,
       normalizedSecret: normalizeNwc(trimmed),
       cashuMintUrl: null,
       cashuLightningAddress: null,
@@ -131,13 +150,66 @@ export function detectWalletConnectionInput(input: string): WalletConnectionDete
     };
   }
 
-  if (looksLikeBlink(trimmed)) {
+  // Bare 'name@blink.sv' is the non-custodial Blink shorthand - must win over the
+  // Cashu Lightning-address heuristic below.
+  if (looksLikeBlink(trimmed) || isBareBlinkLightningAddress(trimmed)) {
     return {
       kind: 'blink',
       connectionType: 'blink',
       storeWalletType: 'blink',
       brand: null,
-      normalizedSecret: trimmed,
+      lnAddressBrand: null,
+      normalizedSecret: normalizeBlinkConnectionString(trimmed),
+      cashuMintUrl: null,
+      cashuLightningAddress: null,
+      confidence: 'high',
+    };
+  }
+
+  // Legacy type=blitz; strings keep the blitz kind; bare blitzwalletapp.com
+  // addresses now detect as lnaddress (curated domain) below.
+  if (trimmed.toLowerCase().includes('type=blitz;')) {
+    return {
+      kind: 'blitz',
+      connectionType: 'blitz',
+      storeWalletType: 'blitz',
+      brand: null,
+      lnAddressBrand: null,
+      normalizedSecret: normalizeBlitzConnectionString(trimmed),
+      cashuMintUrl: null,
+      cashuLightningAddress: null,
+      confidence: 'high',
+    };
+  }
+
+  // Legacy type=flash; strings keep the flash kind; bare flashapp.me addresses
+  // now detect as lnaddress (curated domain) below.
+  if (trimmed.toLowerCase().includes('type=flash;')) {
+    return {
+      kind: 'flash',
+      connectionType: 'flash',
+      storeWalletType: 'flash',
+      brand: null,
+      lnAddressBrand: null,
+      normalizedSecret: normalizeFlashConnectionString(trimmed),
+      cashuMintUrl: null,
+      cashuLightningAddress: null,
+      confidence: 'high',
+    };
+  }
+
+  // type=lnaddress; strings and bare addresses at curated LUD-21 domains
+  // (Coinos, ...) - must win over the Cashu Lightning-address heuristic.
+  // Legacy type=blitz/flash strings keep their own kinds above.
+  if (trimmed.toLowerCase().includes('type=lnaddress;') || isCuratedLnAddressBareAddress(trimmed)) {
+    const address = lnAddressFromConnectionSecret(trimmed);
+    return {
+      kind: 'lnaddress',
+      connectionType: 'lnaddress',
+      storeWalletType: 'lnaddress',
+      brand: null,
+      lnAddressBrand: address ? lnAddressBrandForAddress(address) : null,
+      normalizedSecret: normalizeLnAddressConnectionString(trimmed),
       cashuMintUrl: null,
       cashuLightningAddress: null,
       confidence: 'high',
@@ -150,6 +222,7 @@ export function detectWalletConnectionInput(input: string): WalletConnectionDete
       connectionType: 'aqua_descriptor',
       storeWalletType: 'aqua_boltz',
       brand: detectWalletBrandFromDescriptor(trimmed),
+      lnAddressBrand: null,
       normalizedSecret: trimmed,
       cashuMintUrl: null,
       cashuLightningAddress: null,
@@ -193,6 +266,7 @@ export function detectWalletConnectionInput(input: string): WalletConnectionDete
       connectionType: null,
       storeWalletType: 'cashu',
       brand: null,
+      lnAddressBrand: null,
       normalizedSecret: null,
       cashuMintUrl: mintUrl,
       cashuLightningAddress: lightningAddress,
@@ -206,10 +280,22 @@ export function detectWalletConnectionInput(input: string): WalletConnectionDete
 export function detectionLabelKey(
   kind: DetectedWalletKind,
   brand: AquaBoltzBrand | null,
-  detection?: Pick<WalletConnectionDetection, 'cashuMintUrl' | 'cashuLightningAddress'>,
+  detection?: Pick<
+    WalletConnectionDetection,
+    'cashuMintUrl' | 'cashuLightningAddress' | 'lnAddressBrand'
+  >,
 ): string {
   if (kind === 'aqua_descriptor') {
     return brand === 'bull' ? 'stores.wallet_detect_bull' : 'stores.wallet_detect_aqua';
+  }
+  if (kind === 'lnaddress') {
+    const brandKeys: Record<LnAddressWalletBrand, string> = {
+      blitz: 'stores.wallet_detect_blitz',
+      flash: 'stores.wallet_detect_flash',
+      coinos: 'stores.wallet_detect_coinos',
+    };
+    const lnBrand = detection?.lnAddressBrand ?? null;
+    return lnBrand ? brandKeys[lnBrand] : 'stores.wallet_detect_lnaddress';
   }
   if (kind === 'cashu' && detection) {
     if (detection.cashuLightningAddress && !detection.cashuMintUrl) {
@@ -219,9 +305,11 @@ export function detectionLabelKey(
       return 'stores.wallet_detect_cashu_mint';
     }
   }
-  const map: Record<Exclude<DetectedWalletKind, 'aqua_descriptor'>, string> = {
+  const map: Record<Exclude<DetectedWalletKind, 'aqua_descriptor' | 'lnaddress'>, string> = {
     nwc: 'stores.wallet_detect_nwc',
     blink: 'stores.wallet_detect_blink',
+    blitz: 'stores.wallet_detect_blitz',
+    flash: 'stores.wallet_detect_flash',
     cashu: 'stores.wallet_detect_cashu',
     cashu_wallet_nwc: 'stores.wallet_detect_cashu_wallet_nwc',
     unknown: 'stores.wallet_detect_unknown',

@@ -20,6 +20,8 @@ export interface UseInvoicingCompaniesResult {
     loading: Ref<boolean>;
     forbidden: Ref<boolean>;
     loadError: Ref<boolean>;
+    /** Local-first only: the load is blocked because another tab owns the Evolu worker. */
+    multiTabBlocked: Ref<boolean>;
     refresh: () => Promise<void>;
 }
 
@@ -28,6 +30,7 @@ function useServerInvoicingCompanies(): UseInvoicingCompaniesResult {
     const loading = ref(false);
     const forbidden = ref(false);
     const loadError = ref(false);
+    const multiTabBlocked = ref(false);
 
     async function refresh(): Promise<void> {
         loading.value = true;
@@ -54,6 +57,7 @@ function useServerInvoicingCompanies(): UseInvoicingCompaniesResult {
         loading,
         forbidden,
         loadError,
+        multiTabBlocked,
         refresh,
     };
 }

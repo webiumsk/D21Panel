@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
 
 class BackupVerifyCommand extends Command
 {
@@ -199,7 +200,7 @@ class BackupVerifyCommand extends Command
 
         // Verify gzip integrity if it's a compressed file
         if (str_ends_with($file, '.gz')) {
-            $process = new \Symfony\Component\Process\Process(['gzip', '-t', $file]);
+            $process = new Process(['gzip', '-t', $file]);
             $process->run();
             if (! $process->isSuccessful()) {
                 $this->error('    File is corrupted (gzip): '.basename($file));
@@ -233,20 +234,20 @@ class BackupVerifyCommand extends Command
         }
 
         // Fallback to command line
-        $process = new \Symfony\Component\Process\Process(['which', 'sha256sum']);
+        $process = new Process(['which', 'sha256sum']);
         $process->run();
         if ($process->isSuccessful()) {
-            $process = new \Symfony\Component\Process\Process(['sha256sum', $file]);
+            $process = new Process(['sha256sum', $file]);
             $process->run();
             if ($process->isSuccessful()) {
                 return trim(explode(' ', $process->getOutput())[0]);
             }
         }
 
-        $process = new \Symfony\Component\Process\Process(['which', 'shasum']);
+        $process = new Process(['which', 'shasum']);
         $process->run();
         if ($process->isSuccessful()) {
-            $process = new \Symfony\Component\Process\Process(['shasum', '-a', '256', $file]);
+            $process = new Process(['shasum', '-a', '256', $file]);
             $process->run();
             if ($process->isSuccessful()) {
                 return trim(explode(' ', $process->getOutput())[0]);

@@ -5,6 +5,7 @@ namespace App\Support\Invoicing\Canonical;
 use App\Models\BusinessDocument;
 use App\Models\Company;
 use App\Models\CompanyContact;
+use App\Support\Invoicing\CompanyVatPolicy;
 
 /**
  * Canonical invoice snapshot used by PDF, ISDOC, persistence, and exports.
@@ -32,7 +33,7 @@ final class CanonicalInvoice
 
     public function vatApplicable(): bool
     {
-        return app(\App\Support\Invoicing\CompanyVatPolicy::class)
+        return app(CompanyVatPolicy::class)
             ->vatApplicableForIsdoc($this->company, $this->contact);
     }
 }

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -23,15 +24,15 @@ class TicketEventsListTest extends TestCase
 
         $includeInactiveSeen = false;
         $includeInactiveSnakeSeen = false;
-        Http::fake(function (\Illuminate\Http\Client\Request $request) use ($baseUrl, $btcpayStoreId, &$includeInactiveSeen, &$includeInactiveSnakeSeen) {
+        Http::fake(function (Request $request) use ($baseUrl, $btcpayStoreId, &$includeInactiveSeen, &$includeInactiveSnakeSeen) {
             $url = (string) $request->url();
             if (! str_contains($url, $baseUrl)) {
                 return Http::response([], 404);
             }
 
             if ($request->method() === 'GET'
-                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satoshi-tickets/events")
-                && ! str_contains($url, '/satoshi-tickets/events/')
+                && str_contains($url, "/api/v1/stores/{$btcpayStoreId}/satflux-tickets/events")
+                && ! str_contains($url, '/satflux-tickets/events/')
             ) {
                 parse_str((string) parse_url($url, PHP_URL_QUERY), $q);
                 $includeInactiveSeen = isset($q['includeInactive']) && $q['includeInactive'] === 'true';

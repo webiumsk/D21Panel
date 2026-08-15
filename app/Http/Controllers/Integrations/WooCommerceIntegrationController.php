@@ -7,8 +7,11 @@ use App\Models\BusinessDocument;
 use App\Models\IntegrationDocumentInbox;
 use App\Models\StoreIntegration;
 use App\Services\Integrations\WooCommerceDocumentService;
+use App\Services\Invoicing\BusinessDocumentPdfService;
+use App\Services\Invoicing\CompanyPdfFilenameBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class WooCommerceIntegrationController extends Controller
 {
@@ -123,9 +126,9 @@ class WooCommerceIntegrationController extends Controller
     public function documentPdf(
         Request $request,
         string $documentId,
-        \App\Services\Invoicing\BusinessDocumentPdfService $pdfService,
-        \App\Services\Invoicing\CompanyPdfFilenameBuilder $filenameBuilder,
-    ): \Illuminate\Http\Response {
+        BusinessDocumentPdfService $pdfService,
+        CompanyPdfFilenameBuilder $filenameBuilder,
+    ): Response {
         /** @var StoreIntegration $integration */
         $integration = $request->attributes->get('store_integration');
 

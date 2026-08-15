@@ -11,6 +11,7 @@ use App\Models\IntegrationDocumentInbox;
 use App\Services\Invoicing\DocumentSequenceService;
 use App\Services\Invoicing\EphemeralDocumentFactory;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -93,16 +94,16 @@ class IntegrationAutoIssueService
         return $this->ownerProfiles($company)->count();
     }
 
-    /** @var array<string, \Illuminate\Database\Eloquent\Collection<int, CompanyAutoIssueProfile>> */
+    /** @var array<string, Collection<int, CompanyAutoIssueProfile>> */
     protected array $ownerProfilesCache = [];
 
     /**
      * All auto-issue profiles of the company's owner, memoized per request -
      * resolveProfileContext() and the skipReason() diagnostics both need it.
      *
-     * @return \Illuminate\Database\Eloquent\Collection<int, CompanyAutoIssueProfile>
+     * @return Collection<int, CompanyAutoIssueProfile>
      */
-    protected function ownerProfiles(Company $company): \Illuminate\Database\Eloquent\Collection
+    protected function ownerProfiles(Company $company): Collection
     {
         $userId = (string) $company->user_id;
         if (! array_key_exists($userId, $this->ownerProfilesCache)) {

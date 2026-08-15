@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
+use App\Models\EphemeralEfakturaSubmission;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
@@ -82,7 +83,7 @@ class EphemeralBusinessDocumentEfakturaTest extends TestCase
         $user = $this->createProUser();
         $company = $this->createBridgeCompany($user);
 
-        \App\Models\EphemeralEfakturaSubmission::query()->create([
+        EphemeralEfakturaSubmission::query()->create([
             'user_id' => $user->id,
             'bridge_company_id' => $company->id,
             'evolu_document_id' => 'evolu-doc-status',

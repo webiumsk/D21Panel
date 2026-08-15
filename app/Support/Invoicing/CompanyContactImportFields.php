@@ -2,6 +2,8 @@
 
 namespace App\Support\Invoicing;
 
+use Illuminate\Support\Str;
+
 /**
  * Excel contact import column definitions (internal keys are English).
  */
@@ -114,6 +116,6 @@ final class CompanyContactImportFields
         $header = trim(mb_strtolower($header));
         $header = preg_replace('/\s+/', ' ', $header) ?? $header;
 
-        return \Illuminate\Support\Str::ascii($header);
+        return Str::ascii($header);
     }
 }

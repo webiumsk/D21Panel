@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Services\SystemHealthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -95,7 +97,7 @@ class SystemHealthTest extends TestCase
         $rows = [];
         for ($i = 0; $i < $count; $i++) {
             $rows[] = [
-                'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                'uuid' => (string) Str::uuid(),
                 'connection' => 'database',
                 'queue' => 'default',
                 'payload' => '{}',
@@ -103,6 +105,6 @@ class SystemHealthTest extends TestCase
                 'failed_at' => $failedAt,
             ];
         }
-        \Illuminate\Support\Facades\DB::table('failed_jobs')->insert($rows);
+        DB::table('failed_jobs')->insert($rows);
     }
 }

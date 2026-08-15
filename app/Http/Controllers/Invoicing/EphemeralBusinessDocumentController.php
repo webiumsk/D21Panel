@@ -10,6 +10,7 @@ use App\Http\Requests\Invoicing\EphemeralBusinessDocumentEfakturaRequest;
 use App\Http\Requests\Invoicing\EphemeralBusinessDocumentEmailRequest;
 use App\Http\Requests\Invoicing\EphemeralBusinessDocumentPdfRequest;
 use App\Http\Requests\Invoicing\EphemeralCompanyEmailSmtpTestRequest;
+use App\Http\Requests\Invoicing\TestEfakturaConnectionRequest;
 use App\Models\AuditLog;
 use App\Models\BusinessDocument;
 use App\Models\Company;
@@ -23,15 +24,18 @@ use App\Services\Invoicing\BusinessDocumentPdfService;
 use App\Services\Invoicing\BusinessDocumentUblService;
 use App\Services\Invoicing\CompanyEmailSettingsService;
 use App\Services\Invoicing\CompanyPdfFilenameBuilder;
+use App\Services\Invoicing\Efaktura\EfakturaConnectionTester;
 use App\Services\Invoicing\Efaktura\EphemeralEfakturaSubmissionService;
 use App\Services\Invoicing\EphemeralBtcpayCheckoutService;
 use App\Services\Invoicing\EphemeralDocumentFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class EphemeralBusinessDocumentController extends Controller
 {
@@ -217,6 +221,55 @@ class EphemeralBusinessDocumentController extends Controller
         ]);
     }
 
+    /** Latest submission per Evolu document id for the invoice-list badge. */
+    public function efakturaStatusBulk(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User, 401);
+
+        $validated = $request->validate([
+            'evolu_document_ids' => ['required', 'array', 'max:100'],
+            'evolu_document_ids.*' => ['string', 'max:64'],
+        ]);
+
+        $rows = $this->efakturaService->latestForDocuments($user, $validated['evolu_document_ids']);
+
+        return response()->json([
+            'data' => array_map(fn ($row) => $row->toApiRow(), $rows),
+        ]);
+    }
+
+    /**
+     * One-shot SAPI-SK credential check for local-first companies - the
+     * credentials live only in the client's Evolu database, so all three
+     * fields must arrive in the body. Success is not persisted here; the
+     * client stamps efaktura_connection_tested_at into its local settings.
+     */
+    public function efakturaTestConnection(
+        TestEfakturaConnectionRequest $request,
+        EfakturaConnectionTester $tester,
+    ): JsonResponse {
+        $user = $request->user();
+        abort_unless($user instanceof User, 401);
+
+        if (! config('efaktura.enabled')) {
+            throw ValidationException::withMessages([
+                'efaktura' => ['E-faktura integration is disabled globally.'],
+            ]);
+        }
+
+        $validated = $request->validated();
+        $result = $tester->test(
+            $validated['efaktura_sapi_base_url'] ?? null,
+            $validated['efaktura_sapi_client_id'] ?? null,
+            $validated['efaktura_sapi_client_secret'] ?? null,
+        );
+
+        return response()->json(['data' => array_merge($result, [
+            'tested_at' => $result['ok'] ? Carbon::now()->toIso8601String() : null,
+        ])]);
+    }
+
     public function efakturaSend(EphemeralBusinessDocumentEfakturaRequest $request, Company $company): JsonResponse
     {
         $this->efakturaService->assertCompanyConfigured($company);
@@ -364,7 +417,7 @@ class EphemeralBusinessDocumentController extends Controller
                 $request->input('subject'),
                 $request->input('body'),
             );
-        } catch (\Symfony\Component\Mailer\Exception\TransportExceptionInterface $e) {
+        } catch (TransportExceptionInterface $e) {
             Log::warning('Ephemeral business document email failed', [
                 'user_id' => $request->user()?->id,
                 'exception' => $e->getMessage(),
@@ -385,7 +438,7 @@ class EphemeralBusinessDocumentController extends Controller
     ): JsonResponse {
         try {
             $this->emailSettingsService->sendSmtpTest($snapshotCompany, $request->validated('to'));
-        } catch (\Symfony\Component\Mailer\Exception\TransportExceptionInterface $e) {
+        } catch (TransportExceptionInterface $e) {
             Log::warning('Ephemeral company SMTP test failed', [
                 'user_id' => $request->user()?->id,
                 'error' => $e->getMessage(),

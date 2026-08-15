@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\PosOrder;
+use App\Models\PosTerminal;
 use App\Models\Store;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\BtcPay\BtcPayClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
@@ -27,7 +30,7 @@ class DashboardAnalyticsTest extends TestCase
     {
         parent::setUp();
         config(['services.btcpay.base_url' => 'https://btcpay.test']);
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
         Cache::flush();
 
         $proPlan = SubscriptionPlan::create([
@@ -104,9 +107,9 @@ class DashboardAnalyticsTest extends TestCase
         });
     }
 
-    protected function createPaidPosOrder(float $amount, string $currency, \Illuminate\Support\Carbon $paidAt): PosOrder
+    protected function createPaidPosOrder(float $amount, string $currency, Carbon $paidAt): PosOrder
     {
-        $terminal = \App\Models\PosTerminal::create([
+        $terminal = PosTerminal::create([
             'store_id' => $this->store->id,
             'name' => 'Test terminal',
         ]);

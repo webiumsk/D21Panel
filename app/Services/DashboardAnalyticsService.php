@@ -7,6 +7,7 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\BtcPay\InvoiceService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -238,7 +239,7 @@ class DashboardAnalyticsService
             ->get(['paid_at', 'amount', 'currency', 'paid_method', 'btcpay_invoice_id']);
 
         foreach ($orders as $order) {
-            $dayKey = \Illuminate\Support\Carbon::parse($order->paid_at)->format('Y-m-d');
+            $dayKey = Carbon::parse($order->paid_at)->format('Y-m-d');
             if (! isset($series[$dayKey])) {
                 continue;
             }

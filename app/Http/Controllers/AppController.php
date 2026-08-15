@@ -6,6 +6,7 @@ use App\Models\App;
 use App\Models\Store;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\StoreAppService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -177,7 +178,7 @@ class AppController extends Controller
     /**
      * Guests may only touch PointOfSale apps.
      */
-    protected function guestGateResponse(Store $store, App $app): ?\Illuminate\Http\JsonResponse
+    protected function guestGateResponse(Store $store, App $app): ?JsonResponse
     {
         if ($store->user && (bool) ($store->user->is_guest ?? false) && $app->app_type !== 'PointOfSale') {
             return response()->json([

@@ -4,8 +4,11 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\DocumentationArticleController;
 use App\Http\Controllers\Admin\DocumentationCategoryController;
 use App\Http\Controllers\Admin\DocumentationImageController;
+use App\Http\Controllers\Admin\EfakturaCpdsProviderController;
 use App\Http\Controllers\Admin\FaqCategoryController;
 use App\Http\Controllers\Admin\FaqItemController;
+use App\Http\Controllers\Admin\RegWatchController;
+use App\Http\Controllers\Admin\SystemHealthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AppController;
 use App\Http\Controllers\Auth\EmailVerificationController;
@@ -18,17 +21,24 @@ use App\Http\Controllers\BoltzReadinessController;
 use App\Http\Controllers\CashuController;
 use App\Http\Controllers\ChoralaController;
 use App\Http\Controllers\ChoralaProxyController;
+use App\Http\Controllers\ContactInquiryController;
 use App\Http\Controllers\CspReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentationController;
 use App\Http\Controllers\EshopIntegrationController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FaqController;
+use App\Http\Controllers\Integrations\WooCommerceConnectController;
 use App\Http\Controllers\Integrations\WooCommerceIntegrationController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\Invoicing\BankInboundWebhookController;
+use App\Http\Controllers\Invoicing\BankTransactionController;
 use App\Http\Controllers\Invoicing\BusinessDocumentController;
+use App\Http\Controllers\Invoicing\BusinessDocumentImportController;
 use App\Http\Controllers\Invoicing\BusinessExpenseController;
 use App\Http\Controllers\Invoicing\BusinessExpenseImportController;
+use App\Http\Controllers\Invoicing\BusinessRecurringProfileController;
+use App\Http\Controllers\Invoicing\CompanyAutoIssueProfileController;
 use App\Http\Controllers\Invoicing\CompanyBrandingController;
 use App\Http\Controllers\Invoicing\CompanyContactController;
 use App\Http\Controllers\Invoicing\CompanyController;
@@ -38,22 +48,29 @@ use App\Http\Controllers\Invoicing\CompanyNumberAllocatorController;
 use App\Http\Controllers\Invoicing\CompanyRegistryController;
 use App\Http\Controllers\Invoicing\CompanyStockItemController;
 use App\Http\Controllers\Invoicing\CompanyWarehouseController;
+use App\Http\Controllers\Invoicing\EfakturaController;
 use App\Http\Controllers\Invoicing\EphemeralBusinessDocumentController;
 use App\Http\Controllers\Invoicing\IntegrationDocumentInboxController;
 use App\Http\Controllers\Invoicing\InvoicingMigrationController;
 use App\Http\Controllers\Invoicing\StoreDocumentSequenceController;
 use App\Http\Controllers\Invoicing\UsSalesTaxController;
 use App\Http\Controllers\Invoicing\ViesValidationController;
+use App\Http\Controllers\Invoicing\WiseBankController;
 use App\Http\Controllers\LightningAddressController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\PasskeyEnvelopeController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\PosOrderController;
 use App\Http\Controllers\PosTerminalController;
+use App\Http\Controllers\ProductImageController;
+use App\Http\Controllers\RaffleController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportSettingsController;
 use App\Http\Controllers\SamRockController;
+use App\Http\Controllers\SepaController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\StoreApiKeyController;
 use App\Http\Controllers\StoreChecklistController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreDashboardController;
@@ -63,6 +80,8 @@ use App\Http\Controllers\StoreSettlementController;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\TicketEventImageController;
+use App\Http\Controllers\UserApiKeyController;
 use App\Http\Controllers\WalletConnectionController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\AuditLog;
@@ -82,6 +101,11 @@ use App\Http\Middleware\EnsureStoreOwnership;
 use App\Http\Middleware\EnsureSupportOrAdminRole;
 use App\Http\Middleware\EnsureSupportRole;
 use App\Http\Middleware\RequireVerifiedEmail;
+use App\Models\EfakturaCpdsProvider;
+use App\Models\Store;
+use App\Services\BtcPay\StoreService;
+use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 
 // Health check endpoint
@@ -90,7 +114,7 @@ Route::get('/health', function () {
 });
 
 // Locale endpoints (public - no auth required, but need session) (public - no auth required, but need session)
-Route::middleware([\Illuminate\Session\Middleware\StartSession::class])->group(function () {
+Route::middleware([StartSession::class])->group(function () {
     Route::get('/locale', [LocaleController::class, 'index']);
     Route::post('/locale', [LocaleController::class, 'setLocale']);
 });
@@ -136,7 +160,7 @@ Route::get('/version', function () {
             if (isset($packageJson['version'])) {
                 $version = $packageJson['version'];
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Fallback to default version
         }
     }
@@ -158,11 +182,17 @@ Route::get('/config', function () {
         'btcpay_base_url' => $publicBase,
         'btcpay_lightning_address_domain' => (string) (config('services.btcpay.lightning_address_domain') ?? ''),
         'efaktura_enabled' => (bool) config('efaktura.enabled'),
+        // Exposed unconditionally - readiness messaging shows the statutory
+        // deadline to SK companies even before the module is switched on.
+        'efaktura_mandatory_from' => (string) config('efaktura.mandatory_from'),
+        'efaktura_cpds_presets' => config('efaktura.enabled')
+            ? EfakturaCpdsProvider::activePresets()
+            : [],
     ]);
 });
 
 // Debug route for local development - verify stores exist in DB
-Route::get('/debug/stores', function (\Illuminate\Http\Request $request) {
+Route::get('/debug/stores', function (Request $request) {
     if (! app()->environment('local')) {
         abort(404);
     }
@@ -173,7 +203,7 @@ Route::get('/debug/stores', function (\Illuminate\Http\Request $request) {
 
     $user = auth()->user();
 
-    $stores = \App\Models\Store::where('user_id', $user->id)
+    $stores = Store::where('user_id', $user->id)
         ->with('user:id,email,btcpay_user_id')
         ->get();
 
@@ -182,9 +212,9 @@ Route::get('/debug/stores', function (\Illuminate\Http\Request $request) {
     $btcpayError = null;
     if ($user->btcpay_api_key) {
         try {
-            $storeService = app(\App\Services\BtcPay\StoreService::class);
+            $storeService = app(StoreService::class);
             $btcpayStores = $storeService->listStores($user->btcpay_api_key);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $btcpayError = $e->getMessage();
         }
     }
@@ -234,13 +264,13 @@ Route::get('/debug/stores', function (\Illuminate\Http\Request $request) {
 
 // Webhooks (no auth required - verified via signature)
 Route::post('/webhooks/btcpay', [WebhookController::class, 'handle']);
-Route::post('/webhooks/bank-inbound', [\App\Http\Controllers\Invoicing\BankInboundWebhookController::class, 'handle']);
+Route::post('/webhooks/bank-inbound', [BankInboundWebhookController::class, 'handle']);
 
 // Public E-shop Integration API (rate limited, no auth required - uses tokens)
 Route::middleware(['throttle:10,1'])->group(function () {
     Route::post('/public/eshop/connect', [EshopIntegrationController::class, 'connect']);
     Route::get('/public/eshop/token/{token}', [EshopIntegrationController::class, 'getToken']);
-    Route::get('/integrations/woocommerce/oauth-exchange', [\App\Http\Controllers\Integrations\WooCommerceConnectController::class, 'exchangeConnectCode']);
+    Route::get('/integrations/woocommerce/oauth-exchange', [WooCommerceConnectController::class, 'exchangeConnectCode']);
 });
 
 // WooCommerce plugin integration API (Bearer integration token)
@@ -255,7 +285,7 @@ Route::middleware(['throttle:60,1', AuthenticateWooCommerceIntegration::class])
         Route::post('/documents/{documentId}/issue', [WooCommerceIntegrationController::class, 'issueDocument']);
     });
 
-Route::middleware(['throttle:10,1'])->post('/contact', [\App\Http\Controllers\ContactInquiryController::class, 'store']);
+Route::middleware(['throttle:10,1'])->post('/contact', [ContactInquiryController::class, 'store']);
 
 // Authentication routes (rate limited)
 Route::middleware(['throttle:auth'])->group(function () {
@@ -303,9 +333,9 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
     Route::get('/chorala/widget-token', [ChoralaController::class, 'widgetToken']);
     Route::get('/user/limits', [AccountController::class, 'limits']);
     // Passkey recovery envelopes (ciphertext-only, see PasskeyEnvelopeController)
-    Route::get('/account/passkey-envelopes', [\App\Http\Controllers\PasskeyEnvelopeController::class, 'index']);
-    Route::put('/account/passkey-envelopes/{credentialId}', [\App\Http\Controllers\PasskeyEnvelopeController::class, 'upsert']);
-    Route::delete('/account/passkey-envelopes/{credentialId}', [\App\Http\Controllers\PasskeyEnvelopeController::class, 'destroy']);
+    Route::get('/account/passkey-envelopes', [PasskeyEnvelopeController::class, 'index']);
+    Route::put('/account/passkey-envelopes/{credentialId}', [PasskeyEnvelopeController::class, 'upsert']);
+    Route::delete('/account/passkey-envelopes/{credentialId}', [PasskeyEnvelopeController::class, 'destroy']);
     Route::put('/user', [AccountController::class, 'updateProfile']);
     Route::put('/user/password', [AccountController::class, 'updatePassword'])
         ->middleware('throttle:5,1');
@@ -313,10 +343,10 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
 
     // Panel API keys (for our API, not BTCPay)
     Route::middleware('guest.restrict')->group(function () {
-        Route::get('/user/api-keys', [\App\Http\Controllers\UserApiKeyController::class, 'index']);
-        Route::post('/user/api-keys', [\App\Http\Controllers\UserApiKeyController::class, 'store'])
+        Route::get('/user/api-keys', [UserApiKeyController::class, 'index']);
+        Route::post('/user/api-keys', [UserApiKeyController::class, 'store'])
             ->middleware(EnsurePlanAllowsUserApiKeyCreation::class);
-        Route::delete('/user/api-keys/{user_api_key}', [\App\Http\Controllers\UserApiKeyController::class, 'destroy']);
+        Route::delete('/user/api-keys/{user_api_key}', [UserApiKeyController::class, 'destroy']);
     });
 
     // Messages (notifications)
@@ -354,8 +384,11 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::get('/ephemeral/btcpay-status', [EphemeralBusinessDocumentController::class, 'btcpayStatus']);
             Route::get('/ephemeral/efaktura/bridge', [EphemeralBusinessDocumentController::class, 'efakturaBridge']);
             Route::get('/ephemeral/efaktura/status', [EphemeralBusinessDocumentController::class, 'efakturaStatus']);
+            Route::post('/ephemeral/efaktura/status-bulk', [EphemeralBusinessDocumentController::class, 'efakturaStatusBulk']);
             Route::post('/ephemeral/efaktura/send', [EphemeralBusinessDocumentController::class, 'efakturaSendWithoutCompany']);
             Route::post('/ephemeral/efaktura/refresh', [EphemeralBusinessDocumentController::class, 'efakturaRefreshWithoutCompany']);
+            Route::post('/ephemeral/efaktura/test-connection', [EphemeralBusinessDocumentController::class, 'efakturaTestConnection'])
+                ->middleware('throttle:10,1');
             Route::post('/ephemeral/bulk/pdf-zip', [EphemeralBusinessDocumentController::class, 'bulkPdfZipWithoutCompany']);
             Route::post('/ephemeral/bulk/pdf-merge', [EphemeralBusinessDocumentController::class, 'bulkPdfMergeWithoutCompany']);
             Route::post('/companies', [CompanyController::class, 'store'])
@@ -470,19 +503,19 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::delete('/companies/{company}/warehouses/{warehouse}', [CompanyWarehouseController::class, 'destroy'])
                 ->middleware(EnsureCompanyOwnership::class);
 
-            Route::get('/companies/{company}/recurring-profiles', [\App\Http\Controllers\Invoicing\BusinessRecurringProfileController::class, 'index'])
+            Route::get('/companies/{company}/recurring-profiles', [BusinessRecurringProfileController::class, 'index'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/recurring-profiles', [\App\Http\Controllers\Invoicing\BusinessRecurringProfileController::class, 'store'])
+            Route::post('/companies/{company}/recurring-profiles', [BusinessRecurringProfileController::class, 'store'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/recurring-profiles/from-document/{businessDocument}', [\App\Http\Controllers\Invoicing\BusinessRecurringProfileController::class, 'fromDocument'])
+            Route::post('/companies/{company}/recurring-profiles/from-document/{businessDocument}', [BusinessRecurringProfileController::class, 'fromDocument'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::get('/companies/{company}/recurring-profiles/{recurringProfile}', [\App\Http\Controllers\Invoicing\BusinessRecurringProfileController::class, 'show'])
+            Route::get('/companies/{company}/recurring-profiles/{recurringProfile}', [BusinessRecurringProfileController::class, 'show'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::patch('/companies/{company}/recurring-profiles/{recurringProfile}', [\App\Http\Controllers\Invoicing\BusinessRecurringProfileController::class, 'update'])
+            Route::patch('/companies/{company}/recurring-profiles/{recurringProfile}', [BusinessRecurringProfileController::class, 'update'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::delete('/companies/{company}/recurring-profiles/{recurringProfile}', [\App\Http\Controllers\Invoicing\BusinessRecurringProfileController::class, 'destroy'])
+            Route::delete('/companies/{company}/recurring-profiles/{recurringProfile}', [BusinessRecurringProfileController::class, 'destroy'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/recurring-profiles/{recurringProfile}/generate', [\App\Http\Controllers\Invoicing\BusinessRecurringProfileController::class, 'generateNow'])
+            Route::post('/companies/{company}/recurring-profiles/{recurringProfile}/generate', [BusinessRecurringProfileController::class, 'generateNow'])
                 ->middleware(EnsureCompanyOwnership::class);
 
             Route::get('/integration-inbox/deeplink', [IntegrationDocumentInboxController::class, 'resolveDeepLink']);
@@ -495,11 +528,11 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
                 ->middleware(EnsureCompanyOwnership::class);
 
             // Headless auto-issue profile (WooCommerce paid orders, P3).
-            Route::get('/companies/{company}/auto-issue-profile', [\App\Http\Controllers\Invoicing\CompanyAutoIssueProfileController::class, 'show'])
+            Route::get('/companies/{company}/auto-issue-profile', [CompanyAutoIssueProfileController::class, 'show'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::put('/companies/{company}/auto-issue-profile', [\App\Http\Controllers\Invoicing\CompanyAutoIssueProfileController::class, 'update'])
+            Route::put('/companies/{company}/auto-issue-profile', [CompanyAutoIssueProfileController::class, 'update'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::delete('/companies/{company}/auto-issue-profile', [\App\Http\Controllers\Invoicing\CompanyAutoIssueProfileController::class, 'destroy'])
+            Route::delete('/companies/{company}/auto-issue-profile', [CompanyAutoIssueProfileController::class, 'destroy'])
                 ->middleware(EnsureCompanyOwnership::class);
 
             Route::get('/stores/{store}/integration-inbox', [IntegrationDocumentInboxController::class, 'indexForStore'])
@@ -513,13 +546,13 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::post('/stores/{store}/number-series/reserve', [StoreDocumentSequenceController::class, 'reserve'])
                 ->middleware(EnsureStoreOwnership::class);
 
-            Route::get('/companies/{company}/documents/import/fields', [\App\Http\Controllers\Invoicing\BusinessDocumentImportController::class, 'fields'])
+            Route::get('/companies/{company}/documents/import/fields', [BusinessDocumentImportController::class, 'fields'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::get('/companies/{company}/documents/import/example', [\App\Http\Controllers\Invoicing\BusinessDocumentImportController::class, 'example'])
+            Route::get('/companies/{company}/documents/import/example', [BusinessDocumentImportController::class, 'example'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/documents/import/preview', [\App\Http\Controllers\Invoicing\BusinessDocumentImportController::class, 'preview'])
+            Route::post('/companies/{company}/documents/import/preview', [BusinessDocumentImportController::class, 'preview'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/documents/import', [\App\Http\Controllers\Invoicing\BusinessDocumentImportController::class, 'import'])
+            Route::post('/companies/{company}/documents/import', [BusinessDocumentImportController::class, 'import'])
                 ->middleware(EnsureCompanyOwnership::class);
 
             Route::get('/companies/{company}/documents', [BusinessDocumentController::class, 'index'])
@@ -564,13 +597,17 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
                 ->middleware(EnsureCompanyOwnership::class);
             Route::get('/companies/{company}/documents/{businessDocument}/ubl', [BusinessDocumentController::class, 'ubl'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::get('/companies/{company}/documents/{businessDocument}/efaktura/compliance', [\App\Http\Controllers\Invoicing\EfakturaController::class, 'compliance'])
+            Route::get('/companies/{company}/documents/{businessDocument}/efaktura/compliance', [EfakturaController::class, 'compliance'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/documents/{businessDocument}/efaktura/send', [\App\Http\Controllers\Invoicing\EfakturaController::class, 'send'])
+            Route::post('/companies/{company}/documents/{businessDocument}/efaktura/send', [EfakturaController::class, 'send'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/documents/{businessDocument}/efaktura/compliance/refresh', [\App\Http\Controllers\Invoicing\EfakturaController::class, 'refreshCompliance'])
+            Route::post('/companies/{company}/documents/{businessDocument}/efaktura/compliance/refresh', [EfakturaController::class, 'refreshCompliance'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/efaktura/poll-inbound', [\App\Http\Controllers\Invoicing\EfakturaController::class, 'pollInbound'])
+            Route::post('/companies/{company}/efaktura/poll-inbound', [EfakturaController::class, 'pollInbound'])
+                ->middleware(EnsureCompanyOwnership::class);
+            Route::post('/companies/{company}/efaktura/test-connection', [EfakturaController::class, 'testConnection'])
+                ->middleware([EnsureCompanyOwnership::class, 'throttle:10,1']);
+            Route::post('/companies/{company}/efaktura/compliance-bulk', [EfakturaController::class, 'complianceBulk'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::post('/companies/{company}/documents/{businessDocument}/mark-paid', [BusinessDocumentController::class, 'markPaid'])
                 ->middleware(EnsureCompanyOwnership::class);
@@ -646,31 +683,31 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::get('/companies/{company}/expenses/{businessExpense}/history', [BusinessExpenseController::class, 'history'])
                 ->middleware(EnsureCompanyOwnership::class);
 
-            Route::get('/companies/{company}/bank-transactions', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'index'])
+            Route::get('/companies/{company}/bank-transactions', [BankTransactionController::class, 'index'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::get('/companies/{company}/bank-transactions/batches', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'batches'])
+            Route::get('/companies/{company}/bank-transactions/batches', [BankTransactionController::class, 'batches'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/bank-transactions/import', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'import'])
+            Route::post('/companies/{company}/bank-transactions/import', [BankTransactionController::class, 'import'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/bank-transactions/batches/{batch}/auto-match', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'autoMatchBatch'])
+            Route::post('/companies/{company}/bank-transactions/batches/{batch}/auto-match', [BankTransactionController::class, 'autoMatchBatch'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::get('/companies/{company}/bank-transactions/inbound-email', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'inboundEmailAddress'])
+            Route::get('/companies/{company}/bank-transactions/inbound-email', [BankTransactionController::class, 'inboundEmailAddress'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::get('/companies/{company}/bank-transactions/{bankTransaction}/suggestions', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'suggestions'])
+            Route::get('/companies/{company}/bank-transactions/{bankTransaction}/suggestions', [BankTransactionController::class, 'suggestions'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/bank-transactions/{bankTransaction}/match', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'match'])
+            Route::post('/companies/{company}/bank-transactions/{bankTransaction}/match', [BankTransactionController::class, 'match'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/bank-transactions/{bankTransaction}/ignore', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'ignore'])
+            Route::post('/companies/{company}/bank-transactions/{bankTransaction}/ignore', [BankTransactionController::class, 'ignore'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/bank-transactions/{bankTransaction}/unmatch', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'unmatch'])
+            Route::post('/companies/{company}/bank-transactions/{bankTransaction}/unmatch', [BankTransactionController::class, 'unmatch'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/bank-transactions/{bankTransaction}/create-expense', [\App\Http\Controllers\Invoicing\BankTransactionController::class, 'createExpense'])
+            Route::post('/companies/{company}/bank-transactions/{bankTransaction}/create-expense', [BankTransactionController::class, 'createExpense'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::get('/companies/{company}/wise/status', [\App\Http\Controllers\Invoicing\WiseBankController::class, 'status'])
+            Route::get('/companies/{company}/wise/status', [WiseBankController::class, 'status'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/wise/connect', [\App\Http\Controllers\Invoicing\WiseBankController::class, 'connect'])
+            Route::post('/companies/{company}/wise/connect', [WiseBankController::class, 'connect'])
                 ->middleware(EnsureCompanyOwnership::class);
-            Route::post('/companies/{company}/wise/sync', [\App\Http\Controllers\Invoicing\WiseBankController::class, 'sync'])
+            Route::post('/companies/{company}/wise/sync', [WiseBankController::class, 'sync'])
                 ->middleware(EnsureCompanyOwnership::class);
         });
 
@@ -807,24 +844,50 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
         Route::get('/stores/{store}/stripe/webhook/status', [StripeController::class, 'getWebhookStatus']);
     });
 
+    // SEPA Instant QR - deliberately available to ALL roles incl. guests
+    // (core free feature for the Slovak cashless mandate): no guest.restrict,
+    // no plan middleware, only store ownership.
+    Route::prefix('stores/{store}/sepa')->middleware([EnsureStoreOwnership::class])->group(function () {
+        Route::get('/status', [SepaController::class, 'status'])
+            ->middleware('throttle:10,1');
+        Route::get('/settings', [SepaController::class, 'getSettings']);
+        Route::get('/inbound-email', [SepaController::class, 'inboundEmail']);
+        Route::put('/settings', [SepaController::class, 'updateSettings'])
+            ->middleware(AuditLog::class.':sepa.settings_updated');
+        Route::post('/certificate', [SepaController::class, 'uploadCertificate'])
+            ->middleware(AuditLog::class.':sepa.certificate_uploaded');
+        Route::delete('/certificate', [SepaController::class, 'deleteCertificate'])
+            ->middleware(AuditLog::class.':sepa.certificate_deleted');
+        Route::post('/fio-token', [SepaController::class, 'setFioToken'])
+            ->middleware(AuditLog::class.':sepa.fio_token_set');
+        Route::delete('/fio-token', [SepaController::class, 'clearFioToken'])
+            ->middleware(AuditLog::class.':sepa.fio_token_cleared');
+        Route::post('/test', [SepaController::class, 'testBackend'])
+            ->middleware('throttle:10,1');
+        Route::get('/payment-requests', [SepaController::class, 'paymentRequests']);
+        Route::post('/payment-requests/{reference}/confirm', [SepaController::class, 'confirmPaymentRequest'])
+            ->where('reference', '[a-zA-Z0-9_-]+')
+            ->middleware(AuditLog::class.':sepa.payment_confirmed');
+    });
+
     // Store API Keys
     Route::middleware('guest.restrict')->group(function () {
-        Route::get('/stores/{store}/api-keys', [\App\Http\Controllers\StoreApiKeyController::class, 'index'])
+        Route::get('/stores/{store}/api-keys', [StoreApiKeyController::class, 'index'])
             ->middleware(EnsureStoreOwnership::class);
-        Route::post('/stores/{store}/api-keys', [\App\Http\Controllers\StoreApiKeyController::class, 'store'])
+        Route::post('/stores/{store}/api-keys', [StoreApiKeyController::class, 'store'])
             ->middleware([EnsureStoreOwnership::class, EnsureApiKeyLimit::class, AuditLog::class.':api-key.created', 'throttle:10,1']);
-        Route::get('/stores/{store}/api-keys/{apiKey}', [\App\Http\Controllers\StoreApiKeyController::class, 'show'])
+        Route::get('/stores/{store}/api-keys/{apiKey}', [StoreApiKeyController::class, 'show'])
             ->middleware(EnsureStoreOwnership::class);
-        Route::delete('/stores/{store}/api-keys/{apiKey}', [\App\Http\Controllers\StoreApiKeyController::class, 'destroy'])
+        Route::delete('/stores/{store}/api-keys/{apiKey}', [StoreApiKeyController::class, 'destroy'])
             ->middleware([EnsureStoreOwnership::class, AuditLog::class.':api-key.deleted']);
-        Route::post('/stores/{store}/api-keys/{apiKey}/regenerate', [\App\Http\Controllers\StoreApiKeyController::class, 'regenerate'])
+        Route::post('/stores/{store}/api-keys/{apiKey}/regenerate', [StoreApiKeyController::class, 'regenerate'])
             ->middleware([EnsureStoreOwnership::class, AuditLog::class.':api-key.regenerated', 'throttle:5,1']);
-        Route::post('/stores/{store}/api-keys/token', [\App\Http\Controllers\StoreApiKeyController::class, 'generateToken'])
+        Route::post('/stores/{store}/api-keys/token', [StoreApiKeyController::class, 'generateToken'])
             ->middleware([EnsureStoreOwnership::class, AuditLog::class.':api-key.token.generated']);
     });
 
     // Product Images
-    Route::post('/stores/{store}/products/image', [\App\Http\Controllers\ProductImageController::class, 'upload'])
+    Route::post('/stores/{store}/products/image', [ProductImageController::class, 'upload'])
         ->middleware(['guest.restrict', EnsureStoreOwnership::class, AuditLog::class.':product.image.uploaded']);
 
     // Plans (public pricing)
@@ -869,6 +932,9 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
         ->middleware([EnsureStoreOwnership::class, AuditLog::class.':wallet_connection.created']);
     Route::post('/stores/{store}/wallet-connection/check-duplicate', [WalletConnectionController::class, 'checkDuplicate'])
         ->middleware([EnsureStoreOwnership::class]);
+    // Server-side LUD-21 verify probe for unknown Lightning-address domains
+    Route::post('/stores/{store}/wallet-connection/lnaddress-probe', [WalletConnectionController::class, 'lnaddressProbe'])
+        ->middleware([EnsureStoreOwnership::class, 'throttle:10,1']);
     // Endpoint for checking duplicates when creating new stores (no store ID yet)
     Route::post('/wallet-connection/check-duplicate', [WalletConnectionController::class, 'checkDuplicateNew']);
     Route::post('/stores/{store}/wallet-connection/test', [WalletConnectionController::class, 'testConnection'])
@@ -880,9 +946,9 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
 
     // SatoshiTickets (Events, Ticket Types, Tickets, Orders)
     Route::prefix('stores/{store}/tickets')->middleware([EnsureStoreOwnership::class, 'guest.restrict'])->group(function () {
-        Route::post('/events/image', [\App\Http\Controllers\TicketEventImageController::class, 'upload']);
-        Route::post('/events/{eventId}/logo', [\App\Http\Controllers\TicketEventImageController::class, 'uploadLogo']);
-        Route::delete('/events/{eventId}/logo', [\App\Http\Controllers\TicketEventImageController::class, 'deleteLogo']);
+        Route::post('/events/image', [TicketEventImageController::class, 'upload']);
+        Route::post('/events/{eventId}/logo', [TicketEventImageController::class, 'uploadLogo']);
+        Route::delete('/events/{eventId}/logo', [TicketEventImageController::class, 'deleteLogo']);
         Route::get('/events', [TicketController::class, 'listEvents']);
         Route::get('/events/{eventId}', [TicketController::class, 'getEvent']);
         Route::post('/events', [TicketController::class, 'createEvent']);
@@ -902,20 +968,20 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
 
     // BTCPay Raffle plugin
     Route::prefix('stores/{store}/raffles')->middleware([EnsureStoreOwnership::class, 'guest.restrict'])->group(function () {
-        Route::get('/status', [\App\Http\Controllers\RaffleController::class, 'status']);
-        Route::get('/', [\App\Http\Controllers\RaffleController::class, 'index']);
-        Route::post('/', [\App\Http\Controllers\RaffleController::class, 'store']);
-        Route::put('/{raffleId}', [\App\Http\Controllers\RaffleController::class, 'update']);
-        Route::delete('/{raffleId}', [\App\Http\Controllers\RaffleController::class, 'destroy']);
-        Route::get('/{raffleId}', [\App\Http\Controllers\RaffleController::class, 'show']);
-        Route::post('/{raffleId}/presenter-token', [\App\Http\Controllers\RaffleController::class, 'presenterToken']);
-        Route::post('/{raffleId}/open', [\App\Http\Controllers\RaffleController::class, 'open']);
-        Route::post('/{raffleId}/close', [\App\Http\Controllers\RaffleController::class, 'close']);
-        Route::post('/{raffleId}/draw', [\App\Http\Controllers\RaffleController::class, 'draw']);
-        Route::post('/{raffleId}/complete', [\App\Http\Controllers\RaffleController::class, 'complete']);
-        Route::post('/{raffleId}/tickets/manual', [\App\Http\Controllers\RaffleController::class, 'addManualTickets']);
-        Route::get('/{raffleId}/tickets', [\App\Http\Controllers\RaffleController::class, 'tickets']);
-        Route::get('/{raffleId}/drawings', [\App\Http\Controllers\RaffleController::class, 'drawings']);
+        Route::get('/status', [RaffleController::class, 'status']);
+        Route::get('/', [RaffleController::class, 'index']);
+        Route::post('/', [RaffleController::class, 'store']);
+        Route::put('/{raffleId}', [RaffleController::class, 'update']);
+        Route::delete('/{raffleId}', [RaffleController::class, 'destroy']);
+        Route::get('/{raffleId}', [RaffleController::class, 'show']);
+        Route::post('/{raffleId}/presenter-token', [RaffleController::class, 'presenterToken']);
+        Route::post('/{raffleId}/open', [RaffleController::class, 'open']);
+        Route::post('/{raffleId}/close', [RaffleController::class, 'close']);
+        Route::post('/{raffleId}/draw', [RaffleController::class, 'draw']);
+        Route::post('/{raffleId}/complete', [RaffleController::class, 'complete']);
+        Route::post('/{raffleId}/tickets/manual', [RaffleController::class, 'addManualTickets']);
+        Route::get('/{raffleId}/tickets', [RaffleController::class, 'tickets']);
+        Route::get('/{raffleId}/drawings', [RaffleController::class, 'drawings']);
     });
 
     // Support routes
@@ -932,8 +998,8 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
 
     // Admin routes
     Route::middleware([EnsureAdminRole::class])->group(function () {
-        Route::get('/admin/system-health', [\App\Http\Controllers\Admin\SystemHealthController::class, 'show']);
-        Route::get('/admin/system-health/history', [\App\Http\Controllers\Admin\SystemHealthController::class, 'history']);
+        Route::get('/admin/system-health', [SystemHealthController::class, 'show']);
+        Route::get('/admin/system-health/history', [SystemHealthController::class, 'history']);
         Route::get('/admin/stats', [AdminController::class, 'stats']);
         Route::get('/admin/stats/export', [AdminController::class, 'statsExport']);
         Route::get('/admin/users', [AdminController::class, 'index']);
@@ -942,6 +1008,29 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             ->middleware(AuditLog::class.':admin.user.updated');
         Route::delete('/admin/users/{user}', [AdminController::class, 'destroy'])
             ->middleware(AuditLog::class.':admin.user.deleted');
+
+        // RegWatch review (docs/LEGAL.md): changelog workflow only - rules
+        // are edited manually after verifying the official source.
+        Route::get('/admin/regwatch/changes', [RegWatchController::class, 'changes']);
+        Route::get('/admin/regwatch/changes/{change}', [RegWatchController::class, 'showChange']);
+        Route::put('/admin/regwatch/changes/{change}/status', [RegWatchController::class, 'updateChangeStatus'])
+            ->middleware(AuditLog::class.':admin.regwatch.change_status_updated');
+        Route::get('/admin/regwatch/sources', [RegWatchController::class, 'sources']);
+        Route::get('/admin/regwatch/jurisdictions', [RegWatchController::class, 'jurisdictions']);
+        Route::get('/admin/regwatch/rules', [RegWatchController::class, 'rules']);
+        Route::get('/admin/regwatch/rules/{rule}', [RegWatchController::class, 'showRule']);
+        Route::put('/admin/regwatch/rules/{rule}', [RegWatchController::class, 'updateRule'])
+            ->middleware(AuditLog::class.':admin.regwatch.rule_updated');
+
+        // E-faktura CPDS presets (digitálny poštár) shown in the merchant
+        // settings form - operator adds only verified provider URLs.
+        Route::get('/admin/efaktura/cpds-providers', [EfakturaCpdsProviderController::class, 'index']);
+        Route::post('/admin/efaktura/cpds-providers', [EfakturaCpdsProviderController::class, 'store'])
+            ->middleware(AuditLog::class.':admin.efaktura.cpds_provider_created');
+        Route::put('/admin/efaktura/cpds-providers/{provider}', [EfakturaCpdsProviderController::class, 'update'])
+            ->middleware(AuditLog::class.':admin.efaktura.cpds_provider_updated');
+        Route::delete('/admin/efaktura/cpds-providers/{provider}', [EfakturaCpdsProviderController::class, 'destroy'])
+            ->middleware(AuditLog::class.':admin.efaktura.cpds_provider_deleted');
     });
 });
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCreateRequest;
 use App\Models\Store;
+use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\StoreService;
 use App\Services\StoreChecklistService;
 use App\Services\StoreProvisioningService;
@@ -54,7 +55,7 @@ class StoreController extends Controller
                     'user_id' => $user->id,
                 ]);
             }
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             // If API fails, we'll use local stores only
             Log::warning('BTCPay API failed when listing stores', [
                 'user_id' => $user->id,
@@ -177,7 +178,7 @@ class StoreController extends Controller
     public function setWalletType(Request $request, Store $store)
     {
         $validated = $request->validate([
-            'wallet_type' => ['required', 'string', Rule::in(['blink', 'aqua_boltz', 'cashu', 'nwc'])],
+            'wallet_type' => ['required', 'string', Rule::in(['blink', 'aqua_boltz', 'cashu', 'nwc', 'blitz', 'flash', 'lnaddress'])],
         ]);
 
         $next = $validated['wallet_type'];
@@ -228,7 +229,7 @@ class StoreController extends Controller
             return response()->json([
                 'data' => $this->formatter->fromBtcPay($btcpayStore, $store),
             ]);
-        } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+        } catch (BtcPayException $e) {
             // If API fails, return store from local DB as fallback
             Log::warning('BTCPay API failed when loading store, using local fallback', [
                 'store_id' => $store->id,
@@ -273,7 +274,7 @@ class StoreController extends Controller
                     'store_id' => $localStoreId,
                     'btcpay_store_id' => $btcpayStoreId,
                 ]);
-            } catch (\App\Services\BtcPay\Exceptions\BtcPayException $e) {
+            } catch (BtcPayException $e) {
                 // If DELETE fails, log but continue - we'll still delete locally
                 Log::warning('Failed to delete store in BTCPay', [
                     'store_id' => $localStoreId,

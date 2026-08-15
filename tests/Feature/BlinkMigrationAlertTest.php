@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Store;
 use App\Models\User;
+use App\Models\WalletConnection;
+use App\Services\BtcPay\BtcPayClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -18,7 +21,7 @@ class BlinkMigrationAlertTest extends TestCase
         parent::setUp();
 
         config(['services.btcpay.base_url' => 'https://btcpay.test']);
-        $this->app->forgetInstance(\App\Services\BtcPay\BtcPayClient::class);
+        $this->app->forgetInstance(BtcPayClient::class);
 
         Http::fake(function ($request) {
             if ($request->method() === 'GET' && str_contains((string) $request->url(), '/api/v1/stores/')) {
@@ -51,6 +54,50 @@ class BlinkMigrationAlertTest extends TestCase
             ->assertJsonPath('data.blink_migration_alert.active', true)
             ->assertJsonPath('data.blink_migration_alert.snoozed_until', null)
             ->assertJsonPath('data.blink_migration_alert.dismissed_at', null);
+    }
+
+    #[Test]
+    public function alert_is_inactive_for_store_on_ln_address_format(): void
+    {
+        $user = User::factory()->create();
+        $store = Store::factory()->withBlink()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'btcpay-store-1',
+        ]);
+        WalletConnection::create([
+            'store_id' => $store->id,
+            'type' => 'blink',
+            'encrypted_secret' => Crypt::encryptString('type=blink;ln-address=satoshi@blink.sv;'),
+            'status' => 'connected',
+            'submitted_by_user_id' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/stores/{$store->id}")
+            ->assertOk()
+            ->assertJsonPath('data.blink_migration_alert.active', false);
+    }
+
+    #[Test]
+    public function alert_stays_active_for_store_on_legacy_api_key_format(): void
+    {
+        $user = User::factory()->create();
+        $store = Store::factory()->withBlink()->create([
+            'user_id' => $user->id,
+            'btcpay_store_id' => 'btcpay-store-1',
+        ]);
+        WalletConnection::create([
+            'store_id' => $store->id,
+            'type' => 'blink',
+            'encrypted_secret' => Crypt::encryptString('type=blink;server=https://api.blink.sv/graphql;api-key=blink_test123;wallet-id=wallet456'),
+            'status' => 'connected',
+            'submitted_by_user_id' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/stores/{$store->id}")
+            ->assertOk()
+            ->assertJsonPath('data.blink_migration_alert.active', true);
     }
 
     #[Test]
