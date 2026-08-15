@@ -161,7 +161,11 @@ class SamRockController extends Controller
             ], 422);
         }
 
-        $connection = $this->walletConnectionService->markSamRockConnected($store, $request->user());
+        $connection = $this->walletConnectionService->markSamRockConnected(
+            $store,
+            $request->user(),
+            $validated['fallback_lightning_address']
+        );
 
         $fallbackConfigured = true;
         try {

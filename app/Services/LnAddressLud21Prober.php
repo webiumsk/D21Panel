@@ -18,7 +18,7 @@ class LnAddressLud21Prober
 
     private const MIN_PROBE_MSAT = 1000;
 
-    /** LUD-21 support is a property of the wallet's domain - cache briefly. */
+    /** Probe results are user-specific because LNURLp descriptors live under /lnurlp/{user}. */
     private const CACHE_TTL_SECONDS = 300;
 
     /**
@@ -34,9 +34,10 @@ class LnAddressLud21Prober
 
         [, $user, $domain] = $matches;
         $domain = strtolower($domain);
+        $cacheKey = 'lnaddress-lud21-probe:'.hash('sha256', $user.'@'.$domain);
 
         return Cache::remember(
-            'lnaddress-lud21-probe:'.$domain,
+            $cacheKey,
             self::CACHE_TTL_SECONDS,
             fn (): array => $this->probeUncached($user, $domain)
         );

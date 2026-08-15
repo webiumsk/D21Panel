@@ -10,6 +10,7 @@ use App\Services\LnAddressLud21Prober;
 use App\Services\WalletConnectionValidator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
@@ -372,6 +373,53 @@ class WalletConnectionTest extends TestCase
         ])->assertOk()
             ->assertJsonPath('data.lud21', true)
             ->assertJsonPath('data.reason', 'ok');
+    }
+
+    #[Test]
+    public function lnaddress_probe_cache_is_scoped_to_the_full_address(): void
+    {
+        $this->fakeProberDns();
+        Cache::flush();
+
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+            if ($url === 'https://sharedwallet.example/.well-known/lnurlp/alice') {
+                return Http::response([
+                    'tag' => 'payRequest',
+                    'callback' => 'https://sharedwallet.example/pay/lnurl/alice',
+                    'minSendable' => 1000,
+                    'maxSendable' => 10000000000,
+                ], 200);
+            }
+            if (str_starts_with($url, 'https://sharedwallet.example/pay/lnurl/alice')) {
+                return Http::response([
+                    'pr' => 'lnbc10n1invoice',
+                    'verify' => 'https://sharedwallet.example/verify/alice',
+                ], 200);
+            }
+            if ($url === 'https://sharedwallet.example/.well-known/lnurlp/bob') {
+                return Http::response(['message' => 'not found'], 404);
+            }
+
+            return Http::response(['message' => 'unexpected'], 500);
+        });
+
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'alice@sharedwallet.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', true)
+            ->assertJsonPath('data.reason', 'ok');
+
+        $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection/lnaddress-probe", [
+            'address' => 'bob@sharedwallet.example',
+        ])->assertOk()
+            ->assertJsonPath('data.lud21', false)
+            ->assertJsonPath('data.reason', 'unreachable');
+
+        Http::assertSent(fn (Request $request) => $request->url() === 'https://sharedwallet.example/.well-known/lnurlp/bob');
     }
 
     #[Test]
