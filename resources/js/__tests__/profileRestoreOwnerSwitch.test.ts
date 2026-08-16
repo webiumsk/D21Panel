@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Component } from "vue";
+import { getStoredAccountMnemonic } from "../services/accountSeed";
 
 const mocks = vi.hoisted(() => ({
     route: { query: { restore_phrase: "1" } as Record<string, string | undefined> },
@@ -370,6 +371,29 @@ describe("Profile recovery phrase owner switch guard", () => {
         expect(mocks.previewOwnerSwitchImpact).toHaveBeenCalledTimes(1);
         expect(mocks.resetEvoluBootstrapForRetry).toHaveBeenCalledTimes(1);
         expect(mocks.reloadApp).toHaveBeenCalledTimes(1);
+    }, 15000);
+
+    it("still shows the owner-switch warning when the previous session phrase is corrupted", async () => {
+        mocks.isDeviceRemembered.mockResolvedValue(true);
+        const wrapper = await mountProfile();
+        // The unlock submit is the next caller of both mocks: hand it a corrupted
+        // previous phrase and make re-storing it throw like the real service does.
+        vi.mocked(getStoredAccountMnemonic).mockReturnValueOnce("corrupted junk");
+        mocks.storeAccountMnemonic.mockImplementationOnce(() => {
+            throw new Error("invalid_mnemonic");
+        });
+        await wrapper.find("input[type='password']").setValue("device passphrase");
+
+        await wrapper.find("form[autocomplete='on']").trigger("submit");
+        await flushPromises();
+
+        // Best-effort restore: the corrupted previous phrase is dropped and the
+        // confirmation step still shows instead of surfacing an unlock error.
+        expect(mocks.storeAccountMnemonic).toHaveBeenCalledWith("corrupted junk");
+        expect(mocks.clearSessionAccountMnemonic).toHaveBeenCalledTimes(1);
+        expect(wrapper.text()).toContain("auth.guest_restore_owner_switch_title");
+        expect(wrapper.text()).not.toContain("account.device_unlock_failed");
+        expect(mocks.reloadApp).not.toHaveBeenCalled();
     }, 15000);
 
     it("requires confirmation before remembered-device passkey unlock re-links existing local invoicing data", async () => {

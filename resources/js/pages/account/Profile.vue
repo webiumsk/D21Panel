@@ -2067,7 +2067,12 @@ function resetRestoreOwnerSwitchGuard(): void {
 function restorePreviousSessionMnemonic(previousMnemonic: string | null): void {
   clearSessionAccountMnemonic();
   if (previousMnemonic) {
-    storeAccountMnemonic(previousMnemonic);
+    try {
+      storeAccountMnemonic(previousMnemonic);
+    } catch {
+      // Best-effort: a corrupted previous value must not turn the owner-switch
+      // confirmation step into an unlock failure - leave the session cleared.
+    }
   }
   storedGuestMnemonic.value = getStoredGuestMnemonic();
 }

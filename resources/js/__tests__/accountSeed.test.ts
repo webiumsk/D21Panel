@@ -13,6 +13,7 @@ const TEST_MNEMONIC =
     "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
 
 const SESSION_KEY = "satflux.account.mnemonic.v1";
+const LEGACY_SESSION_KEY = "satflux.guest.mnemonic.v1";
 const PERSISTENT_KEY = "satflux.account.mnemonic.persistent.v1";
 
 describe("accountSeed persistence", () => {
@@ -72,6 +73,21 @@ describe("accountSeed persistence", () => {
         hydrateAccountMnemonicSession();
 
         expect(getStoredAccountMnemonic()).toBeNull();
+    });
+
+    it("returns null and removes the key when the stored session value is corrupted", () => {
+        sessionStorage.setItem(SESSION_KEY, "not a valid mnemonic");
+
+        expect(getStoredAccountMnemonic()).toBeNull();
+        expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
+    });
+
+    it("drops a corrupted legacy session value instead of adopting it", () => {
+        sessionStorage.setItem(LEGACY_SESSION_KEY, "not a valid mnemonic");
+
+        expect(getStoredAccountMnemonic()).toBeNull();
+        expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
+        expect(sessionStorage.getItem(LEGACY_SESSION_KEY)).toBeNull();
     });
 
     it("clears both session and legacy localStorage on lock/logout", () => {
