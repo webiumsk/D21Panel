@@ -109,12 +109,21 @@ export function hydrateAccountMnemonicSession(): void {
 export function getStoredAccountMnemonic(): string | null {
     const current = sessionStorage.getItem(ACCOUNT_MNEMONIC_STORAGE_KEY);
     if (current) {
-        return current;
+        if (validateMnemonic(normalizeAccountMnemonic(current), wordlist)) {
+            return current;
+        }
+        // Corrupted storage value - drop it so callers never hand an invalid
+        // phrase back to storeAccountMnemonic (which throws on it).
+        sessionStorage.removeItem(ACCOUNT_MNEMONIC_STORAGE_KEY);
+        return null;
     }
     const legacy = sessionStorage.getItem(LEGACY_GUEST_MNEMONIC_STORAGE_KEY);
     if (legacy) {
-        sessionStorage.setItem(ACCOUNT_MNEMONIC_STORAGE_KEY, legacy);
         sessionStorage.removeItem(LEGACY_GUEST_MNEMONIC_STORAGE_KEY);
+        if (!validateMnemonic(normalizeAccountMnemonic(legacy), wordlist)) {
+            return null;
+        }
+        sessionStorage.setItem(ACCOUNT_MNEMONIC_STORAGE_KEY, legacy);
         return legacy;
     }
     return null;
@@ -151,6 +160,11 @@ export function clearStoredAccountMnemonic(): void {
     } catch {
         // Storage unavailable.
     }
+}
+
+export function clearSessionAccountMnemonic(): void {
+    sessionStorage.removeItem(ACCOUNT_MNEMONIC_STORAGE_KEY);
+    sessionStorage.removeItem(LEGACY_GUEST_MNEMONIC_STORAGE_KEY);
 }
 
 export type OwnerSwitchImpact =

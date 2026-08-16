@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Component } from "vue";
+import { getStoredAccountMnemonic } from "../services/accountSeed";
 
 const mocks = vi.hoisted(() => ({
     route: { query: { restore_phrase: "1" } as Record<string, string | undefined> },
@@ -9,10 +10,17 @@ const mocks = vi.hoisted(() => ({
     flashWarning: vi.fn(),
     flashError: vi.fn(),
     restoreWithAccountPasskey: vi.fn(),
+    unlockDeviceWithPassphrase: vi.fn(),
+    unlockDeviceWithPasskey: vi.fn(),
     bindRecoveryPhraseOnThisDevice: vi.fn(),
+    clearSessionAccountMnemonic: vi.fn(),
     previewOwnerSwitchImpact: vi.fn(),
     resetEvoluBootstrapForRetry: vi.fn(),
+    storeAccountMnemonic: vi.fn(),
+    isDeviceRemembered: vi.fn(),
+    listDevicePasskeySlots: vi.fn(),
     listAccountEnvelopes: vi.fn(),
+    reloadApp: vi.fn(),
     apiGet: vi.fn(),
     invoicingCompaniesList: vi.fn(),
 }));
@@ -117,9 +125,11 @@ vi.mock("../services/guestRecovery", () => ({
 vi.mock("../services/accountSeed", () => ({
     initEvoluFromAccountSeedIfNeeded: vi.fn(async () => "already_synced"),
     bindRecoveryPhraseOnThisDevice: mocks.bindRecoveryPhraseOnThisDevice,
+    clearSessionAccountMnemonic: mocks.clearSessionAccountMnemonic,
     deriveRecoveryPublicKeyHex: vi.fn((phrase: string) => `pk:${phrase}`),
     getStoredAccountMnemonic: vi.fn(() => null),
     previewOwnerSwitchImpact: mocks.previewOwnerSwitchImpact,
+    storeAccountMnemonic: mocks.storeAccountMnemonic,
 }));
 
 vi.mock("../services/deviceUnlock/provider", () => ({
@@ -127,14 +137,14 @@ vi.mock("../services/deviceUnlock/provider", () => ({
     addPasskeyToRememberedDevice: vi.fn(),
     changeDevicePassphrase: vi.fn(),
     forgetDevice: vi.fn(),
-    isDeviceRemembered: vi.fn(async () => false),
-    listDevicePasskeySlots: vi.fn(async () => []),
+    isDeviceRemembered: mocks.isDeviceRemembered,
+    listDevicePasskeySlots: mocks.listDevicePasskeySlots,
     passkeyPrfUnlockProvider: { isSupported: vi.fn(async () => true) },
     removeDevicePasskeySlot: vi.fn(),
     rememberDeviceWithPassphrase: vi.fn(),
     restoreWithAccountPasskey: mocks.restoreWithAccountPasskey,
-    unlockDeviceWithPasskey: vi.fn(),
-    unlockDeviceWithPassphrase: vi.fn(),
+    unlockDeviceWithPasskey: mocks.unlockDeviceWithPasskey,
+    unlockDeviceWithPassphrase: mocks.unlockDeviceWithPassphrase,
     upgradeAccountPasskey: vi.fn(),
 }));
 
@@ -170,7 +180,7 @@ vi.mock("../evolu/reloadGuard", () => ({
 vi.mock("../evolu/client", () => ({
     evolu: {
         loadQuery: vi.fn(async () => []),
-        reloadApp: vi.fn(),
+        reloadApp: mocks.reloadApp,
     },
 }));
 
@@ -267,6 +277,8 @@ describe("Profile recovery phrase owner switch guard", () => {
         vi.clearAllMocks();
         mocks.route.query = { restore_phrase: "1" };
         mocks.restoreWithAccountPasskey.mockResolvedValue({ recoveryPhrase: "passkey phrase" });
+        mocks.unlockDeviceWithPassphrase.mockResolvedValue({ recoveryPhrase: "device phrase" });
+        mocks.unlockDeviceWithPasskey.mockResolvedValue({ recoveryPhrase: "device passkey phrase" });
         mocks.bindRecoveryPhraseOnThisDevice.mockResolvedValue("already_synced");
         mocks.previewOwnerSwitchImpact.mockResolvedValue({
             switches: true,
@@ -274,6 +286,8 @@ describe("Profile recovery phrase owner switch guard", () => {
             contacts: 2,
             documents: 3,
         });
+        mocks.isDeviceRemembered.mockResolvedValue(false);
+        mocks.listDevicePasskeySlots.mockResolvedValue([]);
         mocks.listAccountEnvelopes.mockResolvedValue([
             {
                 credential_id: "credential-1",
@@ -332,5 +346,85 @@ describe("Profile recovery phrase owner switch guard", () => {
         expect(mocks.previewOwnerSwitchImpact).toHaveBeenCalledTimes(1);
         expect(mocks.resetEvoluBootstrapForRetry).toHaveBeenCalledTimes(1);
         expect(mocks.bindRecoveryPhraseOnThisDevice).toHaveBeenCalledWith("typed phrase");
+    }, 15000);
+
+    it("requires confirmation before remembered-device passphrase unlock re-links existing local invoicing data", async () => {
+        mocks.isDeviceRemembered.mockResolvedValue(true);
+        const wrapper = await mountProfile();
+        await wrapper.find("input[type='password']").setValue("device passphrase");
+
+        await wrapper.find("form[autocomplete='on']").trigger("submit");
+        await flushPromises();
+
+        expect(mocks.unlockDeviceWithPassphrase).toHaveBeenCalledTimes(1);
+        expect(mocks.previewOwnerSwitchImpact).toHaveBeenCalledWith("device phrase");
+        expect(mocks.clearSessionAccountMnemonic).toHaveBeenCalledTimes(1);
+        expect(mocks.resetEvoluBootstrapForRetry).not.toHaveBeenCalled();
+        expect(mocks.reloadApp).not.toHaveBeenCalled();
+        expect(wrapper.text()).toContain("auth.guest_restore_owner_switch_title");
+
+        await wrapper.find("input[type='password']").setValue("device passphrase");
+        await wrapper.find("form[autocomplete='on']").trigger("submit");
+        await flushPromises();
+
+        expect(mocks.unlockDeviceWithPassphrase).toHaveBeenCalledTimes(2);
+        expect(mocks.previewOwnerSwitchImpact).toHaveBeenCalledTimes(1);
+        expect(mocks.resetEvoluBootstrapForRetry).toHaveBeenCalledTimes(1);
+        expect(mocks.reloadApp).toHaveBeenCalledTimes(1);
+    }, 15000);
+
+    it("still shows the owner-switch warning when the previous session phrase is corrupted", async () => {
+        mocks.isDeviceRemembered.mockResolvedValue(true);
+        const wrapper = await mountProfile();
+        // The unlock submit is the next caller of both mocks: hand it a corrupted
+        // previous phrase and make re-storing it throw like the real service does.
+        vi.mocked(getStoredAccountMnemonic).mockReturnValueOnce("corrupted junk");
+        mocks.storeAccountMnemonic.mockImplementationOnce(() => {
+            throw new Error("invalid_mnemonic");
+        });
+        await wrapper.find("input[type='password']").setValue("device passphrase");
+
+        await wrapper.find("form[autocomplete='on']").trigger("submit");
+        await flushPromises();
+
+        // Best-effort restore: the corrupted previous phrase is dropped and the
+        // confirmation step still shows instead of surfacing an unlock error.
+        expect(mocks.storeAccountMnemonic).toHaveBeenCalledWith("corrupted junk");
+        expect(mocks.clearSessionAccountMnemonic).toHaveBeenCalledTimes(1);
+        expect(wrapper.text()).toContain("auth.guest_restore_owner_switch_title");
+        expect(wrapper.text()).not.toContain("account.device_unlock_failed");
+        expect(mocks.reloadApp).not.toHaveBeenCalled();
+    }, 15000);
+
+    it("requires confirmation before remembered-device passkey unlock re-links existing local invoicing data", async () => {
+        mocks.isDeviceRemembered.mockResolvedValue(true);
+        mocks.listDevicePasskeySlots.mockResolvedValue([
+            {
+                id: "slot-1",
+                credentialIdB64: "credential-1",
+                label: "Device passkey",
+                createdAt: "2026-07-20T00:00:00Z",
+                lastUsedAt: null,
+            },
+        ]);
+        const wrapper = await mountProfile();
+
+        await findButton(wrapper, "account.passkey_unlock_button").trigger("click");
+        await flushPromises();
+
+        expect(mocks.unlockDeviceWithPasskey).toHaveBeenCalledTimes(1);
+        expect(mocks.previewOwnerSwitchImpact).toHaveBeenCalledWith("device passkey phrase");
+        expect(mocks.clearSessionAccountMnemonic).toHaveBeenCalledTimes(1);
+        expect(mocks.resetEvoluBootstrapForRetry).not.toHaveBeenCalled();
+        expect(mocks.reloadApp).not.toHaveBeenCalled();
+        expect(wrapper.text()).toContain("auth.guest_restore_owner_switch_title");
+
+        await findButton(wrapper, "auth.guest_restore_owner_switch_confirm").trigger("click");
+        await flushPromises();
+
+        expect(mocks.unlockDeviceWithPasskey).toHaveBeenCalledTimes(2);
+        expect(mocks.previewOwnerSwitchImpact).toHaveBeenCalledTimes(1);
+        expect(mocks.resetEvoluBootstrapForRetry).toHaveBeenCalledTimes(1);
+        expect(mocks.reloadApp).toHaveBeenCalledTimes(1);
     }, 15000);
 });
