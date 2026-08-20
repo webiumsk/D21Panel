@@ -131,7 +131,7 @@ class StoreTest extends TestCase
         $response->assertJsonValidationErrors(['timezone']);
     }
 
-    public function test_store_creation_creates_wallet_connection_if_provided(): void
+    public function test_store_creation_rejects_custodial_blink_without_fallback_address(): void
     {
         $user = User::factory()->create([
             'btcpay_api_key' => 'test-merchant-key-for-connect',
@@ -145,10 +145,36 @@ class StoreTest extends TestCase
             'connection_string' => 'type=blink;server=https://api.blink.sv/graphql;api-key=blink_test123;wallet-id=wallet456',
         ]);
 
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['fallback_lightning_address']);
+
+        $this->assertDatabaseMissing('stores', [
+            'user_id' => $user->id,
+            'name' => 'My Test Store',
+        ]);
+    }
+
+    public function test_store_creation_creates_wallet_connection_with_required_fallback(): void
+    {
+        $user = User::factory()->create([
+            'btcpay_api_key' => 'test-merchant-key-for-connect',
+        ]);
+
+        $response = $this->actingAs($user)->postJson('/api/stores', [
+            'name' => 'My Test Store',
+            'default_currency' => 'EUR',
+            'timezone' => 'Europe/Vienna',
+            'wallet_type' => 'blink',
+            'connection_string' => 'type=blink;server=https://api.blink.sv/graphql;api-key=blink_test123;wallet-id=wallet456',
+            'fallback_lightning_address' => 'fallback@example.com',
+        ]);
+
         $response->assertStatus(201);
 
         $store = Store::where('user_id', $user->id)->first();
         $this->assertNotNull($store);
+        $this->assertTrue((bool) $store->cashu_fallback_enabled);
+        $this->assertSame('fallback@example.com', $store->cashu_fallback_address);
 
         $connection = WalletConnection::where('store_id', $store->id)->first();
         if ($connection !== null) {

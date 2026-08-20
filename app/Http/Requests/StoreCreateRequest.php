@@ -60,35 +60,50 @@ class StoreCreateRequest extends FormRequest
             if ($this->filled('connection_string') && in_array($this->wallet_type, ['blink', 'aqua_boltz', 'blitz', 'flash', 'lnaddress'], true)) {
                 $connectionString = $this->connection_string;
                 $walletType = $this->wallet_type;
+                $connectionType = $walletType === 'aqua_boltz' ? 'aqua_descriptor' : $walletType;
 
                 $connectionValidator = app(WalletConnectionValidator::class);
 
                 if ($walletType === 'blink') {
                     // Validate Blink connection string format
-                    $validation = $connectionValidator->validate('blink', $connectionString);
+                    $validation = $connectionValidator->validate($connectionType, $connectionString);
                     if (! $validation['valid']) {
                         $errors = $validation['errors'] ?? ['Invalid Blink connection string format. Expected: type=blink;server=https://...;api-key=...;wallet-id=...'];
                         foreach ($errors as $error) {
                             $validator->errors()->add('connection_string', $error);
                         }
+
+                        return;
                     }
                 } elseif ($walletType === 'aqua_boltz') {
                     // Validate Aqua descriptor format
-                    $validation = $connectionValidator->validate('aqua_descriptor', $connectionString);
+                    $validation = $connectionValidator->validate($connectionType, $connectionString);
                     if (! $validation['valid']) {
                         $errors = $validation['errors'] ?? ['Invalid descriptor format. Must be a valid Aqua wallet output descriptor (e.g., wpkh(), tr(), wsh(), or complex formats like ct(slip77(...),elsh(wpkh(...)))) and must not contain private keys.'];
                         foreach ($errors as $error) {
                             $validator->errors()->add('connection_string', $error);
                         }
+
+                        return;
                     }
                 } else {
                     // blitz, flash or lnaddress - the in_array gate above leaves no other values.
-                    $validation = $connectionValidator->validate($walletType, $connectionString);
+                    $validation = $connectionValidator->validate($connectionType, $connectionString);
                     if (! $validation['valid']) {
                         foreach ($validation['errors'] as $error) {
                             $validator->errors()->add('connection_string', $error);
                         }
+
+                        return;
                     }
+                }
+
+                $fallback = trim((string) $this->input('fallback_lightning_address', ''));
+                if ($fallback === '' && $connectionValidator->deriveLightningAddressFromSecret($connectionType, $connectionString) === null) {
+                    $validator->errors()->add(
+                        'fallback_lightning_address',
+                        'A Lightning address is required as the CashuMelt fallback for this connection type.'
+                    );
                 }
             }
         });
