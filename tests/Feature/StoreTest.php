@@ -150,6 +150,8 @@ class StoreTest extends TestCase
 
         $store = Store::where('user_id', $user->id)->first();
         $this->assertNotNull($store);
+        $this->assertTrue((bool) $store->cashu_fallback_enabled);
+        $this->assertSame('fallback@example.com', $store->cashu_fallback_address);
 
         $connection = WalletConnection::where('store_id', $store->id)->first();
         if ($connection !== null) {
