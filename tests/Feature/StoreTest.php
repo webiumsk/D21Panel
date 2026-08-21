@@ -143,6 +143,7 @@ class StoreTest extends TestCase
             'timezone' => 'Europe/Vienna',
             'wallet_type' => 'blink',
             'connection_string' => 'type=blink;server=https://api.blink.sv/graphql;api-key=blink_test123;wallet-id=wallet456',
+            'fallback_lightning_address' => 'fallback@example.com',
         ]);
 
         $response->assertStatus(201);
@@ -155,6 +156,29 @@ class StoreTest extends TestCase
             $this->assertEquals('blink', $connection->type);
             $this->assertContains($connection->status, ['pending', 'needs_support', 'connected']);
         }
+    }
+
+    public function test_store_creation_requires_fallback_when_wallet_secret_cannot_provide_one(): void
+    {
+        $user = User::factory()->create([
+            'btcpay_api_key' => 'test-merchant-key-for-connect',
+        ]);
+
+        $response = $this->actingAs($user)->postJson('/api/stores', [
+            'name' => 'My Test Store',
+            'default_currency' => 'EUR',
+            'timezone' => 'Europe/Vienna',
+            'wallet_type' => 'blink',
+            'connection_string' => 'type=blink;server=https://api.blink.sv/graphql;api-key=blink_test123;wallet-id=wallet456',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['fallback_lightning_address']);
+
+        $this->assertDatabaseMissing('stores', [
+            'user_id' => $user->id,
+            'name' => 'My Test Store',
+        ]);
     }
 
     public function test_user_can_view_own_stores(): void
