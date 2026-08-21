@@ -63,6 +63,8 @@ class StoreCreateRequest extends FormRequest
 
                 $connectionValidator = app(WalletConnectionValidator::class);
 
+                $connectionType = $walletType === 'aqua_boltz' ? 'aqua_descriptor' : $walletType;
+
                 if ($walletType === 'blink') {
                     // Validate Blink connection string format
                     $validation = $connectionValidator->validate('blink', $connectionString);
@@ -89,6 +91,18 @@ class StoreCreateRequest extends FormRequest
                             $validator->errors()->add('connection_string', $error);
                         }
                     }
+                }
+
+                $fallback = trim((string) $this->input('fallback_lightning_address', ''));
+                if (
+                    ($validation['valid'] ?? false)
+                    && $fallback === ''
+                    && $connectionValidator->deriveLightningAddressFromSecret($connectionType, $connectionString) === null
+                ) {
+                    $validator->errors()->add(
+                        'fallback_lightning_address',
+                        'A Lightning address is required as the CashuMelt fallback for this connection type.'
+                    );
                 }
             }
         });
