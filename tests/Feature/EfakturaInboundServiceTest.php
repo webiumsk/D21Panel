@@ -152,6 +152,79 @@ XML;
     }
 
     #[Test]
+    public function poll_company_imports_for_non_payer_sk_company(): void
+    {
+        // Receiving is mandatory for every SK taxable entity, not only full
+        // VAT payers - a non-payer with inbound enabled gets its expenses too.
+        config([
+            'efaktura.enabled' => true,
+            'efaktura.allowed_sapi_hosts' => ['sapi.test'],
+        ]);
+
+        $ubl = $this->sampleInboundUbl();
+
+        Http::fake(function ($request) use ($ubl) {
+            $url = $request->url();
+
+            if (str_contains($url, '/sapi/v1/auth/token')) {
+                return Http::response(['access_token' => 'token-abc', 'expires_in' => 900]);
+            }
+
+            if ($request->method() === 'GET' && str_contains($url, '/sapi/v1/document/receive/inbound-77') && ! str_contains($url, '/acknowledge')) {
+                return Http::response([
+                    'providerDocumentId' => 'inbound-77',
+                    'payload' => $ubl,
+                ]);
+            }
+
+            if ($request->method() === 'GET' && (str_ends_with($url, '/sapi/v1/document/receive') || str_contains($url, '/document/receive?'))) {
+                return Http::response(['documents' => [['providerDocumentId' => 'inbound-77']]]);
+            }
+
+            if (str_contains($url, '/acknowledge')) {
+                return Http::response(['status' => 'ACKNOWLEDGED']);
+            }
+
+            return Http::response([], 404);
+        });
+
+        $company = $this->inboundCompany();
+        $company->forceFill(['vat_status' => 'none', 'vat_payer' => false])->save();
+
+        $stats = app(EfakturaInboundService::class)->pollCompany($company->fresh());
+
+        $this->assertSame(1, $stats['imported']);
+        $this->assertDatabaseHas('business_expenses', [
+            'company_id' => $company->id,
+            'external_number' => 'IN-7788',
+        ]);
+
+        // pollAll walks the same gate - the non-payer must not be skipped.
+        $this->assertDatabaseCount('efaktura_inbound_receipts', 1);
+    }
+
+    #[Test]
+    public function poll_all_skips_non_slovak_companies_but_not_non_payers(): void
+    {
+        config(['efaktura.enabled' => true, 'efaktura.allowed_sapi_hosts' => ['sapi.test']]);
+        Http::fake(function ($request) {
+            if (str_contains($request->url(), '/sapi/v1/auth/token')) {
+                return Http::response(['access_token' => 'token-abc', 'expires_in' => 900]);
+            }
+
+            return Http::response(['documents' => []]);
+        });
+
+        $nonPayer = $this->inboundCompany();
+        $nonPayer->forceFill(['vat_status' => 'none', 'vat_payer' => false])->save();
+
+        app(EfakturaInboundService::class)->pollAll();
+
+        $nonPayer->refresh();
+        $this->assertNotNull($nonPayer->app_settings['efaktura_inbound_last_poll_at'] ?? null);
+    }
+
+    #[Test]
     public function poll_company_retries_acknowledge_after_transient_failure(): void
     {
         config([

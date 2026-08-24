@@ -53,7 +53,7 @@ class EfakturaDoctorCommandTest extends TestCase
         ]);
 
         $this->artisan('efaktura:doctor')
-            ->expectsOutputToContain('eligible: yes')
+            ->expectsOutputToContain('eligible (outbound): yes')
             ->expectsOutputToContain('base URL: https://sapi.test (host allowed)')
             ->expectsOutputToContain('participant ID: 0245:2023980035 (derived from DIČ/IČO)')
             ->expectsOutputToContain('configured: yes')
@@ -113,8 +113,12 @@ class EfakturaDoctorCommandTest extends TestCase
         $nonPayer = $this->skCompany();
         $nonPayer->forceFill(['vat_status' => 'none', 'vat_payer' => false])->save();
 
+        // Non-payers cannot issue but must receive - the doctor keeps printing
+        // their inbound readout instead of skipping them.
         $this->artisan('efaktura:doctor')
             ->expectsOutputToContain('eligible (outbound): no - only eu_sk full VAT payers issue e-invoices')
+            ->expectsOutputToContain('eligible (inbound): yes - every SK company must be able to receive')
+            ->expectsOutputToContain('efaktura_enabled (company):')
             ->assertSuccessful();
     }
 }

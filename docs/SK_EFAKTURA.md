@@ -4,9 +4,9 @@ Od **1. januára 2027** platí pre tuzemské B2B transakcie na Slovensku povinn�
 
 Satflux **nie je** digitálny poštár. Modul Business Invoicing generuje Peppol BIS Billing 3.0 UBL a voliteľne odosiela dokumenty cez **SAPI-SK** API, ak si merchant nastaví vlastné credentials u svojho CPDS.
 
-Modul e-faktúry sa zobrazuje a používa len pre slovenské firmy so stavom DPH **Platiteľ DPH** (`vat_status = payer`). Neplatitelia a čiastoční platitelia (§7 / §7a) ho v UI nevidia a API ho odmietne.
+Modul e-faktúry je dostupný len slovenským firmám (`jurisdiction = eu_sk`). **Odosielanie** (send, auto-send, Peppol sender ID) je vyhradené firmám so stavom DPH **Platiteľ DPH** (`vat_status = payer`); neplatitelia a čiastoční platitelia (§7 / §7a) vidia záložku aj sprievodcu v režime **iba príjem** - bez auto-send a bez Peppol sender nastavení, outbound API volania pre nich vracajú 422.
 
-Rozsah povinností zákona sa pritom líši: **vystavovať** e-faktúry musia od 1.1.2027 len platitelia DPH, ale **prijímať** ich musia všetky zdaniteľné osoby, ktorým platiteľ fakturuje. Inbound (prijímanie) v Satflux je zatiaľ tiež obmedzený na platiteľov (rovnaká eligibilita v `pollAll`/`pollCompany`) - rozšírenie prijímania na neplatiteľov je vedomý otvorený bod pred fázou 2 zákona (1.7.2030).
+Rozsah povinností zákona sa pritom líši: **vystavovať** e-faktúry musia od 1.1.2027 len platitelia DPH, ale **prijímať** ich musia všetky zdaniteľné osoby, ktorým platiteľ fakturuje. Satflux to zrkadlí rozdelením eligibility (`CompanyEfakturaEligibility::supportsOutbound` vs `supportsInbound`): odosielanie a auto-send sú len pre platiteľov, **prijímanie (inbound) je otvorené každej slovenskej firme** bez ohľadu na stav DPH. Neplatiteľ a čiastočný platiteľ (§7 / §7a) vidí záložku E-faktúra v režime „iba príjem" - bez auto-send a bez Peppol sender nastavení; server odmietne `efaktura_auto_send=true` pre takúto firmu (422).
 
 ## Kto čo rieši
 
@@ -35,7 +35,7 @@ Rozsah povinností zákona sa pritom líši: **vystavovať** e-faktúry musia od
 
 ## Nastavenie (merchant) - sprievodca
 
-Záložka **E-faktúra** v nastaveniach firmy (`eu_sk`, platiteľ DPH) je 3-krokový sprievodca:
+Záložka **E-faktúra** v nastaveniach firmy (`eu_sk`; platitelia DPH vidia plný sprievodcu, neplatitelia a §7 / §7a variant „iba príjem" bez kroku auto-send a bez Peppol sender ID) je 3-krokový sprievodca:
 
 1. **Vyberte digitálneho poštára** - dropdown s presetmi (spravuje admin) alebo "Iný (zadať URL)". Výber na [portáli Finančnej správy](https://www.financnasprava.sk) ostáva na merchantovi.
 2. **Prepojte svoj účet** - `client_id` + `client_secret` od poštára a tlačidlo **Otestovať pripojenie** (jednorazový OAuth pokus, úspech sa uloží ako `efaktura_connection_tested_at`).

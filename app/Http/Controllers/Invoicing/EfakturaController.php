@@ -53,7 +53,7 @@ class EfakturaController extends Controller
 
     public function pollInbound(Company $company, EfakturaInboundService $inboundService): JsonResponse
     {
-        $this->assertEfakturaConfigured($company);
+        $this->assertEfakturaConfigured($company, inbound: true);
 
         if (! CompanyEfakturaSettings::fromCompany($company)->inboundEnabled()) {
             throw ValidationException::withMessages([
@@ -134,9 +134,11 @@ class EfakturaController extends Controller
             ]);
         }
 
-        if (! app(CompanyEfakturaEligibility::class)->supportsCompany($company)) {
+        // Receiving applies to every SK company, so the credential test is
+        // open to non-payers too (they configure inbound-only).
+        if (! app(CompanyEfakturaEligibility::class)->supportsAny($company)) {
             throw ValidationException::withMessages([
-                'efaktura' => ['E-faktura is available only for Slovak companies registered as full VAT payers.'],
+                'efaktura' => ['E-faktura is available only for Slovak companies.'],
             ]);
         }
 
@@ -175,7 +177,12 @@ class EfakturaController extends Controller
         }
     }
 
-    protected function assertEfakturaConfigured(Company $company): void
+    /**
+     * Outbound actions (send / refresh) stay limited to full VAT payers;
+     * inbound polling is open to every Slovak company (statutory receiving
+     * obligation covers non-payers as well).
+     */
+    protected function assertEfakturaConfigured(Company $company, bool $inbound = false): void
     {
         if (! config('efaktura.enabled')) {
             throw ValidationException::withMessages([
@@ -183,9 +190,15 @@ class EfakturaController extends Controller
             ]);
         }
 
-        if (! app(CompanyEfakturaEligibility::class)->supportsCompany($company)) {
+        $eligibility = app(CompanyEfakturaEligibility::class);
+        $eligible = $inbound
+            ? $eligibility->supportsInbound($company)
+            : $eligibility->supportsOutbound($company);
+        if (! $eligible) {
             throw ValidationException::withMessages([
-                'efaktura' => ['E-faktura is available only for Slovak companies registered as full VAT payers.'],
+                'efaktura' => [$inbound
+                    ? 'Receiving e-faktura is available only for Slovak companies.'
+                    : 'E-faktura is available only for Slovak companies registered as full VAT payers.'],
             ]);
         }
 

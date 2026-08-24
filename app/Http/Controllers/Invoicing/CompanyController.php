@@ -133,9 +133,16 @@ class CompanyController extends Controller
         $incoming = $this->normalizeWriteOnlySettings($request->validatedSettings());
         $eligibility = app(CompanyEfakturaEligibility::class);
         if ($this->hasMeaningfulEfakturaSettings($incoming)) {
-            if (! $eligibility->supportsCompany($company)) {
+            if (! $eligibility->supportsAny($company)) {
                 throw ValidationException::withMessages([
-                    'efaktura' => ['E-faktura settings are available only for full VAT payers.'],
+                    'efaktura' => ['E-faktura settings are available only for Slovak companies.'],
+                ]);
+            }
+            // Non-payers may only receive: issuing (auto-send) is reserved
+            // for full VAT payers by statute.
+            if (($incoming['efaktura_auto_send'] ?? false) === true && ! $eligibility->supportsOutbound($company)) {
+                throw ValidationException::withMessages([
+                    'efaktura_auto_send' => ['Automatic sending is available only for full VAT payers - this company can only receive e-invoices.'],
                 ]);
             }
         }

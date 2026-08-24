@@ -41,7 +41,7 @@ class EfakturaInboundService
             ->orderBy('id')
             ->chunkById(50, function ($companies) use (&$stats, $eligibility) {
                 foreach ($companies as $company) {
-                    if (! $eligibility->supportsCompany($company)) {
+                    if (! $eligibility->supportsInbound($company)) {
                         continue;
                     }
                     $companyStats = $this->pollCompany($company);
@@ -60,7 +60,7 @@ class EfakturaInboundService
     public function pollCompany(Company $company): array
     {
         $stats = ['imported' => 0, 'acknowledged' => 0, 'skipped' => 0, 'failed' => 0];
-        if (! app(CompanyEfakturaEligibility::class)->supportsCompany($company)) {
+        if (! app(CompanyEfakturaEligibility::class)->supportsInbound($company)) {
             return $stats;
         }
 
