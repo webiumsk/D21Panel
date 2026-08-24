@@ -82,17 +82,17 @@ class EfakturaDoctorCommand extends Command
             $this->line('');
             $this->info(sprintf('%s (%s)', $company->legal_name ?: $company->trade_name ?: '?', $company->id));
 
-            if (! $eligibility->supportsCompany($company)) {
-                $this->line('  eligible (outbound): no - only eu_sk full VAT payers issue e-invoices');
-                // The statutory RECEIVING obligation covers all SK taxable
-                // entities from 2027; the module's inbound is currently also
-                // limited to full payers (pollAll/pollCompany gate on the
-                // same eligibility) - documented in docs/SK_EFAKTURA.md.
-                $this->line('  note: receiving readiness is not tracked for non-payers (module limitation)');
-
+            // Issuing is a full-payer obligation; receiving covers every SK
+            // taxable entity, so non-payers still get the config readout.
+            $this->line('  eligible (outbound): '.($eligibility->supportsOutbound($company)
+                ? 'yes'
+                : 'no - only eu_sk full VAT payers issue e-invoices'));
+            $this->line('  eligible (inbound): '.($eligibility->supportsInbound($company)
+                ? 'yes - every SK company must be able to receive'
+                : 'no - not a Slovak company'));
+            if (! $eligibility->supportsAny($company)) {
                 continue;
             }
-            $this->line('  eligible: yes');
 
             $settings = CompanyEfakturaSettings::fromCompany($company);
             $this->line('  efaktura_enabled (company): '.($settings->enabled() ? 'yes' : 'no'));

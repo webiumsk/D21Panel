@@ -130,6 +130,48 @@ describe('EfakturaReadinessCard', () => {
     expect(wrapper.text()).toContain('"count":2');
   });
 
+  it('shows the inbound-only checklist for SK non-payers when the module is on', async () => {
+    const wrapper = mountCard({
+      ...skPayerCompany({ efaktura_enabled: true, efaktura_sapi_base_url: 'https://sapi.test' }),
+      vat_payer: false,
+      vat_status: 'none',
+    });
+    await flushPromises();
+
+    const text = wrapper.text();
+    expect(text).toContain('efaktura_readiness_inbound_title');
+    expect(text).toContain('efaktura_readiness_inbound_enabled');
+    // Receiving does not depend on buyer IDs nor on auto-send.
+    expect(text).not.toContain('efaktura_readiness_contacts');
+    expect(text).not.toContain('efaktura_readiness_auto_send');
+  });
+
+  it('stays hidden for non-payers while the module is globally off', async () => {
+    state.featureEnabled = false;
+    const wrapper = mountCard({ ...skPayerCompany(), vat_payer: false, vat_status: 'none' });
+    await flushPromises();
+
+    expect(wrapper.text()).toBe('');
+  });
+
+  it('hides the inbound-only checklist once receiving is fully set up', async () => {
+    const wrapper = mountCard({
+      ...skPayerCompany({
+        efaktura_enabled: true,
+        efaktura_sapi_base_url: 'https://sapi.test',
+        efaktura_sapi_client_id: 'client',
+        efaktura_sapi_client_secret_set: true,
+        efaktura_connection_tested_at: '2026-07-23T10:00:00Z',
+        efaktura_inbound_enabled: true,
+      }),
+      vat_payer: false,
+      vat_status: 'none',
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toBe('');
+  });
+
   it('snoozes via localStorage', async () => {
     const wrapper = mountCard(skPayerCompany());
     await flushPromises();

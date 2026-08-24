@@ -6,7 +6,7 @@ Satflux **nie je** digitálny poštár. Modul Business Invoicing generuje Peppol
 
 Modul e-faktúry sa zobrazuje a používa len pre slovenské firmy so stavom DPH **Platiteľ DPH** (`vat_status = payer`). Neplatitelia a čiastoční platitelia (§7 / §7a) ho v UI nevidia a API ho odmietne.
 
-Rozsah povinností zákona sa pritom líši: **vystavovať** e-faktúry musia od 1.1.2027 len platitelia DPH, ale **prijímať** ich musia všetky zdaniteľné osoby, ktorým platiteľ fakturuje. Inbound (prijímanie) v Satflux je zatiaľ tiež obmedzený na platiteľov (rovnaká eligibilita v `pollAll`/`pollCompany`) - rozšírenie prijímania na neplatiteľov je vedomý otvorený bod pred fázou 2 zákona (1.7.2030).
+Rozsah povinností zákona sa pritom líši: **vystavovať** e-faktúry musia od 1.1.2027 len platitelia DPH, ale **prijímať** ich musia všetky zdaniteľné osoby, ktorým platiteľ fakturuje. Satflux to zrkadlí rozdelením eligibility (`CompanyEfakturaEligibility::supportsOutbound` vs `supportsInbound`): odosielanie a auto-send sú len pre platiteľov, **prijímanie (inbound) je otvorené každej slovenskej firme** bez ohľadu na stav DPH. Neplatiteľ a čiastočný platiteľ (§7 / §7a) vidí záložku E-faktúra v režime „iba príjem" - bez auto-send a bez Peppol sender nastavení; server odmietne `efaktura_auto_send=true` pre takúto firmu (422).
 
 ## Kto čo rieši
 

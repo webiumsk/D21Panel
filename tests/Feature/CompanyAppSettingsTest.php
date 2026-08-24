@@ -171,6 +171,59 @@ class CompanyAppSettingsTest extends TestCase
     }
 
     #[Test]
+    public function non_payer_sk_company_can_enable_inbound_only_efaktura(): void
+    {
+        // The statutory receiving obligation covers every SK taxable entity,
+        // so a non-payer may store CPDS credentials and switch inbound on.
+        $this->actingAs($this->proUser)
+            ->patchJson("/api/invoicing/companies/{$this->company->id}/app-settings", [
+                'efaktura_enabled' => true,
+                'efaktura_auto_send' => false,
+                'efaktura_inbound_enabled' => true,
+                'efaktura_sapi_base_url' => 'https://sapi.test',
+                'efaktura_sapi_client_id' => 'client-test',
+                'efaktura_sapi_client_secret' => 'secret-test',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.app_settings.efaktura_inbound_enabled', true)
+            ->assertJsonPath('data.app_settings.efaktura_sapi_client_secret_set', true);
+    }
+
+    #[Test]
+    public function non_payer_sk_company_cannot_enable_auto_send(): void
+    {
+        $this->actingAs($this->proUser)
+            ->patchJson("/api/invoicing/companies/{$this->company->id}/app-settings", [
+                'efaktura_enabled' => true,
+                'efaktura_auto_send' => true,
+                'efaktura_inbound_enabled' => true,
+                'efaktura_sapi_base_url' => 'https://sapi.test',
+                'efaktura_sapi_client_id' => 'client-test',
+                'efaktura_sapi_client_secret' => 'secret-test',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['efaktura_auto_send']);
+
+        $this->company->refresh();
+        $this->assertNull($this->company->app_settings['efaktura_sapi_client_id'] ?? null);
+    }
+
+    #[Test]
+    public function non_slovak_company_cannot_store_efaktura_settings(): void
+    {
+        $this->company->forceFill(['jurisdiction' => CompanyJurisdiction::EuCz])->save();
+
+        $this->actingAs($this->proUser)
+            ->patchJson("/api/invoicing/companies/{$this->company->id}/app-settings", [
+                'efaktura_enabled' => true,
+                'efaktura_inbound_enabled' => true,
+                'efaktura_sapi_base_url' => 'https://sapi.test',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['efaktura']);
+    }
+
+    #[Test]
     public function pay_by_square_respects_company_setting(): void
     {
         $this->company->update([

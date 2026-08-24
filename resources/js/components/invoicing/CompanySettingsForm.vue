@@ -327,6 +327,7 @@
       v-show="activeTab === 'efaktura'"
       :company-id="companyId"
       :company="company"
+      :mode="efakturaMode ?? 'full'"
       @updated="(c) => emit('updated', c)"
     />
 
@@ -470,7 +471,7 @@ import { defaultRegistryForJurisdiction } from '../../config/registryCountries';
 import { jurisdictionRules, standardVatRate } from '../../config/jurisdictionRules';
 import { localeTagFor } from '../../i18n';
 import { useEfakturaFeature } from '../../composables/useEfakturaFeature';
-import { isCompanyEfakturaEligible } from '../../composables/useCompanyEfakturaSettings';
+import { efakturaCompanyMode } from '../../composables/useCompanyEfakturaSettings';
 import {
   useCompanyRegistryLookup,
   type CompanyRegistryFormState,
@@ -676,9 +677,10 @@ const eInvoicingInfo = computed(() => {
   return `${t('invoicing.einvoicing_intro', { network })} ${parts.join('; ')}.`;
 });
 const { enabled: efakturaGloballyEnabled, load: loadEfakturaFeature } = useEfakturaFeature();
-const showEfakturaTab = computed(() =>
-  isCompanyEfakturaEligible(props.company, efakturaGloballyEnabled.value)
-);
+// Non-payers get the tab too (receiving is mandatory for every SK company);
+// the form itself hides the issuing options in 'inbound_only' mode.
+const efakturaMode = computed(() => efakturaCompanyMode(props.company, efakturaGloballyEnabled.value));
+const showEfakturaTab = computed(() => efakturaMode.value !== null);
 const countryOptions = computed(() => countriesForJurisdiction(contactForm.jurisdiction));
 
 // One watcher covers both the ?tab=efaktura deep-link (readiness checklist)

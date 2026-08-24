@@ -7,13 +7,19 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="text-sm text-indigo-900">
         <p class="font-medium">
-          {{ t('invoicing.efaktura_readiness_title', { date: mandatoryFromDisplay }) }}
+          {{
+            inboundOnly
+              ? t('invoicing.efaktura_readiness_inbound_title', { date: mandatoryFromDisplay })
+              : t('invoicing.efaktura_readiness_title', { date: mandatoryFromDisplay })
+          }}
         </p>
         <p class="text-indigo-800 text-xs mt-0.5">
           {{
-            featureEnabled
-              ? t('invoicing.efaktura_readiness_intro')
-              : t('invoicing.efaktura_readiness_teaser')
+            inboundOnly
+              ? t('invoicing.efaktura_readiness_inbound_intro')
+              : featureEnabled
+                ? t('invoicing.efaktura_readiness_intro')
+                : t('invoicing.efaktura_readiness_teaser')
           }}
         </p>
       </div>
@@ -41,7 +47,8 @@
         </li>
       </template>
 
-      <li class="flex items-center gap-2">
+      <!-- Buyer Peppol IDs only matter when the company issues e-invoices. -->
+      <li v-if="!inboundOnly" class="flex items-center gap-2">
         <span :class="stepIconClass(contactsReady)">{{ contactsReady ? '✓' : '○' }}</span>
         <RouterLink
           v-if="!contactsReady"
@@ -60,9 +67,9 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
+  efakturaCompanyMode,
   efakturaSecretIsSet,
   efakturaSettingsFromCompany,
-  isCompanyEfakturaEligible,
 } from '../../composables/useCompanyEfakturaSettings';
 import { useEfakturaFeature } from '../../composables/useEfakturaFeature';
 import { isInvoicingLocalFirst } from '../../evolu/flags';
@@ -70,10 +77,13 @@ import { invoicingApi } from '../../services/api';
 import { resolvePeppolEndpoint } from '../../utils/peppolEndpoint';
 
 /**
- * "Get ready for 2027" checklist for SK full VAT payers - shown on the
- * invoices list and company settings until every step is done. Renders in a
- * reduced "prepare your contacts" state while the module is globally off
- * (statutory deadline is public via /api/config). Snoozable for 14 days.
+ * "Get ready for 2027" checklist for SK companies - shown on the invoices
+ * list and company settings until every step is done. Full VAT payers get
+ * the issuing checklist (plus a reduced "prepare your contacts" teaser while
+ * the module is globally off - the statutory deadline is public via
+ * /api/config). Non-payers only have to RECEIVE, so they get a shorter
+ * inbound-only checklist and nothing while the module is off. Snoozable
+ * for 14 days.
  */
 const props = defineProps<{
   companyId: string;
@@ -95,7 +105,9 @@ const contactsLoaded = ref(false);
 const fetchedCompany = ref<Record<string, unknown> | null>(null);
 const effectiveCompany = computed(() => props.company ?? fetchedCompany.value);
 
-const eligible = computed(() => isCompanyEfakturaEligible(effectiveCompany.value, true));
+const mode = computed(() => efakturaCompanyMode(effectiveCompany.value, true));
+const eligible = computed(() => mode.value !== null);
+const inboundOnly = computed(() => mode.value === 'inbound_only');
 
 const settings = computed(() => efakturaSettingsFromCompany(effectiveCompany.value));
 const secretSet = computed(() => efakturaSecretIsSet(effectiveCompany.value));
@@ -113,17 +125,26 @@ const setupSteps = computed(() => [
     key: 'tested',
     done: settings.value.efaktura_connection_tested_at !== null,
   },
-  {
-    key: 'auto_send',
-    done: settings.value.efaktura_auto_send,
-  },
+  inboundOnly.value
+    ? {
+        key: 'inbound_enabled',
+        done: settings.value.efaktura_inbound_enabled,
+      }
+    : {
+        key: 'auto_send',
+        done: settings.value.efaktura_auto_send,
+      },
 ]);
 
 const contactsReady = computed(() => contactsLoaded.value && contactsMissingIds.value === 0);
 
 // auto_send is a recommendation - a merchant who deliberately keeps manual
 // sending should not be nagged forever, so it does not block completeness.
+// For inbound-only companies receiving IS the point, so every step counts.
 const complete = computed(() => {
+  if (inboundOnly.value) {
+    return setupSteps.value.every((step) => step.done);
+  }
   const required = setupSteps.value.filter((step) => step.key !== 'auto_send');
   return required.every((step) => step.done) && contactsReady.value;
 });
@@ -131,6 +152,10 @@ const complete = computed(() => {
 const visible = computed(() => {
   if (!eligible.value || snoozed.value || !contactsLoaded.value) {
     return false;
+  }
+  if (inboundOnly.value) {
+    // Nothing a non-payer can do before the module is switched on.
+    return featureEnabled.value && !complete.value;
   }
   if (featureEnabled.value) {
     return !complete.value;
@@ -217,6 +242,12 @@ let loadGeneration = 0;
 
 async function loadContactsCoverage(): Promise<void> {
   const generation = loadGeneration;
+  if (inboundOnly.value) {
+    // Receiving does not depend on buyer IDs - skip the contact walk.
+    contactsMissingIds.value = 0;
+    contactsLoaded.value = true;
+    return;
+  }
   try {
     let missing = 0;
     if (localFirst) {

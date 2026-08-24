@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\BusinessDocumentStatus;
+use App\Enums\BusinessDocumentType;
 use App\Enums\CompanyJurisdiction;
+use App\Models\BusinessDocument;
 use App\Models\Company;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -135,11 +138,52 @@ class EfakturaTestConnectionTest extends TestCase
             ->assertStatus(422);
 
         config(['efaktura.enabled' => true]);
-        $company->forceFill(['vat_status' => 'none', 'vat_payer' => false])->save();
+        $company->forceFill(['jurisdiction' => CompanyJurisdiction::EuCz, 'country' => 'CZ'])->save();
 
         $this->actingAs($user)
             ->postJson("/api/invoicing/companies/{$company->id}/efaktura/test-connection", [])
             ->assertStatus(422);
+    }
+
+    #[Test]
+    public function non_payer_sk_company_can_test_connection_for_inbound_only(): void
+    {
+        config(['efaktura.enabled' => true, 'efaktura.allowed_sapi_hosts' => ['sapi.test']]);
+        Http::fake([
+            'https://sapi.test/sapi/v1/auth/token' => Http::response(['access_token' => 'tok', 'expires_in' => 3600]),
+        ]);
+
+        [$user, $company] = $this->skUserWithCompany(['vat_status' => 'none', 'vat_payer' => false]);
+
+        $this->actingAs($user)
+            ->postJson("/api/invoicing/companies/{$company->id}/efaktura/test-connection", [])
+            ->assertOk()
+            ->assertJsonPath('data.ok', true);
+    }
+
+    #[Test]
+    public function non_payer_sk_company_cannot_send_outbound(): void
+    {
+        config(['efaktura.enabled' => true, 'efaktura.allowed_sapi_hosts' => ['sapi.test']]);
+        Http::fake();
+
+        [$user, $company] = $this->skUserWithCompany(['vat_status' => 'none', 'vat_payer' => false]);
+        $document = BusinessDocument::create([
+            'company_id' => $company->id,
+            'type' => BusinessDocumentType::Invoice,
+            'status' => BusinessDocumentStatus::Issued,
+            'total' => 100,
+            'currency' => 'EUR',
+            'issue_date' => now(),
+            'lines' => [],
+        ]);
+
+        $this->actingAs($user)
+            ->postJson("/api/invoicing/companies/{$company->id}/documents/{$document->id}/efaktura/send")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['efaktura']);
+
+        Http::assertNothingSent();
     }
 
     #[Test]

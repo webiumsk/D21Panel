@@ -120,7 +120,27 @@ export function isSkDomesticContact(contact: Record<string, unknown> | null | un
   return country === 'SK' || country === 'SVK';
 }
 
+/**
+ * Outbound (issuing) eligibility - SK full VAT payers only. Mirrors the
+ * server CompanyEfakturaEligibility::supportsOutbound().
+ */
 export function isCompanyEfakturaEligible(
+  company: VatPolicyCompany | Record<string, unknown> | null,
+  globallyEnabled = true,
+): boolean {
+  if (!isCompanyEfakturaInboundEligible(company, globallyEnabled)) {
+    return false;
+  }
+
+  return isFullVatPayer(company as VatPolicyCompany);
+}
+
+/**
+ * Inbound (receiving) eligibility - every SK company regardless of VAT
+ * status: the statute obliges all taxable entities to receive e-invoices,
+ * only full payers must issue them. Mirrors supportsInbound() server-side.
+ */
+export function isCompanyEfakturaInboundEligible(
   company: VatPolicyCompany | Record<string, unknown> | null,
   globallyEnabled = true,
 ): boolean {
@@ -128,12 +148,23 @@ export function isCompanyEfakturaEligible(
     return false;
   }
 
-  const row = company as VatPolicyCompany;
-  if (row?.jurisdiction !== 'eu_sk') {
-    return false;
-  }
+  return (company as VatPolicyCompany | null)?.jurisdiction === 'eu_sk';
+}
 
-  return isFullVatPayer(row);
+export type EfakturaCompanyMode = 'full' | 'inbound_only';
+
+/** Which flavour of the e-faktura UI a company gets, or null when none. */
+export function efakturaCompanyMode(
+  company: VatPolicyCompany | Record<string, unknown> | null,
+  globallyEnabled = true,
+): EfakturaCompanyMode | null {
+  if (isCompanyEfakturaEligible(company, globallyEnabled)) {
+    return 'full';
+  }
+  if (isCompanyEfakturaInboundEligible(company, globallyEnabled)) {
+    return 'inbound_only';
+  }
+  return null;
 }
 
 export type EfakturaSendability =

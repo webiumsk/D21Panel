@@ -63,9 +63,9 @@ function skCompany(appSettings: Record<string, unknown> = {}): Record<string, un
   };
 }
 
-function mountForm(company: Record<string, unknown>) {
+function mountForm(company: Record<string, unknown>, mode: 'full' | 'inbound_only' = 'full') {
   return mount(EfakturaForm, {
-    props: { companyId: 'company-1', company },
+    props: { companyId: 'company-1', company, mode },
     global: { stubs: { 'i18n-t': true } },
   });
 }
@@ -183,5 +183,57 @@ describe('eFaktura settings wizard', () => {
       .find((l) => l.text().includes('efaktura_auto_send'))
       ?.find('input');
     expect((autoSend?.element as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('inbound-only mode hides issuing options and preselects receiving instead', async () => {
+    const wrapper = mountForm({ ...skCompany(), app_settings: { efaktura_enabled: false } }, 'inbound_only');
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="efaktura-inbound-only-notice"]').exists()).toBe(true);
+
+    await wrapper.find('input[type="checkbox"]').setValue(true);
+    await nextTick();
+
+    const labels = wrapper.findAll('label').map((l) => l.text());
+    expect(labels.some((text) => text.includes('efaktura_auto_send'))).toBe(false);
+    expect(wrapper.find('#efaktura-peppol-id').exists()).toBe(false);
+
+    const inbound = wrapper
+      .findAll('label')
+      .find((l) => l.text().includes('efaktura_inbound_enabled'))
+      ?.find('input');
+    expect((inbound?.element as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('inbound-only mode never sends auto-send or a sender Peppol ID to the server', async () => {
+    const updateAppSettings = vi.fn(async (_id: string, payload: Record<string, unknown>) => ({
+      ...skCompany(),
+      app_settings: payload,
+    }));
+    const { invoicingApi } = await import('../services/api');
+    (invoicingApi.companies.updateAppSettings as unknown) = updateAppSettings;
+
+    const wrapper = mountForm(
+      {
+        ...skCompany(),
+        app_settings: {
+          efaktura_enabled: true,
+          efaktura_auto_send: true,
+          efaktura_peppol_participant_id: '0245:2023980035',
+          efaktura_sapi_base_url: 'https://sapi.test',
+          efaktura_sapi_client_id: 'client',
+        },
+      },
+      'inbound_only',
+    );
+    await nextTick();
+
+    await wrapper.find('form').trigger('submit.prevent');
+    await nextTick();
+
+    expect(updateAppSettings).toHaveBeenCalledTimes(1);
+    const payload = updateAppSettings.mock.calls[0][1];
+    expect(payload.efaktura_auto_send).toBe(false);
+    expect(payload.efaktura_peppol_participant_id).toBe('');
   });
 });

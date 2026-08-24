@@ -4,6 +4,13 @@
       <p>{{ t('invoicing.efaktura_intro') }}</p>
       <p class="text-xs text-gray-600">{{ t('invoicing.efaktura_cpds_note') }}</p>
     </div>
+    <p
+      v-if="inboundOnly"
+      data-testid="efaktura-inbound-only-notice"
+      class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
+    >
+      {{ t('invoicing.efaktura_inbound_only_notice') }}
+    </p>
 
     <label class="flex items-start gap-2 text-sm text-gray-800">
       <input
@@ -121,7 +128,8 @@
         </h3>
 
         <div class="space-y-2">
-          <label class="flex items-start gap-2 text-sm text-gray-700">
+          <!-- Issuing is a full-payer obligation - inbound-only companies never see auto-send. -->
+          <label v-if="!inboundOnly" class="flex items-start gap-2 text-sm text-gray-700">
             <input
               v-model="form.efaktura_auto_send"
               type="checkbox"
@@ -173,7 +181,7 @@
 
         <!-- Advanced: explicit Peppol ID override; the DIC/ICO derivation
              covers the normal case, so merchants never see the syntax. -->
-        <details class="pt-1">
+        <details v-if="!inboundOnly" class="pt-1">
           <summary class="text-xs text-gray-600 cursor-pointer select-none">
             {{ t('invoicing.efaktura_advanced') }}
           </summary>
@@ -209,7 +217,10 @@
 import { asApiError } from "../../utils/apiError";
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { EfakturaInboundPollStats } from '../../composables/useCompanyEfakturaSettings';
+import type {
+  EfakturaCompanyMode,
+  EfakturaInboundPollStats,
+} from '../../composables/useCompanyEfakturaSettings';
 import { asCompanyId } from '../../composables/useInvoicingCompany';
 import { useEfakturaFeature } from '../../composables/useEfakturaFeature';
 import { allCompaniesDetailQuery, useInvoicingEvolu } from '../../evolu/client';
@@ -226,10 +237,19 @@ import {
   type CompanyEfakturaSettingsState,
 } from '../../composables/useCompanyEfakturaSettings';
 
-const props = defineProps<{
-  companyId: string;
-  company: Record<string, any> | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    companyId: string;
+    company: Record<string, any> | null;
+    /**
+     * 'inbound_only' for SK non-payers: they must receive e-invoices but
+     * may not issue them, so auto-send and the Peppol sender ID are hidden
+     * and auto-send is forced off in the payload (server rejects it too).
+     */
+    mode?: EfakturaCompanyMode;
+  }>(),
+  { mode: 'full' },
+);
 
 const emit = defineEmits<{
   updated: [company: Record<string, any>];
@@ -253,6 +273,7 @@ const testMessage = ref('');
 const testFailed = ref(false);
 const selectedPresetId = ref('');
 const form = reactive<CompanyEfakturaSettingsState>(efakturaSettingsFromCompany(null));
+const inboundOnly = computed(() => props.mode === 'inbound_only');
 
 const step1Done = computed(() => form.efaktura_sapi_base_url.trim() !== '');
 const step2Done = computed(
@@ -291,11 +312,17 @@ watch(
 );
 
 // "The system takes care of the rest": a merchant switching the module on
-// for the first time gets auto-send preselected (still unticked at will).
+// for the first time gets auto-send preselected (still unticked at will);
+// an inbound-only company gets receiving preselected instead.
 watch(
   () => form.efaktura_enabled,
   (enabled, wasEnabled) => {
-    if (enabled && !wasEnabled && form.efaktura_sapi_base_url.trim() === '' && !form.efaktura_auto_send) {
+    if (!enabled || wasEnabled || form.efaktura_sapi_base_url.trim() !== '') {
+      return;
+    }
+    if (inboundOnly.value) {
+      form.efaktura_inbound_enabled = true;
+    } else if (!form.efaktura_auto_send) {
       form.efaktura_auto_send = true;
     }
   },
@@ -354,6 +381,10 @@ function applyInboundPollMeta(polledAt: string | null, stats: EfakturaInboundPol
 
 function buildPayload(): Partial<CompanyEfakturaSettingsState> {
   const payload: Partial<CompanyEfakturaSettingsState> = { ...form };
+  if (inboundOnly.value) {
+    payload.efaktura_auto_send = false;
+    payload.efaktura_peppol_participant_id = '';
+  }
   delete payload.efaktura_inbound_last_poll_at;
   delete payload.efaktura_inbound_last_poll_stats;
   // The server stamps the tested-at timestamp itself; Evolu keeps its own.
