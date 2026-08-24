@@ -3701,7 +3701,7 @@
     "accountant_export_preview_expenses": "Documentos recibidos (gastos)",
     "accountant_export_preview_attachments": "Adjuntos",
     "accountant_export_preview_skipped": "Se omitirán {count} adjunto(s) (tipo no compatible o más de 512 KB).",
-    "accountant_export_chunked": "Periodo grande - se descargarán {count} archivos ZIP, uno por mes.",
+    "accountant_export_chunked": "El periodo supera los límites de un paquete - se descargarán {count} archivos ZIP (divididos por fecha).",
     "accountant_export_howto_title": "Cómo lo usa su contable",
     "accountant_export_howto_pohoda": "Pohoda: importe pohoda/invoices.xml mediante Archivo › Comunicación de datos › Importación XML. Los documentos recibidos no llevan desglose de IVA (tipo \"none\") y los de moneda extranjera usan tipo de cambio 1 - ajústelo al importar.",
     "accountant_export_howto_kros": "KROS Omega / Alfa+: importe los archivos issued/*.isdoc. Otros programas: csv/*.csv.",

@@ -1029,7 +1029,7 @@
     "accountant_export_preview_expenses": "Received documents (expenses)",
     "accountant_export_preview_attachments": "Attachments",
     "accountant_export_preview_skipped": "{count} attachment(s) will be skipped (unsupported type or over 512 KB).",
-    "accountant_export_chunked": "Large period - {count} ZIP files will be downloaded, one per month.",
+    "accountant_export_chunked": "The period exceeds the limits of one package - {count} ZIP files will be downloaded (split by date).",
     "accountant_export_howto_title": "How your accountant uses it",
     "accountant_export_howto_pohoda": "Pohoda: import pohoda/invoices.xml via File › Data communication › XML import. Received documents carry no VAT breakdown (rate \"none\"), foreign-currency documents use rate 1 - adjust on import.",
     "accountant_export_howto_kros": "KROS Omega / Alfa+: import the issued/*.isdoc files. Other software: csv/*.csv.",

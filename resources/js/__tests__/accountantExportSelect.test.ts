@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
     attachmentDecodedBytes,
     buildExpensePayload,
-    chunkRangeByMonth,
     planAccountantExport,
     selectExpensesForExport,
     selectIssuedDocumentsForExport,
@@ -145,42 +144,56 @@ describe('accountant export selection', () => {
         expect(attachmentDecodedBytes('')).toBe(0);
     });
 
-    it('splits a range into calendar months keeping the edges', () => {
-        expect(chunkRangeByMonth({ from: '2026-01-15', to: '2026-03-10' })).toEqual([
-            { from: '2026-01-15', to: '2026-01-31' },
-            { from: '2026-02-01', to: '2026-02-28' },
-            { from: '2026-03-01', to: '2026-03-10' },
-        ]);
-        expect(chunkRangeByMonth({ from: '2026-03-01', to: '2026-03-31' })).toEqual([MARCH]);
-        expect(chunkRangeByMonth({ from: '2026-04-01', to: '2026-03-31' })).toEqual([]);
-    });
-
-    it('plans a single request when under the caps and per-month chunks above them', () => {
+    it('plans a single request when under the caps and record batches above them', () => {
         const documents = [doc({ id: 'a', issueDate: '2026-01-10' }), doc({ id: 'b', number: '2', issueDate: '2026-02-10' })];
         const expenses = [expense({ id: 'e1', issueDate: '2026-02-01' })];
         const attachments = [attachment({ id: 'a1', expenseId: 'e1' })];
         const range = { from: '2026-01-01', to: '2026-02-28' };
 
         const fits = planAccountantExport({ range, documents, expenses, attachments, companyId: COMPANY, includeAttachments: true });
-        expect(fits.ranges).toEqual([range]);
+        expect(fits.batches).toHaveLength(1);
+        expect(fits.batches[0]).toEqual({ range, documentIds: ['a', 'b'], expenseIds: ['e1'], attachmentBytes: 13 });
         expect(fits).toMatchObject({ documents: 2, expenses: 1, attachments: 1, attachmentBytes: 13, skippedAttachments: 0 });
 
-        const chunked = planAccountantExport({
-            range,
-            documents,
-            expenses,
-            attachments,
-            companyId: COMPANY,
-            includeAttachments: true,
-            maxRows: 1,
-        });
-        expect(chunked.ranges).toEqual([
-            { from: '2026-01-01', to: '2026-01-31' },
-            { from: '2026-02-01', to: '2026-02-28' },
+        const rows = planAccountantExport({ range, documents, expenses, attachments, companyId: COMPANY, includeAttachments: true, maxRows: 1 });
+        expect(rows.batches.map((b) => [b.range, b.documentIds, b.expenseIds])).toEqual([
+            [{ from: '2026-01-10', to: '2026-02-01' }, ['a'], ['e1']],
+            [{ from: '2026-02-10', to: '2026-02-10' }, ['b'], []],
         ]);
 
         const noAttachments = planAccountantExport({ range, documents, expenses, attachments, companyId: COMPANY, includeAttachments: false });
         expect(noAttachments.attachments).toBe(0);
         expect(noAttachments.attachmentBytes).toBe(0);
+    });
+
+    it('keeps every batch within the caps even when one day exceeds them', () => {
+        // Five documents and three expenses (13 B attachment each) on one day.
+        const documents = ['d1', 'd2', 'd3', 'd4', 'd5'].map((id, i) => doc({ id, number: String(i), issueDate: '2026-03-05' }));
+        const expenses = ['e1', 'e2', 'e3'].map((id) => expense({ id, internalNumber: id, issueDate: '2026-03-05' }));
+        const attachments = expenses.map((e) => attachment({ id: `att-${e.id}`, expenseId: e.id }));
+
+        const plan = planAccountantExport({
+            range: MARCH,
+            documents,
+            expenses,
+            attachments,
+            companyId: COMPANY,
+            includeAttachments: true,
+            maxRows: 2,
+            maxAttachmentBytes: 20,
+        });
+
+        for (const batch of plan.batches) {
+            expect(batch.documentIds.length).toBeLessThanOrEqual(2);
+            expect(batch.expenseIds.length).toBeLessThanOrEqual(2);
+            expect(batch.attachmentBytes).toBeLessThanOrEqual(20);
+        }
+        expect(plan.batches.flatMap((b) => b.documentIds)).toEqual(['d1', 'd2', 'd3', 'd4', 'd5']);
+        expect(plan.batches.flatMap((b) => b.expenseIds)).toEqual(['e1', 'e2', 'e3']);
+        // 5 docs at 2/batch need 3 batches; 3 expenses at 13 B each with a
+        // 20 B cap need one per batch - documents are consumed first, so the
+        // expenses overflow into further batches.
+        expect(plan.batches.length).toBeGreaterThanOrEqual(3);
+        expect(plan.batches.every((b) => b.range.from === '2026-03-05' && b.range.to === '2026-03-05')).toBe(true);
     });
 });

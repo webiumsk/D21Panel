@@ -15,8 +15,7 @@ import {
     buildExpensePayload,
     defaultAccountantExportOptions,
     planAccountantExport,
-    selectExpensesForExport,
-    selectIssuedDocumentsForExport,
+    type AccountantExportBatch,
     type AccountantExportOptions,
     type AccountantExportPlan,
     type ExportDateRange,
@@ -127,24 +126,24 @@ export function useAccountantExport(companyId: Ref<string>, companyName: Ref<str
         return `accountant-${slug(companyName.value ?? "company")}-${chunk.from}_${chunk.to}.zip`;
     }
 
-    async function downloadLocalChunk(chunk: ExportDateRange, signal?: AbortSignal): Promise<void> {
+    async function downloadLocalBatch(batch: AccountantExportBatch, signal?: AbortSignal): Promise<void> {
         if (!localDoc) return;
-        const documentIds = selectIssuedDocumentsForExport(documents.value, companyId.value, chunk).map((row) => row.id);
-        const expensePayloads = selectExpensesForExport(expenses.value, companyId.value, chunk).map(
-            (row) => buildExpensePayload(row, attachments.value, options.value.includeExpenseAttachments).payload,
-        );
-        if (documentIds.length === 0 && expensePayloads.length === 0) return;
+        const expenseIds = new Set(batch.expenseIds);
+        const expensePayloads = expenses.value
+            .filter((row) => expenseIds.has(String(row.id)))
+            .map((row) => buildExpensePayload(row, attachments.value, options.value.includeExpenseAttachments).payload);
+        if (batch.documentIds.length === 0 && expensePayloads.length === 0) return;
 
         const request = await buildAccountantExportEphemeralRequest(localDoc, companyId.value, {
-            documentIds,
+            documentIds: batch.documentIds,
             expenses: expensePayloads,
-            range: chunk,
+            range: batch.range,
             options: options.value,
         });
         if (!request) {
             throw new Error("accountant_export_build_failed");
         }
-        await downloadEphemeralAccountantExport(request.body, request.bridgeCompanyId, filename(chunk), { signal });
+        await downloadEphemeralAccountantExport(request.body, request.bridgeCompanyId, filename(batch.range), { signal });
     }
 
     async function downloadServer(signal?: AbortSignal): Promise<void> {
@@ -178,11 +177,11 @@ export function useAccountantExport(companyId: Ref<string>, companyName: Ref<str
                 progress.value = { done: 1, total: 1 };
                 return;
             }
-            const ranges = plan.value?.ranges ?? [range.value];
-            progress.value = { done: 0, total: ranges.length };
-            for (const chunk of ranges) {
-                await downloadLocalChunk(chunk, abort.signal);
-                progress.value = { done: progress.value.done + 1, total: ranges.length };
+            const batches = plan.value?.batches ?? [];
+            progress.value = { done: 0, total: batches.length };
+            for (const batch of batches) {
+                await downloadLocalBatch(batch, abort.signal);
+                progress.value = { done: progress.value.done + 1, total: batches.length };
             }
         } catch (e) {
             if ((e as { name?: string })?.name === "CanceledError" || (e as { name?: string })?.name === "AbortError") {

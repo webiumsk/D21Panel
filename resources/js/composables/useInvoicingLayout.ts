@@ -175,6 +175,9 @@ export function useInvoicingLayout() {
     if (name === 'invoicing-audit') {
       return 'audit';
     }
+    if (name === 'invoicing-accountant-export') {
+      return 'accountant-export';
+    }
     if (name === 'account') {
       return 'subscription';
     }

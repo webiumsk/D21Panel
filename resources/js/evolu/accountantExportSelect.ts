@@ -159,35 +159,17 @@ export function estimateAttachmentBytes(payloads: readonly AccountantExportExpen
     );
 }
 
-function pad(n: number): string {
-    return String(n).padStart(2, "0");
-}
-
-/**
- * Splits an inclusive range into calendar-month chunks (first chunk starts
- * at `from`, last one ends at `to`). Used when a single request would blow
- * the server row / attachment caps.
- */
-export function chunkRangeByMonth(range: ExportDateRange): ExportDateRange[] {
-    if (range.from > range.to) return [];
-    const chunks: ExportDateRange[] = [];
-    let cursor = new Date(`${range.from}T00:00:00`);
-    const end = new Date(`${range.to}T00:00:00`);
-    while (cursor <= end) {
-        const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
-        const chunkEnd = monthEnd <= end ? monthEnd : end;
-        chunks.push({
-            from: `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}-${pad(cursor.getDate())}`,
-            to: `${chunkEnd.getFullYear()}-${pad(chunkEnd.getMonth() + 1)}-${pad(chunkEnd.getDate())}`,
-        });
-        cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-    }
-    return chunks;
-}
+export type AccountantExportBatch = {
+    /** Label / manifest range: min-max issue date of the rows in the batch. */
+    range: ExportDateRange;
+    documentIds: string[];
+    expenseIds: string[];
+    attachmentBytes: number;
+};
 
 export type AccountantExportPlan = {
-    /** One entry per request; a single entry means no chunking was needed. */
-    ranges: ExportDateRange[];
+    /** One entry per request; a single entry means no splitting was needed. */
+    batches: AccountantExportBatch[];
     documents: number;
     expenses: number;
     attachments: number;
@@ -195,9 +177,17 @@ export type AccountantExportPlan = {
     skippedAttachments: number;
 };
 
+type PlannedRow = { kind: "document" | "expense"; id: string; date: string; bytes: number };
+
 /**
- * Decide whether the period fits one request or must be split per month.
- * `maxRows` / `maxAttachmentBytes` mirror config/invoicing.php defaults.
+ * Split the selection into cap-compliant requests. Rows are consumed in issue
+ * date order and a batch closes as soon as the next row would push it over
+ * `maxRows` (documents and expenses are capped separately) or
+ * `maxAttachmentBytes`; a single expense above the byte cap still gets its
+ * own batch (the server rejects it with 413 and the user sees the error).
+ * Record-based batching - unlike date-range chunking - holds even when one
+ * day carries more rows than the caps allow. `maxRows` / `maxAttachmentBytes`
+ * mirror config/invoicing.php defaults.
  */
 export function planAccountantExport(input: {
     range: ExportDateRange;
@@ -209,30 +199,72 @@ export function planAccountantExport(input: {
     maxRows?: number;
     maxAttachmentBytes?: number;
 }): AccountantExportPlan {
-    const maxRows = input.maxRows ?? 500;
-    const maxBytes = input.maxAttachmentBytes ?? 12 * 1024 * 1024;
+    const maxRows = Math.max(1, input.maxRows ?? 500);
+    const maxBytes = Math.max(1, input.maxAttachmentBytes ?? 12 * 1024 * 1024);
 
     const documents = selectIssuedDocumentsForExport(input.documents, input.companyId, input.range);
     const expenses = selectExpensesForExport(input.expenses, input.companyId, input.range);
+
     let attachmentCount = 0;
-    let attachmentBytes = 0;
     let skipped = 0;
+    const rows: PlannedRow[] = documents.map((row) => ({
+        kind: "document",
+        id: String(row.id),
+        date: (row.issueDate ?? "").slice(0, 10),
+        bytes: 0,
+    }));
     for (const expense of expenses) {
         const { payload, skippedAttachments } = buildExpensePayload(expense, input.attachments, input.includeAttachments);
         attachmentCount += payload.attachments.length;
-        attachmentBytes += estimateAttachmentBytes([payload]);
         skipped += skippedAttachments;
+        rows.push({
+            kind: "expense",
+            id: String(expense.id),
+            date: (expense.issueDate ?? "").slice(0, 10),
+            bytes: estimateAttachmentBytes([payload]),
+        });
+    }
+    rows.sort((a, b) => a.date.localeCompare(b.date));
+
+    const batches: AccountantExportBatch[] = [];
+    let current: AccountantExportBatch | null = null;
+    let docCount = 0;
+    let expenseCount = 0;
+    for (const row of rows) {
+        const overflow =
+            current !== null
+            && ((row.kind === "document" && docCount >= maxRows)
+                || (row.kind === "expense" && expenseCount >= maxRows)
+                || current.attachmentBytes + row.bytes > maxBytes);
+        if (current === null || overflow) {
+            current = { range: { from: row.date, to: row.date }, documentIds: [], expenseIds: [], attachmentBytes: 0 };
+            batches.push(current);
+            docCount = 0;
+            expenseCount = 0;
+        }
+        if (row.kind === "document") {
+            current.documentIds.push(row.id);
+            docCount++;
+        } else {
+            current.expenseIds.push(row.id);
+            expenseCount++;
+        }
+        current.attachmentBytes += row.bytes;
+        if (row.date < current.range.from) current.range.from = row.date;
+        if (row.date > current.range.to) current.range.to = row.date;
     }
 
-    const fitsOneRequest =
-        documents.length <= maxRows && expenses.length <= maxRows && attachmentBytes <= maxBytes;
+    // A single request keeps the user's full period as its label.
+    if (batches.length === 1) {
+        batches[0].range = input.range;
+    }
 
     return {
-        ranges: fitsOneRequest ? [input.range] : chunkRangeByMonth(input.range),
+        batches,
         documents: documents.length,
         expenses: expenses.length,
         attachments: attachmentCount,
-        attachmentBytes,
+        attachmentBytes: rows.reduce((sum, row) => sum + row.bytes, 0),
         skippedAttachments: skipped,
     };
 }

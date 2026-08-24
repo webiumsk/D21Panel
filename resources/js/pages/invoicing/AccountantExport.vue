@@ -131,8 +131,8 @@
           <p v-if="plan.skippedAttachments > 0" class="mt-2 text-xs text-amber-700">
             {{ t("invoicing.accountant_export_preview_skipped", { count: plan.skippedAttachments }) }}
           </p>
-          <p v-if="plan.ranges.length > 1" class="mt-2 text-xs text-gray-600">
-            {{ t("invoicing.accountant_export_chunked", { count: plan.ranges.length }) }}
+          <p v-if="plan.batches.length > 1" class="mt-2 text-xs text-gray-600">
+            {{ t("invoicing.accountant_export_chunked", { count: plan.batches.length }) }}
           </p>
         </section>
 
