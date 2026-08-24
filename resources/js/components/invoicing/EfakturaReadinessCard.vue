@@ -316,6 +316,18 @@ function initForCompany(): void {
 onMounted(initForCompany);
 watch(() => props.companyId, initForCompany);
 
+// A company can flip between inbound-only and full (VAT registration
+// change): the inbound-only path marks contacts as "loaded" without walking
+// them, so a switch must drop that state and re-run the coverage check.
+watch(inboundOnly, () => {
+  loadGeneration += 1;
+  contactsLoaded.value = false;
+  contactsMissingIds.value = 0;
+  if (eligible.value && !snoozed.value) {
+    void loadContactsCoverage();
+  }
+});
+
 // The company record can arrive after mount (async load on both pages) -
 // fetch the contacts coverage once eligibility is known and not snoozed.
 watch(

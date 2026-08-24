@@ -691,7 +691,7 @@
     "efaktura_readiness_auto_send": "Zapněte automatické odesílání (doporučeno)",
     "efaktura_readiness_contacts": "Doplňte IČO nebo DIČ {count} slovenským kontaktům",
     "efaktura_readiness_contacts_ok": "Kontakty jsou připravené",
-    "efaktura_inbound_only_notice": "Vaše firma není plátcem DPH, takže e-faktury nemusí vystavovat - musí je však umět přijímat. Nastavte poštáře a zapněte příjem; přijaté faktury se importují do nákladů.",
+    "efaktura_inbound_only_notice": "Vaše firma není plným plátcem DPH (neplátce nebo registrace podle § 7 / § 7a), takže e-faktury nemusí vystavovat - musí je však umět přijímat. Nastavte poštáře a zapněte příjem; přijaté faktury se importují do nákladů.",
     "efaktura_readiness_inbound_title": "Od {date} budete přijímat e-faktury",
     "efaktura_readiness_inbound_intro": "Plátci DPH vám budou faktury posílat elektronicky přes Peppol. Dokončete checklist a přijaté faktury se budou importovat do nákladů samy.",
     "efaktura_readiness_inbound_enabled": "Zapněte příjem příchozích faktur",

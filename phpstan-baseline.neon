@@ -4064,14 +4064,8 @@ parameters:
 			path: app/Support/Invoicing/BusinessDocumentImportFields.php
 
 		-
-			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\CompanyJurisdiction\:\:EuSk will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: app/Support/Invoicing/CompanyEfakturaEligibility.php
-
-		-
-			message: '#^Unreachable statement \- code above always terminates\.$#'
-			identifier: deadCode.unreachable
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\CompanyJurisdiction\:\:EuSk will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
 			count: 1
 			path: app/Support/Invoicing/CompanyEfakturaEligibility.php
 

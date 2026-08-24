@@ -172,6 +172,20 @@ describe('EfakturaReadinessCard', () => {
     expect(wrapper.text()).toBe('');
   });
 
+  it('re-evaluates buyer identifiers when an inbound-only company becomes a full payer', async () => {
+    const wrapper = mountCard({ ...skPayerCompany(), vat_payer: false, vat_status: 'none' });
+    await flushPromises();
+    expect(wrapper.text()).not.toContain('efaktura_readiness_contacts');
+
+    // One SK contact without IDs is set up in beforeEach - the switch to
+    // full mode must walk the contacts and surface it.
+    await wrapper.setProps({ company: skPayerCompany() });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('efaktura_readiness_title');
+    expect(wrapper.text()).toContain('efaktura_readiness_contacts:{"count":1}');
+  });
+
   it('snoozes via localStorage', async () => {
     const wrapper = mountCard(skPayerCompany());
     await flushPromises();

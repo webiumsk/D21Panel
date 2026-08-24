@@ -691,7 +691,7 @@
     "efaktura_readiness_auto_send": "Turn on automatic sending (recommended)",
     "efaktura_readiness_contacts": "Add a company ID or tax ID to {count} Slovak contact(s)",
     "efaktura_readiness_contacts_ok": "Contacts are ready",
-    "efaktura_inbound_only_notice": "Your company is not a VAT payer, so it does not have to issue e-invoices - but it must be able to receive them. Set up your delivery provider and enable receiving; received invoices are imported as expenses.",
+    "efaktura_inbound_only_notice": "Your company is not a full VAT payer (non-payer or a §7 / §7a partial registration), so it does not have to issue e-invoices - but it must be able to receive them. Set up your delivery provider and enable receiving; received invoices are imported as expenses.",
     "efaktura_readiness_inbound_title": "From {date} you will receive e-invoices",
     "efaktura_readiness_inbound_intro": "VAT payers will send you invoices electronically via Peppol. Finish the checklist and received invoices will import themselves as expenses.",
     "efaktura_readiness_inbound_enabled": "Turn on receiving of incoming invoices",
