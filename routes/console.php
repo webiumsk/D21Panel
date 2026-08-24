@@ -87,4 +87,9 @@ if (config('efaktura.enabled')) {
         ->everyThirtyMinutes()
         ->withoutOverlapping()
         ->runInBackground();
+
+    Schedule::command('efaktura:purge-inbound-inbox')
+        ->dailyAt('04:40')
+        ->withoutOverlapping()
+        ->runInBackground();
 }

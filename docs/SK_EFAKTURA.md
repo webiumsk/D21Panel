@@ -62,7 +62,7 @@ Po zmene `.env`: `php artisan optimize:clear`
 
 1. Cez admin editor `/admin/efaktura-cpds` doplňte **overené** presety poštárov (RegWatch pravidlo: žiadne neoverené URL; per-preset `send_detail_path` s `{id}` placeholderom prebíja globálny).
 2. Nastavte `EFAKTURA_ENABLED=true` (+ voliteľne `EFAKTURA_SAPI_ALLOWED_HOSTS`), potom `php artisan optimize:clear` a **reštart queue workerov** (config je v nich cachovaný).
-3. `php artisan schedule:list` - overte registráciu `efaktura:poll-inbound` (15 min) a `efaktura:sync-compliance-status` (30 min).
+3. `php artisan schedule:list` - overte registráciu `efaktura:poll-inbound` (15 min), `efaktura:sync-compliance-status` (30 min) a `efaktura:purge-inbound-inbox` (denne).
 4. `php artisan efaktura:doctor` - globálny stav + per-company readiness (eligibilita, derivované Peppol ID, allowlist verdikt base URL, credentials, configured). `--company=<uuid>` obmedzí na jednu firmu, `--live` spraví reálnu SAPI-SK autentifikáciu.
 
 ### Sandbox E2E checklist (manuálne, pred produkčným zapnutím)
@@ -100,9 +100,28 @@ Merchant môže stiahnuť UBL/XML z detailu faktúry a nahrať do webového rozh
 efaktura:poll-inbound (scheduler každých 15 min, ak EFAKTURA_ENABLED)
   -> SapiSkClient list/detail/acknowledge
   -> UblExpenseDraftParser
-  -> BusinessExpense + UBL príloha
+  -> server mode:   BusinessExpense + UBL príloha na disku
+  -> local-first:   efaktura_inbound_receipts ako INBOX položka
+                    (inbox_status=pending, draft_json, ubl_encrypted, evolu_expense_id)
   -> efaktura_inbound_receipts (dedup podľa providerDocumentId)
 ```
+
+### Inbox pre local-first firmy
+
+Local-first firma nemá serverové náklady, takže poller (`EfakturaInboundService`, vetva podľa `Company::usesServerInvoicing()`) uloží prijatý doklad ako **inbox položku** na bridge firme: rozparsovaný draft nákladu, UBL šifrované `Crypt`-om, stabilné `evolu_expense_id` (klient z neho odvodí Evolu id, takže druhé zariadenie neduplikuje) a denormalizovaný súhrn (dodávateľ, číslo, suma, mena). Acknowledge voči CPDS prebehne hneď pri polli (položka je bezpečne uložená).
+
+Endpointy (`EnsureCompanyOwnership`, `{company}` = bridge firma):
+
+| Metóda | Cesta | Účel |
+|---|---|---|
+| `GET` | `/companies/{company}/efaktura/inbox` | pending položky (súhrn + draft, bez UBL) |
+| `GET` | `/companies/{company}/efaktura/inbox/{receipt}` | detail vrátane dešifrovaného UBL (pre prílohu) |
+| `POST` | `/companies/{company}/efaktura/inbox/{receipt}/imported` | klient importoval do Evolu - draft aj UBL sa zo servera zmažú |
+| `POST` | `/companies/{company}/efaktura/inbox/{receipt}/dismiss` | zahodiť |
+
+Credentials pre inbound si local-first klient uloží na bridge firmu cez existujúci `PATCH /companies/{company}/app-settings` (`efaktura_enabled`, `efaktura_inbound_enabled=true`, `efaktura_auto_send=false`, base URL, client id/secret) - žiadny samostatný subscription endpoint. Ručný poll: `POST /companies/{bridge}/efaktura/poll-inbound`.
+
+**Poctivé konštatovanie:** pre local-first firmy s inboundom sú CPDS credentials a dočasné prijaté UBL na serveri (šifrované), kým ich klient neimportuje alebo kým ich nezahodí `efaktura:purge-inbound-inbox` (denne, `EFAKTURA_INBOUND_INBOX_RETENTION_DAYS`, default 60 - riadok ostáva kvôli dedup, obsah sa zmaže). `efaktura:doctor` vypisuje počet pending položiek per firma.
 
 Peppol SMP lookup pred odoslaním rieši CPDS pri `POST /document/send` (422 ak príjemca nie je v sieti). Lokálna preflight kontrola overí, že kontakt má Peppol ID (IČO/DIČ/`peppol_participant_id`).
 
