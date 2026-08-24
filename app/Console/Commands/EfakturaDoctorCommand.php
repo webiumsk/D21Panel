@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Company;
 use App\Models\EfakturaCpdsProvider;
 use App\Services\Invoicing\Efaktura\EfakturaConnectionTester;
+use App\Services\Invoicing\Efaktura\EfakturaInboundInboxService;
 use App\Services\Invoicing\Efaktura\SapiSkClient;
 use App\Support\Invoicing\CompanyEfakturaEligibility;
 use App\Support\Invoicing\CompanyEfakturaSettings;
@@ -29,6 +30,7 @@ class EfakturaDoctorCommand extends Command
         CompanyEfakturaEligibility $eligibility,
         SapiSkClient $client,
         EfakturaConnectionTester $tester,
+        EfakturaInboundInboxService $inboxService,
     ): int {
         $enabled = (bool) config('efaktura.enabled');
 
@@ -120,6 +122,9 @@ class EfakturaDoctorCommand extends Command
             $this->line('  client secret decryptable: '.($settings->sapiClientSecret() !== null ? 'yes' : 'no'));
             $this->line('  connection tested at: '.((string) ($settings->values['efaktura_connection_tested_at'] ?? '') ?: '(never)'));
             $this->line('  auto-send: '.($settings->autoSend() ? 'yes' : 'no').', inbound: '.($settings->inboundEnabled() ? 'yes' : 'no'));
+            if (! $company->usesServerInvoicing()) {
+                $this->line('  inbox pending (local-first): '.$inboxService->countPending($company));
+            }
 
             // A rejected base URL means every real call would fail - it
             // downgrades the verdict and blocks the --live attempt.

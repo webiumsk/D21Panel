@@ -50,6 +50,7 @@ use App\Http\Controllers\Invoicing\CompanyRegistryController;
 use App\Http\Controllers\Invoicing\CompanyStockItemController;
 use App\Http\Controllers\Invoicing\CompanyWarehouseController;
 use App\Http\Controllers\Invoicing\EfakturaController;
+use App\Http\Controllers\Invoicing\EfakturaInboundInboxController;
 use App\Http\Controllers\Invoicing\EphemeralBusinessDocumentController;
 use App\Http\Controllers\Invoicing\IntegrationDocumentInboxController;
 use App\Http\Controllers\Invoicing\InvoicingMigrationController;
@@ -610,6 +611,14 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::post('/companies/{company}/documents/{businessDocument}/efaktura/compliance/refresh', [EfakturaController::class, 'refreshCompliance'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::post('/companies/{company}/efaktura/poll-inbound', [EfakturaController::class, 'pollInbound'])
+                ->middleware(EnsureCompanyOwnership::class);
+            Route::get('/companies/{company}/efaktura/inbox', [EfakturaInboundInboxController::class, 'index'])
+                ->middleware(EnsureCompanyOwnership::class);
+            Route::get('/companies/{company}/efaktura/inbox/{receipt}', [EfakturaInboundInboxController::class, 'show'])
+                ->middleware(EnsureCompanyOwnership::class);
+            Route::post('/companies/{company}/efaktura/inbox/{receipt}/imported', [EfakturaInboundInboxController::class, 'markImported'])
+                ->middleware(EnsureCompanyOwnership::class);
+            Route::post('/companies/{company}/efaktura/inbox/{receipt}/dismiss', [EfakturaInboundInboxController::class, 'dismiss'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::post('/companies/{company}/efaktura/test-connection', [EfakturaController::class, 'testConnection'])
                 ->middleware([EnsureCompanyOwnership::class, 'throttle:10,1']);

@@ -88,3 +88,10 @@ if (config('efaktura.enabled')) {
         ->withoutOverlapping()
         ->runInBackground();
 }
+
+// Retention of parked e-faktura inbox payloads must keep running even when
+// the module is switched off again - the rows already exist.
+Schedule::command('efaktura:purge-inbound-inbox')
+    ->dailyAt('04:40')
+    ->withoutOverlapping()
+    ->runInBackground();

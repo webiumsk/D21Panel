@@ -21,6 +21,7 @@ class EfakturaInboundService
         protected SapiSkClient $client,
         protected UblExpenseDraftParser $parser,
         protected BusinessExpenseService $expenseService,
+        protected EfakturaInboundInboxService $inboxService,
     ) {}
 
     /**
@@ -108,7 +109,7 @@ class EfakturaInboundService
 
                 if ($existingReceipt !== null) {
                     try {
-                        if ($existingReceipt->business_expense_id === null || ! $existingReceipt->expense()->exists()) {
+                        if (! $this->receiptHasContent($existingReceipt)) {
                             $detail = $this->client->receivedDocument($token, $participantId, $externalId, $baseUrl);
                             $ubl = (string) ($detail['payload'] ?? $detail['ubl'] ?? '');
                             if ($ubl === '') {
@@ -157,11 +158,18 @@ class EfakturaInboundService
                         'acknowledged_at' => now(),
                     ]);
 
-                    AuditLog::log('business_expense.efaktura_inbound_imported', 'business_expense', $receipt->business_expense_id, [
-                        'company_id' => $company->id,
-                        'external_document_id' => $externalId,
-                        'receipt_id' => $receipt->id,
-                    ]);
+                    AuditLog::log(
+                        $receipt->business_expense_id !== null
+                            ? 'business_expense.efaktura_inbound_imported'
+                            : 'company.efaktura_inbound_inboxed',
+                        $receipt->business_expense_id !== null ? 'business_expense' : 'company',
+                        $receipt->business_expense_id ?? $company->id,
+                        [
+                            'company_id' => $company->id,
+                            'external_document_id' => $externalId,
+                            'receipt_id' => $receipt->id,
+                        ],
+                    );
 
                     $stats['imported']++;
                     $stats['acknowledged']++;
@@ -209,6 +217,20 @@ class EfakturaInboundService
         array $detail,
         ?EfakturaInboundReceipt $existingReceipt = null,
     ): EfakturaInboundReceipt {
+        // Local-first companies keep their expenses in Evolu: park the parsed
+        // draft + UBL as an inbox item for the client instead of creating a
+        // server expense nobody would ever see.
+        // The provider detail carries the UBL itself - never persist it in the
+        // plain response_payload column (the inbox keeps it encrypted, the
+        // server mode as a file).
+        $detail = $this->detailWithoutDocumentBody($detail);
+
+        if (! $company->usesServerInvoicing()) {
+            $draft = $this->parser->parse($ubl);
+
+            return $this->inboxService->storeAsInboxItem($company, $externalId, $ubl, $draft, $detail, $existingReceipt);
+        }
+
         $attachment = null;
 
         try {
@@ -243,6 +265,32 @@ class EfakturaInboundService
 
             throw $e;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $detail
+     * @return array<string, mixed>
+     */
+    protected function detailWithoutDocumentBody(array $detail): array
+    {
+        unset($detail['payload'], $detail['ubl'], $detail['document'], $detail['xml']);
+
+        return $detail;
+    }
+
+    /**
+     * A receipt still "has content" when its server expense exists or when it
+     * is an inbox item the client already handled (imported / dismissed).
+     * Only a receipt with neither is re-fetched from the CPDS on retry.
+     */
+    protected function receiptHasContent(EfakturaInboundReceipt $receipt): bool
+    {
+        if ($receipt->business_expense_id !== null && $receipt->expense()->exists()) {
+            return true;
+        }
+
+        // Inbox items always carry a stable Evolu id, whatever their inbox state.
+        return $receipt->evolu_expense_id !== null;
     }
 
     /**
