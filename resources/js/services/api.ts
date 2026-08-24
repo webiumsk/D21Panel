@@ -495,6 +495,19 @@ export const invoicingApi = {
         async resetData(companyId: string, payload: Record<string, unknown>): Promise<void> {
             await api.post(`/invoicing/companies/${companyId}/reset-data`, payload);
         },
+        /** Server-mode "balík pre účtovníka" ZIP for a period. */
+        async accountantExport(
+            companyId: string,
+            params: Record<string, string | number | boolean | string[]>,
+            options?: { signal?: AbortSignal },
+        ): Promise<Blob> {
+            const { data } = await api.get<Blob>(`/invoicing/companies/${companyId}/accountant-export`, {
+                params,
+                responseType: 'blob',
+                signal: options?.signal,
+            });
+            return data;
+        },
         async updateAppSettings<T = unknown>(companyId: string, payload: Record<string, unknown>): Promise<T> {
             const { data } = await api.patch<ApiEnvelope<T>>(`/invoicing/companies/${companyId}/app-settings`, payload);
             return data.data;

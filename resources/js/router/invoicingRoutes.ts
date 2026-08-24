@@ -63,6 +63,12 @@ export const invoicingRoutes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, invoicingSection: 'tools' },
     },
     {
+        path: 'companies/:companyId/accountant-export',
+        name: 'invoicing-accountant-export',
+        component: () => import('../pages/invoicing/AccountantExport.vue'),
+        meta: { requiresAuth: true, invoicingSection: 'tools' },
+    },
+    {
         path: 'companies/:companyId/payments',
         name: 'invoicing-payments',
         component: () => import('../pages/invoicing/CompanyPayments.vue'),

@@ -82,6 +82,7 @@ const isToolsArea = computed(() => {
     || name === 'invoicing-company-import'
     || name === 'invoicing-vat-report'
     || name === 'invoicing-audit'
+    || name === 'invoicing-accountant-export'
   );
 });
 </script>

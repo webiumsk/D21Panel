@@ -16,6 +16,12 @@ import type { DocumentSavePayload } from "./documentCrud";
 import type { CompanyId, DocumentId } from "./schema";
 import { resolveLocalEmailSettingsForBridge } from "./companySettingsCrud";
 import type { useLocalInvoiceDocumentSupport } from "@/composables/useLocalInvoiceDocument";
+import type {
+    AccountantExportExpensePayload,
+    AccountantExportFormat,
+    AccountantExportOptions,
+    ExportDateRange,
+} from "./accountantExportSelect";
 import type { AxiosResponse } from "axios";
 import { toAppRows } from "./queryLoad";
 
@@ -48,6 +54,7 @@ const EPHEMERAL_EFAKTURA_SEND_PATH = "/invoicing/ephemeral/efaktura/send";
 const EPHEMERAL_EFAKTURA_REFRESH_PATH = "/invoicing/ephemeral/efaktura/refresh";
 const EPHEMERAL_BULK_PDF_ZIP_PATH = "/invoicing/ephemeral/bulk/pdf-zip";
 const EPHEMERAL_BULK_PDF_MERGE_PATH = "/invoicing/ephemeral/bulk/pdf-merge";
+const EPHEMERAL_ACCOUNTANT_EXPORT_PATH = "/invoicing/ephemeral/accountant-export";
 
 function companyScopedEphemeralPdfPath(bridgeCompanyId: string): string {
     return `/invoicing/companies/${bridgeCompanyId}/documents/ephemeral/pdf`;
@@ -91,6 +98,10 @@ function companyScopedEphemeralBulkPdfZipPath(bridgeCompanyId: string): string {
 
 function companyScopedEphemeralBulkPdfMergePath(bridgeCompanyId: string): string {
     return `/invoicing/companies/${bridgeCompanyId}/documents/ephemeral/bulk/pdf-merge`;
+}
+
+function companyScopedEphemeralAccountantExportPath(bridgeCompanyId: string): string {
+    return `/invoicing/companies/${bridgeCompanyId}/documents/ephemeral/accountant-export`;
 }
 
 function shouldFallbackEphemeralRoute(error: unknown): boolean {
@@ -734,6 +745,90 @@ export async function downloadEphemeralPdfMerge(
         { responseType: "blob", signal: options?.signal },
     );
     downloadResponseBlob(res.data as Blob, "invoices-merged.pdf");
+}
+
+export type EphemeralAccountantExportBody = {
+    company: EphemeralSnapshotPayload["company"];
+    documents: EphemeralBulkDocumentItem[];
+    expenses: AccountantExportExpensePayload[];
+    options: {
+        from: string;
+        to: string;
+        formats: AccountantExportFormat[];
+        include_pdf: boolean;
+        include_isdoc: boolean;
+        include_ubl: boolean;
+        include_expense_attachments: boolean;
+    };
+};
+
+/**
+ * "Balík pre účtovníka" for one period: issued documents go through the same
+ * snapshot path as the bulk PDF ZIP, received expenses travel as a transient
+ * payload with their base64 attachments. Works for an expenses-only period
+ * (the company payload is then built from the company profile alone).
+ */
+export async function buildAccountantExportEphemeralRequest(
+    localDoc: ReturnType<typeof useLocalInvoiceDocumentSupport>,
+    companyId: string,
+    input: {
+        documentIds: string[];
+        expenses: AccountantExportExpensePayload[];
+        range: ExportDateRange;
+        options: AccountantExportOptions;
+    },
+): Promise<{ body: EphemeralAccountantExportBody; bridgeCompanyId: string | null } | null> {
+    const bulk = input.documentIds.length > 0
+        ? await buildBulkEphemeralRequest(localDoc, companyId, input.documentIds)
+        : null;
+
+    let companyPayload = bulk?.body.company ?? null;
+    let bridgeCompanyId = bulk?.bridgeCompanyId ?? null;
+    if (!companyPayload) {
+        await localDoc.refreshAll();
+        const company = localDoc.companyApi(companyId);
+        if (!company) return null;
+        companyPayload = buildEphemeralSnapshot(company, null, { type: "invoice", status: "issued" }, []).company;
+        bridgeCompanyId = await resolveEphemeralBridgeCompanyId({
+            legal_name: String(company.legal_name ?? ""),
+            registration_number: (company.registration_number as string | null | undefined) ?? null,
+        });
+    }
+
+    if ((bulk?.body.documents.length ?? 0) === 0 && input.expenses.length === 0) return null;
+
+    return {
+        bridgeCompanyId,
+        body: {
+            company: companyPayload,
+            documents: bulk?.body.documents ?? [],
+            expenses: input.expenses,
+            options: {
+                from: input.range.from,
+                to: input.range.to,
+                formats: input.options.formats,
+                include_pdf: input.options.includePdf,
+                include_isdoc: input.options.includeIsdoc,
+                include_ubl: input.options.includeUbl,
+                include_expense_attachments: input.options.includeExpenseAttachments,
+            },
+        },
+    };
+}
+
+export async function downloadEphemeralAccountantExport(
+    body: EphemeralAccountantExportBody,
+    bridgeCompanyId: string | null | undefined,
+    filename: string,
+    options?: { signal?: AbortSignal },
+): Promise<void> {
+    const res = await postWithCompanyScopedFallback<Blob>(
+        EPHEMERAL_ACCOUNTANT_EXPORT_PATH,
+        bridgeCompanyId ? companyScopedEphemeralAccountantExportPath(bridgeCompanyId) : null,
+        body,
+        { responseType: "blob", signal: options?.signal },
+    );
+    downloadResponseBlob(res.data as Blob, filename);
 }
 
 export async function buildBulkEphemeralRequest(
