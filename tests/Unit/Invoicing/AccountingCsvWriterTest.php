@@ -169,4 +169,24 @@ class AccountingCsvWriterTest extends TestCase
         $this->assertCount(2, $rows);
         $this->assertSame(['EUR', '23.00', '100.00', '23.00', '123.00', '3'], $rows[1]);
     }
+
+    #[Test]
+    public function negative_vat_totals_stay_numeric_without_the_injection_guard(): void
+    {
+        $company = $this->company();
+        $builder = app(CanonicalInvoiceBuilder::class);
+        $issued = [
+            $builder->fromDocument($this->document($company, 'invoice', 'F1')),
+            $builder->fromDocument($this->document($company, 'credit_note', 'D1')),
+            $builder->fromDocument($this->document($company, 'credit_note', 'D2')),
+        ];
+
+        $csv = (new AccountingCsvWriter)->vatSummary($issued);
+        $rows = $this->parse($csv);
+
+        // Credit notes exceed invoices: amounts go negative and must not be
+        // prefixed with the formula-guard apostrophe.
+        $this->assertSame(['EUR', '23.00', '-100.00', '-23.00', '-123.00', '3'], $rows[1]);
+        $this->assertStringNotContainsString("'-", $csv);
+    }
 }

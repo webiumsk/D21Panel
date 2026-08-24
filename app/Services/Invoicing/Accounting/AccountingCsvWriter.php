@@ -104,17 +104,27 @@ class AccountingCsvWriter
                 continue;
             }
             $sign = $canonical->document?->type->value === 'credit_note' ? -1 : 1;
+            // Collapse the document's rows per rate first (an override
+            // breakdown may carry several labelled rows for one rate) so
+            // each document counts once per rate.
+            $perRate = [];
             foreach ($canonical->taxBreakdown as $row) {
-                $key = $canonical->currency.'|'.number_format($row->ratePercent, 2, '.', '');
+                $rate = number_format($row->ratePercent, 2, '.', '');
+                $perRate[$rate] ??= ['taxable' => 0.0, 'tax' => 0.0];
+                $perRate[$rate]['taxable'] += (float) $row->taxableAmount;
+                $perRate[$rate]['tax'] += (float) $row->taxAmount;
+            }
+            foreach ($perRate as $rate => $amounts) {
+                $key = $canonical->currency.'|'.$rate;
                 $buckets[$key] ??= [
                     'currency' => $canonical->currency,
-                    'rate' => number_format($row->ratePercent, 2, '.', ''),
+                    'rate' => $rate,
                     'taxable' => 0.0,
                     'tax' => 0.0,
                     'documents' => 0,
                 ];
-                $buckets[$key]['taxable'] += $sign * (float) $row->taxableAmount;
-                $buckets[$key]['tax'] += $sign * (float) $row->taxAmount;
+                $buckets[$key]['taxable'] += $sign * $amounts['taxable'];
+                $buckets[$key]['tax'] += $sign * $amounts['tax'];
                 $buckets[$key]['documents']++;
             }
         }
@@ -153,7 +163,9 @@ class AccountingCsvWriter
         $text = (string) ($value ?? '');
         // A leading =, +, -, @, tab or CR would execute as a formula when the
         // file is opened in a spreadsheet - neutralize it like the GoBD export.
-        if ($text !== '' && preg_match('/^[=+\-@\t\r]/', $text) === 1) {
+        // Plain numbers (incl. negative amounts) must stay numeric, though.
+        $isPlainNumber = preg_match('/^-?\d+(\.\d+)?$/', $text) === 1;
+        if ($text !== '' && ! $isPlainNumber && preg_match('/^[=+\-@\t\r]/', $text) === 1) {
             $text = "'".$text;
         }
 

@@ -233,10 +233,30 @@ class AccountantPackageBuilderTest extends TestCase
     }
 
     #[Test]
-    public function options_reject_unknown_formats_and_empty_packages(): void
+    public function options_reject_unknown_formats(): void
     {
         $this->expectException(InvalidArgumentException::class);
         new AccountantPackageOptions(formats: ['kros']);
+    }
+
+    #[Test]
+    public function options_reject_a_package_with_nothing_to_write(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new AccountantPackageOptions(
+            formats: [],
+            includePdf: false,
+            includeIsdoc: false,
+            includeUbl: false,
+            includeExpenseAttachments: false,
+        );
+    }
+
+    #[Test]
+    public function options_reject_malformed_dates(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        AccountantPackageOptions::fromArray(['from' => 'not-a-date']);
     }
 
     #[Test]

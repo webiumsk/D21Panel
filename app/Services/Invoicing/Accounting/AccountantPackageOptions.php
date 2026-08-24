@@ -45,7 +45,11 @@ final class AccountantPackageOptions
                 return null;
             }
 
-            return new DateTimeImmutable((string) $value);
+            try {
+                return new DateTimeImmutable((string) $value);
+            } catch (\Exception $exception) {
+                throw new InvalidArgumentException("Invalid date option: {$value}", 0, $exception);
+            }
         };
 
         return new self(

@@ -145,7 +145,7 @@ class PohodaXmlWriter
         // --- detail ---------------------------------------------------
         $writer->startElementNs('inv', 'invoiceDetail', null);
         foreach ($canonical->lines as $line) {
-            $this->lineItem($writer, $line, $mapper, $vatApplicable, $foreign, $currency);
+            $this->lineItem($writer, $line, $mapper, $vatApplicable, $foreign);
         }
         $writer->endElement(); // invoiceDetail
 
@@ -270,7 +270,6 @@ class PohodaXmlWriter
         PohodaVatRateMapper $mapper,
         bool $vatApplicable,
         bool $foreign,
-        string $currency,
     ): void {
         $writer->startElementNs('inv', 'invoiceItem', null);
         $text = $line->name;
