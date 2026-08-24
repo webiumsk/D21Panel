@@ -44,11 +44,11 @@ Všetky pod `/api/invoicing`, auth:sanctum + `EnsurePlanAllowsBusinessInvoicing`
 | `POST` | `/ephemeral/accountant-export` | local-first bez serverovej firmy - `company` snapshot + `documents[]` (ako `bulk/pdf-zip`) + `expenses[]` (base64 prílohy) + `options{from,to,formats,include_*}` |
 | `POST` | `/companies/{company}/documents/ephemeral/accountant-export` | local-first s bridge firmou (audit sa viaže na firmu) |
 
-Limity: `invoicing.accountant_export_max_rows` (500 dokladov a 500 nákladov, inak 413 / 422) a `invoicing.accountant_export_max_attachment_bytes` (64 MB dekódovaných príloh per ephemeral request, inak 413); jedna príloha max ~512 KB base64, povolené MIME: PDF, PNG, JPEG, WebP, XML. UI (B3) pri prekročení chunkuje po mesiacoch. Server nič neukladá - iba audit `company.accountant_export` / `business_document.ephemeral_accountant_export` s počtami.
+Limity: `invoicing.accountant_export_max_rows` (500 dokladov a 500 nákladov, inak 413 / 422) a `invoicing.accountant_export_max_attachment_bytes` (12 MB dekódovaných príloh per ephemeral request, inak 413; musí ostať pod `client_max_body_size` / `post_max_size` = 20M aj s base64 réžiou - zvyšovať spolu); jedna príloha max ~512 KB base64, povolené MIME: PDF, PNG, JPEG, WebP, XML. UI (B3) pri prekročení chunkuje po mesiacoch. Po zmene limitov v `.env` spustiť `php artisan optimize:clear`. Server nič neukladá - iba audit `company.accountant_export` / `business_document.ephemeral_accountant_export` s počtami.
 
 ## Stav
 
 - [x] B1 - buildery + unit testy
-- [x] B2 - endpointy (nižšie)
+- [x] B2 - endpointy (vyššie)
 - [ ] B3 - UI stránka "Export pre účtovníka" (obdobie, formáty, obsah, download)
 - [ ] manuálny import `pohoda/invoices.xml` do Pohoda demo a ISDOC do KROS Omega demo

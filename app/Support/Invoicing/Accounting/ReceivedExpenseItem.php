@@ -75,7 +75,7 @@ final class ReceivedExpenseItem
             deliveryDate: $date($payload['delivery_date'] ?? null),
             dueDate: $date($payload['due_date'] ?? null),
             paidAt: $date($payload['paid_at'] ?? null),
-            total: number_format((float) ($payload['total'] ?? 0), 2, '.', ''),
+            total: self::money($payload['total'] ?? 0),
             currency: strtoupper((string) ($payload['currency'] ?? 'EUR')),
             status: BusinessExpenseStatus::from((string) ($payload['status'] ?? BusinessExpenseStatus::Recorded->value)),
             note: $text($payload['note'] ?? null),
@@ -84,6 +84,24 @@ final class ReceivedExpenseItem
             supplierVatId: $text($payload['supplier_vat_id'] ?? null),
             attachments: $attachments,
         );
+    }
+
+    /**
+     * Fixed-scale two-decimal string without a float round trip, so large or
+     * high-precision decimal strings keep their exact value (half-up rounding).
+     */
+    public static function money(mixed $value): string
+    {
+        $text = is_string($value) ? trim($value) : (is_int($value) || is_float($value) ? (string) $value : '');
+        if ($text === '' || ! is_numeric($text)) {
+            return '0.00';
+        }
+        if (str_contains(strtolower($text), 'e')) {
+            $text = sprintf('%.6F', (float) $text); // scientific notation cannot go to bcmath
+        }
+        $nudge = str_starts_with($text, '-') ? '-0.005' : '0.005';
+
+        return bcadd(bcadd($text, $nudge, 3), '0', 2);
     }
 
     /**
@@ -105,7 +123,7 @@ final class ReceivedExpenseItem
             deliveryDate: $date($expense->delivery_date),
             dueDate: $date($expense->due_date),
             paidAt: $date($expense->paid_at),
-            total: number_format((float) $expense->total, 2, '.', ''),
+            total: self::money($expense->total),
             currency: (string) ($expense->currency ?: 'EUR'),
             status: $expense->status,
             note: $expense->internal_note ?: null,

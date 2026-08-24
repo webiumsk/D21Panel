@@ -260,6 +260,17 @@ class AccountantPackageBuilderTest extends TestCase
     }
 
     #[Test]
+    public function received_expense_total_keeps_decimal_precision(): void
+    {
+        $this->assertSame('123456789012345.68', ReceivedExpenseItem::money('123456789012345.675'));
+        $this->assertSame('-0.01', ReceivedExpenseItem::money('-0.005'));
+        $this->assertSame('88.50', ReceivedExpenseItem::money(88.5));
+        $this->assertSame('0.00', ReceivedExpenseItem::money(null));
+        $this->assertSame('0.00', ReceivedExpenseItem::money('abc'));
+        $this->assertSame('88.50', ReceivedExpenseItem::fromArray(['internal_number' => 'X', 'total' => '88.499'])->total);
+    }
+
+    #[Test]
     public function options_from_array_parses_dates_and_flags(): void
     {
         $options = AccountantPackageOptions::fromArray([

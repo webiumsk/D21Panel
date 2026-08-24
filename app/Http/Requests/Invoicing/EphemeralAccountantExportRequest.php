@@ -22,10 +22,13 @@ class EphemeralAccountantExportRequest extends EphemeralBusinessDocumentBulkRequ
         return max(1, (int) config('invoicing.accountant_export_max_rows', 500));
     }
 
-    /** Whole request after base64 decoding - the UI chunks by month above this. */
+    /**
+     * Whole request after base64 decoding - the UI chunks by month above this.
+     * Sized to fit the 20M nginx / PHP request limits (see config/invoicing.php).
+     */
     public static function maxTotalAttachmentBytes(): int
     {
-        return max(1, (int) config('invoicing.accountant_export_max_attachment_bytes', 64 * 1024 * 1024));
+        return max(1, (int) config('invoicing.accountant_export_max_attachment_bytes', 12 * 1024 * 1024));
     }
 
     public function rules(): array
