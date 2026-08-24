@@ -46,9 +46,18 @@ Všetky pod `/api/invoicing`, auth:sanctum + `EnsurePlanAllowsBusinessInvoicing`
 
 Limity: `invoicing.accountant_export_max_rows` (500 dokladov a 500 nákladov, inak 413 / 422) a `invoicing.accountant_export_max_attachment_bytes` (12 MB dekódovaných príloh per ephemeral request, inak 413; musí ostať pod `client_max_body_size` / `post_max_size` = 20M aj s base64 réžiou - zvyšovať spolu); jedna príloha max ~512 KB base64, povolené MIME: PDF, PNG, JPEG, WebP, XML. UI (B3) pri prekročení chunkuje po mesiacoch. Po zmene limitov v `.env` spustiť `php artisan optimize:clear`. Server nič neukladá - iba audit `company.accountant_export` / `business_document.ephemeral_accountant_export` s počtami.
 
+## UI (B3)
+
+Nástroje › **Export pre účtovníka** (`/invoicing/companies/:companyId/accountant-export`, `pages/invoicing/AccountantExport.vue`, composable `useAccountantExport.ts`):
+
+- obdobie (presety z `useInvoicingIssuePeriod` + vlastný rozsah), formáty (Pohoda XML / CSV), obsah (ISDOC, PDF, UBL, prílohy nákladov), návod pre účtovníka (Pohoda import, KROS = ISDOC) a privacy poznámka;
+- **local-first:** `evolu/accountantExportSelect.ts` (čisté funkcie) vyberie doklady (nie draft, s číslom) a náklady (nie cancelled) podľa `issueDate`, zostaví `expenses[]` s base64 prílohami (MIME allowlist + 700k base64 cap zrkadlia server), ukáže náhľad počtov/veľkosti a keď by obdobie prekročilo serverové limity (500 riadkov / 12 MB príloh), `planAccountantExport` rozdelí sťahovanie po kalendárnych mesiacoch (viac ZIPov, progress "Časť x z y"); payload ide cez `buildAccountantExportEphemeralRequest` → `downloadEphemeralAccountantExport` (`ephemeralBridge.ts`, company-scoped fallback ako bulk PDF ZIP); mesiac len s nákladmi funguje (firemný payload z profilu cez `buildEphemeralSnapshot`);
+- **server mode:** `invoicingApi.companies.accountantExport()` → `GET .../accountant-export` (výber robí server), bez náhľadu počtov;
+- Vitest: `__tests__/accountantExportSelect.test.ts`.
+
 ## Stav
 
 - [x] B1 - buildery + unit testy
 - [x] B2 - endpointy (vyššie)
-- [ ] B3 - UI stránka "Export pre účtovníka" (obdobie, formáty, obsah, download)
+- [x] B3 - UI stránka "Export pre účtovníka" (nižšie)
 - [ ] manuálny import `pohoda/invoices.xml` do Pohoda demo a ISDOC do KROS Omega demo

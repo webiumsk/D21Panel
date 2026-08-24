@@ -124,6 +124,7 @@ Buyer PII on issued documents is frozen in `buyer_snapshot` at issue. Contact de
 - `/invoicing/companies/:id/app` - základné nastavenia, emaily, číselníky (`.../app/series`)
 - `/invoicing/companies/:id/contacts`
 - `/invoicing/companies/:id/invoices` and `.../invoices/new`, `.../invoices/:documentId`
+- `/invoicing/companies/:id/accountant-export` - balík pre účtovníka (see [ACCOUNTANT_EXPORT.md](ACCOUNTANT_EXPORT.md))
 
 ## Phases (not in MVP)
 
