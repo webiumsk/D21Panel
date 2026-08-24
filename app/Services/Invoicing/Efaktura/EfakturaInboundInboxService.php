@@ -91,27 +91,39 @@ class EfakturaInboundInboxService
     public function markImported(EfakturaInboundReceipt $receipt, Company $company): void
     {
         $this->assertReceiptBelongsToCompany($receipt, $company);
-        $this->assertPending($receipt);
-
-        $receipt->update([
-            'inbox_status' => EfakturaInboundReceipt::INBOX_IMPORTED,
-            'inbox_resolved_at' => now(),
-            'draft_json' => null,
-            'ubl_encrypted' => null,
-        ]);
+        $this->resolvePending($receipt, EfakturaInboundReceipt::INBOX_IMPORTED);
     }
 
     public function dismiss(EfakturaInboundReceipt $receipt, Company $company): void
     {
         $this->assertReceiptBelongsToCompany($receipt, $company);
-        $this->assertPending($receipt);
+        $this->resolvePending($receipt, EfakturaInboundReceipt::INBOX_DISMISSED);
+    }
 
-        $receipt->update([
-            'inbox_status' => EfakturaInboundReceipt::INBOX_DISMISSED,
-            'inbox_resolved_at' => now(),
-            'draft_json' => null,
-            'ubl_encrypted' => null,
-        ]);
+    /**
+     * Conditional update keyed on the pending state: two devices importing
+     * the same item concurrently cannot both succeed - the loser gets the
+     * same "not pending" error a stale client would.
+     */
+    protected function resolvePending(EfakturaInboundReceipt $receipt, string $terminalStatus): void
+    {
+        $affected = EfakturaInboundReceipt::query()
+            ->whereKey($receipt->id)
+            ->inboxPending()
+            ->update([
+                'inbox_status' => $terminalStatus,
+                'inbox_resolved_at' => now(),
+                'draft_json' => null,
+                'ubl_encrypted' => null,
+            ]);
+
+        if ($affected === 0) {
+            throw ValidationException::withMessages([
+                'inbox' => ['Inbox item is not pending.'],
+            ]);
+        }
+
+        $receipt->refresh();
     }
 
     public function countPending(Company $company): int
@@ -164,15 +176,6 @@ class EfakturaInboundInboxService
         }
 
         return $row;
-    }
-
-    protected function assertPending(EfakturaInboundReceipt $receipt): void
-    {
-        if (! $receipt->isInboxPending()) {
-            throw ValidationException::withMessages([
-                'inbox' => ['Inbox item is not pending.'],
-            ]);
-        }
     }
 
     protected function assertReceiptBelongsToCompany(EfakturaInboundReceipt $receipt, Company $company): void

@@ -220,6 +220,11 @@ class EfakturaInboundService
         // Local-first companies keep their expenses in Evolu: park the parsed
         // draft + UBL as an inbox item for the client instead of creating a
         // server expense nobody would ever see.
+        // The provider detail carries the UBL itself - never persist it in the
+        // plain response_payload column (the inbox keeps it encrypted, the
+        // server mode as a file).
+        $detail = $this->detailWithoutDocumentBody($detail);
+
         if (! $company->usesServerInvoicing()) {
             $draft = $this->parser->parse($ubl);
 
@@ -260,6 +265,17 @@ class EfakturaInboundService
 
             throw $e;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $detail
+     * @return array<string, mixed>
+     */
+    protected function detailWithoutDocumentBody(array $detail): array
+    {
+        unset($detail['payload'], $detail['ubl'], $detail['document'], $detail['xml']);
+
+        return $detail;
     }
 
     /**

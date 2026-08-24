@@ -8,10 +8,12 @@ use App\Models\EfakturaInboundReceipt;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\Invoicing\Efaktura\EfakturaInboundInboxService;
 use App\Services\Invoicing\Efaktura\EfakturaInboundService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -143,6 +145,10 @@ XML;
         // UBL is encrypted at rest and never stored in plain text.
         $this->assertStringNotContainsString('<Invoice', (string) $receipt->getRawOriginal('ubl_encrypted'));
         $this->assertStringContainsString('<Invoice', Crypt::decryptString($receipt->ubl_encrypted));
+        // The provider detail echoes the UBL - it must not land in the plain
+        // response_payload column either.
+        $this->assertStringNotContainsString('<Invoice', (string) $receipt->getRawOriginal('response_payload'));
+        $this->assertSame('inbound-42', $receipt->response_payload['providerDocumentId'] ?? null);
         $this->assertDatabaseHas('audit_logs', ['action' => 'company.efaktura_inbound_inboxed', 'target_id' => $company->id]);
 
         // A second poll must not re-fetch or duplicate the item.
@@ -213,10 +219,20 @@ XML;
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
-        // Not pending any more - imported / dismiss are rejected.
+        // Not pending any more - imported / dismiss are rejected, also when the
+        // caller holds a stale (still pending) copy of the row: the update is
+        // conditional on the database state, not on the loaded model.
         $this->actingAs($user)
             ->postJson("/api/invoicing/companies/{$company->id}/efaktura/inbox/{$receipt->id}/dismiss")
             ->assertStatus(422);
+        $stale = EfakturaInboundReceipt::query()->findOrFail($receipt->id);
+        $stale->inbox_status = 'pending';
+        try {
+            app(EfakturaInboundInboxService::class)->markImported($stale, $company);
+            $this->fail('stale pending copy must not win');
+        } catch (ValidationException) {
+            // expected
+        }
 
         // Poll retry after import: the CPDS still lists the id; nothing is re-fetched.
         $again = app(EfakturaInboundService::class)->pollCompany($company->fresh());
