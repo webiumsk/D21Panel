@@ -52,7 +52,16 @@ return new class extends Migration
     {
         $driver = DB::getDriverName();
 
-        DB::table('stores')->where('wallet_type', 'blitz')->update(['wallet_type' => 'blink']);
+        // Refuse to roll back over live Blitz data - silently remapping blitz -> blink
+        // would change store behavior. Migrate the stores off Blitz first.
+        $blitzStores = DB::table('stores')->where('wallet_type', 'blitz')->count();
+        $blitzConnections = DB::table('wallet_connections')->where('type', 'blitz')->count();
+        if ($blitzStores > 0 || $blitzConnections > 0) {
+            throw new RuntimeException(
+                "Cannot roll back the blitz wallet_type migration: {$blitzStores} store(s) and "
+                ."{$blitzConnections} wallet connection(s) still use Blitz. Reassign them first."
+            );
+        }
 
         if ($driver === 'sqlite') {
             return;
