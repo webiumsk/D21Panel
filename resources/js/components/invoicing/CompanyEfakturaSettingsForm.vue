@@ -146,6 +146,9 @@
             <span>{{ t('invoicing.efaktura_inbound_enabled') }}</span>
           </label>
           <p class="text-xs text-gray-500">{{ t('invoicing.efaktura_inbound_hint') }}</p>
+          <p v-if="localFirst && form.efaktura_inbound_enabled" class="text-xs text-amber-800">
+            {{ t('invoicing.efaktura_inbound_local_first_notice') }}
+          </p>
 
           <div v-if="form.efaktura_inbound_enabled" class="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
             <p v-if="form.efaktura_inbound_last_poll_at" class="text-xs text-gray-600">
@@ -226,6 +229,8 @@ import { useEfakturaFeature } from '../../composables/useEfakturaFeature';
 import { allCompaniesDetailQuery, useInvoicingEvolu } from '../../evolu/client';
 import { evoluCompanyToApi, type EvoluCompanyRow } from '../../evolu/companyMap';
 import { updateLocalEfakturaSettings } from '../../evolu/companySettingsCrud';
+import { ensureBridgeCompanyIdForLocalCompany } from '../../evolu/bridgeCompanyEnsure';
+import { refreshEfakturaInboxLive, reloadEfakturaInboxLive } from '../../evolu/efakturaInboxLive';
 import { isInvoicingLocalFirst } from '../../evolu/flags';
 import { invoicingApi } from '../../services/api';
 import { useStoresStore } from '../../store/stores';
@@ -467,20 +472,54 @@ function emitUpdatedFromEvoluRow() {
   );
 }
 
-async function pollInboundNow() {
-  if (localFirst) {
-    pollError.value = true;
-    pollMessage.value = t('invoicing.local_first_efaktura_inbound_unavailable');
-    return;
+/**
+ * Local-first: the CPDS is polled on the bridge company (the server row that
+ * mirrors this company's identity) - received documents land in its inbox
+ * and the Expenses page imports them into Evolu.
+ */
+async function resolveBridgeCompanyIdOrFail(): Promise<string> {
+  const bridge = await ensureBridgeCompanyIdForLocalCompany(props.companyId);
+  if (!bridge.ok) {
+    throw new Error(t('invoicing.efaktura_inbound_bridge_failed'));
   }
+  if (!bridge.bridgeCompanyId) {
+    throw new Error(t('invoicing.efaktura_inbound_bridge_missing'));
+  }
+  return bridge.bridgeCompanyId;
+}
 
+/** Push the inbound-relevant subset of the settings to the bridge company. */
+async function syncInboundSettingsToBridge(payload: Partial<CompanyEfakturaSettingsState>): Promise<void> {
+  const bridgeCompanyId = await resolveBridgeCompanyIdOrFail();
+  const inboundOn = Boolean(payload.efaktura_enabled) && Boolean(payload.efaktura_inbound_enabled);
+  const bridgePayload: Record<string, unknown> = {
+    efaktura_enabled: inboundOn,
+    efaktura_inbound_enabled: inboundOn,
+    // Issuing never runs through the bridge - documents live in Evolu.
+    efaktura_auto_send: false,
+  };
+  if (inboundOn) {
+    bridgePayload.efaktura_sapi_base_url = payload.efaktura_sapi_base_url || null;
+    bridgePayload.efaktura_sapi_client_id = payload.efaktura_sapi_client_id || null;
+    bridgePayload.efaktura_peppol_participant_id = payload.efaktura_peppol_participant_id || '';
+    const secret = payload.efaktura_sapi_client_secret || storedLocalSecret();
+    if (secret) {
+      bridgePayload.efaktura_sapi_client_secret = secret;
+    }
+  }
+  await invoicingApi.companies.updateAppSettings(bridgeCompanyId, bridgePayload);
+  await reloadEfakturaInboxLive();
+}
+
+async function pollInboundNow() {
   pollingInbound.value = true;
   pollMessage.value = '';
   pollError.value = false;
   try {
+    const targetCompanyId = localFirst ? await resolveBridgeCompanyIdOrFail() : props.companyId;
     const data = await invoicingApi.efaktura.pollInbound<{
       imported?: unknown; acknowledged?: unknown; skipped?: unknown; failed?: unknown; polled_at?: unknown;
-    }>(props.companyId);
+    }>(targetCompanyId);
     const stats: EfakturaInboundPollStats = {
       imported: Number(data.imported ?? 0),
       acknowledged: Number(data.acknowledged ?? 0),
@@ -489,6 +528,14 @@ async function pollInboundNow() {
     };
     applyInboundPollMeta(data.polled_at ? String(data.polled_at) : new Date().toISOString(), stats);
     pollMessage.value = t('invoicing.efaktura_inbound_poll_result', stats);
+    if (localFirst && evolu) {
+      updateLocalEfakturaSettings(evolu, asCompanyId(props.companyId), {
+        efaktura_inbound_last_poll_at: form.efaktura_inbound_last_poll_at,
+        efaktura_inbound_last_poll_stats: stats,
+      });
+      await refreshEfakturaInboxLive(true);
+      return;
+    }
     if (props.company) {
       emit('updated', {
         ...props.company,
@@ -502,7 +549,7 @@ async function pollInboundNow() {
   } catch (rawError) {
     const e = asApiError(rawError);
     pollError.value = true;
-    pollMessage.value = e?.response?.data?.message ?? t('common.error_generic');
+    pollMessage.value = e?.response?.data?.message ?? (rawError instanceof Error ? rawError.message : t('common.error_generic'));
   } finally {
     pollingInbound.value = false;
   }
@@ -519,6 +566,14 @@ async function save() {
       if (!result.ok) {
         saveError.value = t('invoicing.company_save_validation_error');
         return;
+      }
+      // Receiving needs the server poller - mirror the inbound settings to
+      // the bridge company (only these; issuing stays local). A bridge
+      // failure must not undo the local save, so it reports separately.
+      try {
+        await syncInboundSettingsToBridge(payload);
+      } catch (bridgeError) {
+        saveError.value = bridgeError instanceof Error ? bridgeError.message : t('common.error_generic');
       }
       form.efaktura_sapi_client_secret = '';
       emitUpdatedFromEvoluRow();

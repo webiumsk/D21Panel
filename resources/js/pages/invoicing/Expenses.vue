@@ -107,6 +107,8 @@
       :detail="t(`invoicing.${bridgeNoticeKey}`)"
     />
 
+    <EfakturaInboxPanel v-if="localFirst" :company-id="companyId" @imported="load" />
+
     <p v-if="success" class="text-sm text-green-700 mb-4">{{ success }}</p>
     <p v-if="error" class="text-sm text-red-700 mb-4">{{ error }}</p>
 
@@ -190,6 +192,7 @@ import { asApiError } from "../../utils/apiError";
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
+import EfakturaInboxPanel from '../../components/invoicing/EfakturaInboxPanel.vue';
 import ExpenseAttachmentImportModal from '../../components/invoicing/ExpenseAttachmentImportModal.vue';
 import ExpenseImportModal from '../../components/invoicing/ExpenseImportModal.vue';
 import ExpensesTable from '../../components/invoicing/ExpensesTable.vue';

@@ -927,6 +927,21 @@ export const invoicingApi = {
             const { data } = await api.post<ApiEnvelope<T>>('/invoicing/ephemeral/efaktura/test-connection', payload);
             return data.data ?? ({} as T);
         },
+        // Local-first inbox of received e-invoices parked on the bridge company.
+        async inboxList<T = unknown>(companyId: string): Promise<T[]> {
+            const { data } = await api.get<ApiEnvelope<T[]>>(`/invoicing/companies/${companyId}/efaktura/inbox`);
+            return data.data ?? [];
+        },
+        async inboxDetail<T = unknown>(companyId: string, receiptId: string): Promise<T> {
+            const { data } = await api.get<ApiEnvelope<T>>(`/invoicing/companies/${companyId}/efaktura/inbox/${receiptId}`);
+            return data.data;
+        },
+        async inboxImported(companyId: string, receiptId: string): Promise<void> {
+            await api.post(`/invoicing/companies/${companyId}/efaktura/inbox/${receiptId}/imported`);
+        },
+        async inboxDismiss(companyId: string, receiptId: string): Promise<void> {
+            await api.post(`/invoicing/companies/${companyId}/efaktura/inbox/${receiptId}/dismiss`);
+        },
     },
     usSalesTax: {
         async preview<T = unknown>(companyId: string, payload: Record<string, unknown>): Promise<T> {

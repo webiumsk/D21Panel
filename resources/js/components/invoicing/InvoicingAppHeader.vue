@@ -109,6 +109,7 @@ import {
   useInvoicingLayout,
   type InvoicingMainSection,
 } from '../../composables/useInvoicingLayout';
+import { initEfakturaInboxLive } from '../../evolu/efakturaInboxLive';
 import { initIntegrationInboxLive } from '../../evolu/integrationInboxLive';
 import IntegrationInboxBadge from './IntegrationInboxBadge.vue';
 import InvoicingIcons from './icons/InvoicingIcons.vue';
@@ -150,6 +151,8 @@ const { hasBankAccount, companyName: summaryCompanyName } = useInvoicingCompanyS
 // One shared polling loop feeds the badge (and the inbox panel) - the
 // header mounts on every invoicing page, so this binds the active company.
 initIntegrationInboxLive(companyId);
+// Same idea for received e-invoices parked on the bridge company (local-first).
+initEfakturaInboxLive(companyId);
 
 const navDrawerOpen = ref(false);
 const filterDrawerOpen = ref(false);

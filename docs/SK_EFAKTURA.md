@@ -121,6 +121,8 @@ Endpointy (`EnsureCompanyOwnership`, `{company}` = bridge firma):
 
 Credentials pre inbound si local-first klient uloží na bridge firmu cez existujúci `PATCH /companies/{company}/app-settings` (`efaktura_enabled`, `efaktura_inbound_enabled=true`, `efaktura_auto_send=false`, base URL, client id/secret) - žiadny samostatný subscription endpoint. Ručný poll: `POST /companies/{bridge}/efaktura/poll-inbound`.
 
+**Klient (A3):** `CompanyEfakturaSettingsForm` pri local-first uložení zrkadlí inbound podmnožinu nastavení na bridge firmu (`syncInboundSettingsToBridge`, bridge cez `ensureBridgeCompanyIdForLocalCompany`; chyba mostu neruší lokálne uloženie, len sa zobrazí) a tlačidlo „Stiahnuť teraz" polluje bridge. `evolu/efakturaInboxLive.ts` (singleton, init v `InvoicingAppHeader` ako WooCommerce inbox) periodicky sťahuje pending položky a `reconcileEfakturaInboxWithLocalExpenses` skryje/vyčistí tie, ktoré už lokálne existujú (import na inom zariadení). `EfakturaInboxPanel.vue` na stránke Náklady: Import = `importEfakturaInboxEntry` → náklad pod stabilným id (`createIdFromString("satflux.efaktura-expense.v1." + evolu_expense_id)`, upsert = idempotentné) + UBL ako XML príloha (nad 384 KB sa preskočí s upozornením) → `imported` na serveri; Zahodiť = `dismiss`. Vitest: `__tests__/efakturaInboxImport.test.ts`.
+
 **Poctivé konštatovanie:** pre local-first firmy s inboundom sú CPDS credentials a dočasné prijaté UBL na serveri (šifrované), kým ich klient neimportuje alebo kým ich nezahodí `efaktura:purge-inbound-inbox` (denne, `EFAKTURA_INBOUND_INBOX_RETENTION_DAYS`, default 60 - riadok ostáva kvôli dedup, obsah sa zmaže). `efaktura:doctor` vypisuje počet pending položiek per firma.
 
 Peppol SMP lookup pred odoslaním rieši CPDS pri `POST /document/send` (422 ak príjemca nie je v sieti). Lokálna preflight kontrola overí, že kontakt má Peppol ID (IČO/DIČ/`peppol_participant_id`).
@@ -129,7 +131,7 @@ Peppol SMP lookup pred odoslaním rieši CPDS pri `POST /document/send` (422 ak 
 
 - Záložka **E-faktúra** v nastaveniach firmy (`CompanySettingsForm`)
 - Panel stavu, manuálne odoslanie a obnovenie stavu na `InvoiceShow` (vystavené faktúry a dobropisy, `eu_sk`)
-- Peppol ID na kontakte odberateľa; manuálny inbound import v nastaveniach E-faktúra
+- Peppol ID na kontakte odberateľa; manuálny inbound poll v nastaveniach E-faktúra (local-first cez bridge firmu); panel prijatých e-faktúr na stránke Náklady (local-first)
 
 ## Referencie
 

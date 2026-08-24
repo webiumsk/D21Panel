@@ -97,6 +97,44 @@ export async function insertLocalExpenseAttachment(
     });
 }
 
+/**
+ * Attachment from already-encoded content (e.g. the UBL of a received
+ * e-invoice handed over by the server inbox). Rejects payloads above the
+ * schema cap instead of throwing, so callers can import without the file.
+ */
+export function insertLocalExpenseAttachmentFromBase64(
+    evolu: Evolu<InvoicingLocalSchema>,
+    expenseId: ExpenseId,
+    input: { filename: string; mimeType: string | null; contentBase64: string },
+) {
+    const originalFilename = FilenameType.from(input.filename);
+    if (!originalFilename.ok) return originalFilename;
+
+    const mimeType = input.mimeType
+        ? MimeType.from(input.mimeType)
+        : { ok: true as const, value: null };
+    if (!mimeType.ok) return mimeType;
+
+    const encoded = ContentType.from(input.contentBase64);
+    if (!encoded.ok) return encoded;
+
+    const sizeBytes = SizeType.from(String(base64DecodedLength(input.contentBase64)));
+    if (!sizeBytes.ok) return sizeBytes;
+
+    return evolu.insert("expenseAttachment", {
+        expenseId,
+        originalFilename: originalFilename.value,
+        mimeType: mimeType.value,
+        sizeBytes: sizeBytes.value,
+        contentBase64: encoded.value,
+    });
+}
+
+export function base64DecodedLength(base64: string): number {
+    const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+    return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+}
+
 export function deleteLocalExpenseAttachment(
     evolu: Evolu<InvoicingLocalSchema>,
     attachmentId: ExpenseAttachmentId,
