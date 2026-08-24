@@ -325,6 +325,12 @@ parameters:
 			path: app/Http/Controllers/Integrations/WooCommerceIntegrationController.php
 
 		-
+			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\BusinessDocumentStatus\:\:Draft will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Http/Controllers/Invoicing/AccountantExportController.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currency\.$#'
 			identifier: property.notFound
 			count: 1

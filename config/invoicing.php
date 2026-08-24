@@ -32,6 +32,17 @@ return [
     | instead of creating BusinessDocument records (backward compat: default false).
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Accountant export ("balík pre účtovníka")
+    |--------------------------------------------------------------------------
+    | Decoded attachment budget per ephemeral request (the UI chunks by month
+    | above it) and the row cap per package for both server and ephemeral mode.
+    */
+
+    'accountant_export_max_attachment_bytes' => (int) env('INVOICING_ACCOUNTANT_EXPORT_MAX_ATTACHMENT_BYTES', 64 * 1024 * 1024),
+    'accountant_export_max_rows' => (int) env('INVOICING_ACCOUNTANT_EXPORT_MAX_ROWS', 500),
+
     'woocommerce_inbox_mode' => filter_var(env('WOOCOMMERCE_INBOX_MODE', false), FILTER_VALIDATE_BOOL),
 
     /*

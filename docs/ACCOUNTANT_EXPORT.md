@@ -34,9 +34,21 @@ Jeden ZIP za firmu a obdobie, ktorý účtovná kancelária nahrá do svojho pro
 - Buildery sú čisté PHP nad `CanonicalInvoice` (`CanonicalInvoiceBuilder::fromDocument`) a `ReceivedExpenseItem`; PDF / ISDOC / UBL sa berú z existujúcich služieb (`BusinessDocumentPdfService`, `BusinessDocumentIsdocService`, `BusinessDocumentUblService`). Server nič neukladá - rovnaký builder poslúži serverovému režimu (z DB) aj local-first ephemeral bridge (z dočasného payloadu).
 - Testy: `tests/Unit/Invoicing/{PohodaXmlWriter,AccountingCsvWriter,AccountantPackageBuilder}Test.php`
 
+## Endpointy (B2)
+
+Všetky pod `/api/invoicing`, auth:sanctum + `EnsurePlanAllowsBusinessInvoicing` (Pro+):
+
+| Metóda | Cesta | Režim |
+|---|---|---|
+| `GET` | `/companies/{company}/accountant-export?from=YYYY-MM-DD&to=YYYY-MM-DD&formats[]=pohoda&formats[]=csv&include_pdf=1&include_isdoc=1&include_ubl=0&include_expense_attachments=1` | server mode - doklady (nie draft, s číslom) a náklady (nie cancelled) podľa `issue_date`, prílohy zo storage; `EnsureCompanyOwnership` |
+| `POST` | `/ephemeral/accountant-export` | local-first bez serverovej firmy - `company` snapshot + `documents[]` (ako `bulk/pdf-zip`) + `expenses[]` (base64 prílohy) + `options{from,to,formats,include_*}` |
+| `POST` | `/companies/{company}/documents/ephemeral/accountant-export` | local-first s bridge firmou (audit sa viaže na firmu) |
+
+Limity: `invoicing.accountant_export_max_rows` (500 dokladov a 500 nákladov, inak 413 / 422) a `invoicing.accountant_export_max_attachment_bytes` (64 MB dekódovaných príloh per ephemeral request, inak 413); jedna príloha max ~512 KB base64, povolené MIME: PDF, PNG, JPEG, WebP, XML. UI (B3) pri prekročení chunkuje po mesiacoch. Server nič neukladá - iba audit `company.accountant_export` / `business_document.ephemeral_accountant_export` s počtami.
+
 ## Stav
 
 - [x] B1 - buildery + unit testy
-- [ ] B2 - endpointy (`GET /companies/{id}/accountant-export` server mode, `POST /ephemeral/accountant-export` local-first)
+- [x] B2 - endpointy (nižšie)
 - [ ] B3 - UI stránka "Export pre účtovníka" (obdobie, formáty, obsah, download)
 - [ ] manuálny import `pohoda/invoices.xml` do Pohoda demo a ISDOC do KROS Omega demo

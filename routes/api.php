@@ -31,6 +31,7 @@ use App\Http\Controllers\FaqController;
 use App\Http\Controllers\Integrations\WooCommerceConnectController;
 use App\Http\Controllers\Integrations\WooCommerceIntegrationController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\Invoicing\AccountantExportController;
 use App\Http\Controllers\Invoicing\BankInboundWebhookController;
 use App\Http\Controllers\Invoicing\BankTransactionController;
 use App\Http\Controllers\Invoicing\BusinessDocumentController;
@@ -391,6 +392,7 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
                 ->middleware('throttle:10,1');
             Route::post('/ephemeral/bulk/pdf-zip', [EphemeralBusinessDocumentController::class, 'bulkPdfZipWithoutCompany']);
             Route::post('/ephemeral/bulk/pdf-merge', [EphemeralBusinessDocumentController::class, 'bulkPdfMergeWithoutCompany']);
+            Route::post('/ephemeral/accountant-export', [AccountantExportController::class, 'ephemeralWithoutCompany']);
             Route::post('/companies', [CompanyController::class, 'store'])
                 ->middleware(EnsureCompanyLimit::class);
             Route::get('/companies/{company}', [CompanyController::class, 'show'])
@@ -580,6 +582,10 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::post('/companies/{company}/documents/ephemeral/bulk/pdf-zip', [EphemeralBusinessDocumentController::class, 'bulkPdfZip'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::post('/companies/{company}/documents/ephemeral/bulk/pdf-merge', [EphemeralBusinessDocumentController::class, 'bulkPdfMerge'])
+                ->middleware(EnsureCompanyOwnership::class);
+            Route::post('/companies/{company}/documents/ephemeral/accountant-export', [AccountantExportController::class, 'ephemeral'])
+                ->middleware(EnsureCompanyOwnership::class);
+            Route::get('/companies/{company}/accountant-export', [AccountantExportController::class, 'download'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::post('/companies/{company}/documents/credit-note-from-invoice', [BusinessDocumentController::class, 'createCreditNoteFromInvoice'])
                 ->middleware(EnsureCompanyOwnership::class);

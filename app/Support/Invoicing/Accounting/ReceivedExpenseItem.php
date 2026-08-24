@@ -37,6 +37,56 @@ final class ReceivedExpenseItem
     ) {}
 
     /**
+     * Transient payload from the local-first bridge (already validated by
+     * EphemeralAccountantExportRequest); attachments arrive base64-encoded.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public static function fromArray(array $payload): self
+    {
+        $date = static fn (mixed $value): ?DateTimeImmutable => is_string($value) && $value !== ''
+            ? new DateTimeImmutable($value)
+            : null;
+        $text = static fn (mixed $value): ?string => is_string($value) && trim($value) !== '' ? trim($value) : null;
+
+        $attachments = [];
+        foreach ((array) ($payload['attachments'] ?? []) as $attachment) {
+            if (! is_array($attachment)) {
+                continue;
+            }
+            $bytes = base64_decode((string) ($attachment['content_base64'] ?? ''), true);
+            if ($bytes === false) {
+                continue;
+            }
+            $attachments[] = new ReceivedExpenseAttachment(
+                filename: (string) ($attachment['filename'] ?? 'attachment'),
+                mime: (string) ($attachment['mime'] ?? 'application/octet-stream'),
+                bytes: $bytes,
+            );
+        }
+
+        return new self(
+            internalNumber: (string) $payload['internal_number'],
+            externalNumber: $text($payload['external_number'] ?? null),
+            supplierName: $text($payload['supplier_name'] ?? null),
+            variableSymbol: $text($payload['variable_symbol'] ?? null),
+            constantSymbol: $text($payload['constant_symbol'] ?? null),
+            issueDate: $date($payload['issue_date'] ?? null),
+            deliveryDate: $date($payload['delivery_date'] ?? null),
+            dueDate: $date($payload['due_date'] ?? null),
+            paidAt: $date($payload['paid_at'] ?? null),
+            total: number_format((float) ($payload['total'] ?? 0), 2, '.', ''),
+            currency: strtoupper((string) ($payload['currency'] ?? 'EUR')),
+            status: BusinessExpenseStatus::from((string) ($payload['status'] ?? BusinessExpenseStatus::Recorded->value)),
+            note: $text($payload['note'] ?? null),
+            supplierRegistrationNumber: $text($payload['supplier_registration_number'] ?? null),
+            supplierTaxId: $text($payload['supplier_tax_id'] ?? null),
+            supplierVatId: $text($payload['supplier_vat_id'] ?? null),
+            attachments: $attachments,
+        );
+    }
+
+    /**
      * @param  list<ReceivedExpenseAttachment>  $attachments
      */
     public static function fromModel(BusinessExpense $expense, array $attachments = []): self
