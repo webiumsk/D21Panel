@@ -113,6 +113,7 @@ Buyer PII on issued documents is frozen in `buyer_snapshot` at issue. Contact de
 - Scheduler: `php artisan invoicing:process-recurring` daily at 06:00
 - Issued update: does not pre-create BTCPay; disabling BTC clears `payment_token`
 - Public pay: `GET /pay/i/{payment_token}` (web route, no auth)
+- `GET /api/invoicing/companies/{company}/accountant-export?from&to` - ZIP balík pre účtovníka (Pohoda XML, ISDOC, CSV, PDF, prílohy nákladov); ephemeral `POST /api/invoicing/ephemeral/accountant-export` pre local-first - see [ACCOUNTANT_EXPORT.md](ACCOUNTANT_EXPORT.md)
 - `GET /invoicing/companies/{company}/documents/{id}/pdf` - download PDF (web route, session auth; also available under `/api/invoicing/...` for SPA axios)
 
 ## Frontend routes
