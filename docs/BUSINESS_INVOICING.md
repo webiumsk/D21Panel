@@ -24,6 +24,10 @@ Entitlement is enforced from the local `subscriptions` row (`billing_phase`, `ex
 
 Existing companies above the Free limit (0) are **not** removed; the user simply cannot open the module until PRO is active again. Creating new companies is blocked when at plan limit (Pro: 2, or beta: 5).
 
+## Company sharing (Track C, in progress)
+
+One company edited by several people (owner + accountant) while staying E2EE is designed around Evolu `SharedOwner`s - see [COMPANY_SHARING.md](COMPANY_SHARING.md) for the model, the honest limitation (no write-key rotation in Evolu 7.4.1, so revocation = membership removal + re-key) and the phase plan. Today a company still has exactly one owner.
+
 ## Local-first mode and recovery phrase
 
 When `VITE_INVOICING_LOCAL_FIRST=true`, invoicing companies, contacts, and documents live in the browser (Evolu SQLite). The **same 24-word Satflux recovery phrase** is the Evolu AppOwner key (`resources/js/services/evoluOwner.ts`) - one offline backup for:

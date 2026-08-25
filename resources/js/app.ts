@@ -65,6 +65,16 @@ void import('./services/analytics').then(({ loadAnalyticsIfConsented }) => loadA
 void import('./services/chorala').then(({ initChorala }) => initChorala());
 void initLocaleFromBackend();
 
+// Track C spike (docs/COMPANY_SHARING.md): dev-only console helpers for
+// verifying Evolu SharedOwner sync against the relay. Never shipped.
+if (import.meta.env.DEV) {
+    void import('./evolu/flags').then(({ isInvoicingLocalFirst }) => {
+        if (isInvoicingLocalFirst()) {
+            void import('./evolu/sharedOwnerSpike').then(({ installSharedOwnerSpike }) => installSharedOwnerSpike());
+        }
+    });
+}
+
 
 
 
