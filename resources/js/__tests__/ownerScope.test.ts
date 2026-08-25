@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// companyShareBootstrap imports the real Evolu singleton; the tests only need the query token.
+vi.mock('@/evolu/client', () => ({ allCompanySharesQuery: {} }));
+vi.mock('@/services/evoluRelayPreference', () => ({ getResolvedEvoluRelayUrl: () => '' }));
 import type { Evolu } from '@evolu/common/local-first';
 import type { OwnerId } from '@evolu/common/local-first';
 import {
@@ -13,10 +17,13 @@ import {
     clearCompanyShares,
     companyShareInfo,
     isRegisteredSharedOwnerId,
+    markCompanyShareRegistryReady,
     ownerIdForCompany,
     removeCompanyShare,
     setCompanyShare,
 } from '@/evolu/companyShareRegistry';
+import { applyCompanyShareRows } from '@/evolu/companyShareBootstrap';
+import { createCompanyShareSecret, encodeOwnerSecret, sharedOwnerFromSecret, unregisterAllSharedOwners } from '@/evolu/sharedOwner';
 import type { InvoicingLocalSchema } from '@/evolu/schema';
 
 const SHARED = 'shared-owner-1' as OwnerId;
@@ -24,6 +31,7 @@ const APP = 'app-owner' as OwnerId;
 
 function share(companyId = 'company-shared') {
     setCompanyShare({ companyId, ownerId: SHARED, role: 'accountant', status: 'active', bridgeCompanyId: null });
+    markCompanyShareRegistryReady();
 }
 
 function fakeRaw() {
@@ -86,6 +94,23 @@ describe('resolveMutationOwner', () => {
         expect(resolveMutationOwner('documentLine', { documentId: 'doc-1', name: 'x' }, undefined)).toBe(SHARED);
         expect(resolveMutationOwner('documentLine', { documentId: 'doc-2', name: 'x' }, undefined)).toBeUndefined();
         expect(resolveMutationOwner('documentLine', { documentId: 'unknown', name: 'x' }, undefined)).toBeUndefined();
+    });
+
+    it('trusts the index over the company lookup while the registry is still loading', () => {
+        // Registry not ready: an already-seen shared row keeps its partition
+        // even though the company is not (yet) known as shared.
+        indexRowOwners([{ id: 'doc-1', ownerId: SHARED }]);
+        expect(resolveMutationOwner('document', { id: 'doc-1', companyId: 'company-shared' }, undefined)).toBe(SHARED);
+        expect(resolveMutationOwner('documentLine', { documentId: 'doc-1' }, undefined)).toBe(SHARED);
+
+        // Once loaded, only registered shared owners count.
+        markCompanyShareRegistryReady();
+        expect(resolveMutationOwner('document', { id: 'doc-1', companyId: 'company-shared' }, undefined)).toBeUndefined();
+        share();
+        expect(resolveMutationOwner('document', { id: 'doc-1', companyId: 'company-shared' }, undefined)).toBe(SHARED);
+        // Indexed rows win over the company lookup for updates.
+        indexRowOwners([{ id: 'doc-app', ownerId: APP }]);
+        expect(resolveMutationOwner('document', { id: 'doc-app', companyId: 'company-shared' }, undefined)).toBeUndefined();
     });
 
     it('keeps the shared copy when both partitions carry the same id', () => {
@@ -160,5 +185,41 @@ describe('withCompanyOwnerScoping', () => {
         evolu.insert('companyShare', { companyId: 'company-shared', secretB64: 's' } as never);
 
         expect(mocks.insert.mock.calls[0][2]).toBeUndefined();
+    });
+});
+
+describe('applyCompanyShareRows', () => {
+    afterEach(() => {
+        clearCompanyShares();
+    });
+
+    it('registers only rows from the AppOwner partition', () => {
+        const useOwner = vi.fn(() => vi.fn());
+        const evolu = { useOwner } as unknown as Evolu<InvoicingLocalSchema>;
+        const secret = createCompanyShareSecret();
+        const owner = sharedOwnerFromSecret(secret);
+        const base = {
+            id: 'share-1',
+            companyId: 'company-x',
+            sharedOwnerId: owner.id,
+            secretB64: encodeOwnerSecret(secret),
+            role: 'accountant' as const,
+            status: 'active' as const,
+            bridgeCompanyId: null,
+        };
+
+        // A row planted in a shared partition by another member is ignored.
+        applyCompanyShareRows(evolu, [{ ...base, ownerId: 'someone-elses-owner' }], 'app-owner');
+        expect(ownerIdForCompany('company-x')).toBeUndefined();
+        expect(useOwner).not.toHaveBeenCalled();
+
+        applyCompanyShareRows(evolu, [{ ...base, ownerId: 'app-owner' }], 'app-owner');
+        expect(ownerIdForCompany('company-x')).toBe(owner.id);
+        expect(useOwner).toHaveBeenCalledTimes(1);
+
+        // Disappearing rows unregister the owner.
+        applyCompanyShareRows(evolu, [], 'app-owner');
+        expect(ownerIdForCompany('company-x')).toBeUndefined();
+        unregisterAllSharedOwners(evolu);
     });
 });

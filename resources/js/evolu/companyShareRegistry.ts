@@ -20,6 +20,8 @@ export type CompanyShareInfo = {
 
 const byCompany = new Map<string, CompanyShareInfo>();
 const sharedOwnerIds = new Set<OwnerId>();
+/** False until the first load from the `companyShare` table finished (see ownerScope.ts). */
+let ready = false;
 
 export function setCompanyShare(info: CompanyShareInfo): void {
     const previous = byCompany.get(info.companyId);
@@ -41,6 +43,15 @@ export function removeCompanyShare(companyId: string): void {
 export function clearCompanyShares(): void {
     byCompany.clear();
     sharedOwnerIds.clear();
+    ready = false;
+}
+
+export function markCompanyShareRegistryReady(): void {
+    ready = true;
+}
+
+export function isCompanyShareRegistryReady(): boolean {
+    return ready;
 }
 
 /** SharedOwner of a company, or undefined when the company is private (AppOwner). */

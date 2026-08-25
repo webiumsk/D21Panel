@@ -4,6 +4,7 @@ import { allCompanySharesQuery } from "./client";
 import {
     clearCompanyShares,
     listCompanyShares,
+    markCompanyShareRegistryReady,
     removeCompanyShare,
     setCompanyShare,
     type CompanyShareRole,
@@ -21,6 +22,7 @@ import { toAppRows } from "./queryLoad";
 
 export type CompanyShareRow = {
     id: string;
+    ownerId: string | null;
     companyId: string;
     sharedOwnerId: string;
     secretB64: string;
@@ -31,9 +33,24 @@ export type CompanyShareRow = {
 
 let unsubscribe: (() => void) | null = null;
 
-export function applyCompanyShareRows(evolu: Evolu<InvoicingLocalSchema>, rows: readonly CompanyShareRow[]): void {
+/**
+ * Only rows from the user's OWN partition are trusted: a member could write a
+ * `companyShare` row into the shared partition, and honouring it would make
+ * every other member register an owner (and secret) of the writer's choice.
+ */
+export function applyCompanyShareRows(
+    evolu: Evolu<InvoicingLocalSchema>,
+    rows: readonly CompanyShareRow[],
+    appOwnerId: string,
+): void {
     const seen = new Set<string>();
     for (const row of rows) {
+        if (row.ownerId !== appOwnerId) {
+            if (import.meta.env.DEV) {
+                console.warn("[company-share] ignoring companyShare row outside the AppOwner partition", row.companyId);
+            }
+            continue;
+        }
         if (row.status === "revoked") {
             continue;
         }
@@ -72,19 +89,21 @@ export function applyCompanyShareRows(evolu: Evolu<InvoicingLocalSchema>, rows: 
 }
 
 export async function loadCompanyShareRegistry(evolu: Evolu<InvoicingLocalSchema>): Promise<void> {
+    const appOwnerId = (await evolu.appOwner).id;
     const rows = toAppRows<CompanyShareRow>(await evolu.loadQuery(allCompanySharesQuery));
-    applyCompanyShareRows(evolu, rows);
+    applyCompanyShareRows(evolu, rows, appOwnerId);
+    markCompanyShareRegistryReady();
     if (!unsubscribe) {
         unsubscribe = evolu.subscribeQuery(allCompanySharesQuery)(() => {
-            applyCompanyShareRows(evolu, toAppRows<CompanyShareRow>(evolu.getQueryRows(allCompanySharesQuery)));
+            applyCompanyShareRows(evolu, toAppRows<CompanyShareRow>(evolu.getQueryRows(allCompanySharesQuery)), appOwnerId);
         });
     }
 }
 
 /** Test / logout helper. */
-export function resetCompanyShareRegistry(evolu: Evolu<InvoicingLocalSchema>): void {
+export async function resetCompanyShareRegistry(evolu: Evolu<InvoicingLocalSchema>): Promise<void> {
     unsubscribe?.();
     unsubscribe = null;
-    applyCompanyShareRows(evolu, []);
+    applyCompanyShareRows(evolu, [], (await evolu.appOwner).id);
     clearCompanyShares();
 }

@@ -1,6 +1,6 @@
 import type { Evolu } from "@evolu/common/local-first";
 import type { OwnerId } from "@evolu/common/local-first";
-import { isRegisteredSharedOwnerId, ownerIdForCompany } from "./companyShareRegistry";
+import { isCompanyShareRegistryReady, isRegisteredSharedOwnerId, ownerIdForCompany } from "./companyShareRegistry";
 import type { InvoicingLocalSchema } from "./schema";
 
 /**
@@ -69,6 +69,20 @@ export function clearRowOwnerIndex(): void {
     rowOwner.clear();
 }
 
+/**
+ * Owner recorded in the index for a row, filtered by what we know: once the
+ * registry is loaded only registered SharedOwners count (an AppOwner id or a
+ * revoked owner falls back to the default partition); before that every
+ * indexed owner is trusted so rows of a shared company are not forked into
+ * the AppOwner partition while the registry is still loading.
+ */
+function indexedOwner(id: string): OwnerId | undefined {
+    const known = rowOwner.get(id);
+    if (!known) return undefined;
+    if (!isCompanyShareRegistryReady()) return known;
+    return isRegisteredSharedOwnerId(known) ? known : undefined;
+}
+
 export function resolveMutationOwner(
     table: string,
     props: Record<string, unknown>,
@@ -77,22 +91,25 @@ export function resolveMutationOwner(
     if (explicit) return explicit;
     if (APP_OWNER_ONLY_TABLES.has(table)) return undefined;
 
+    // A row we have already seen keeps its partition - this beats the
+    // company lookup so an update never forks a shared row while the
+    // registry is still being loaded.
+    const id = props.id;
+    if (typeof id === "string" && rowOwner.has(id)) {
+        return indexedOwner(id);
+    }
+
     const companyId = props.companyId;
     if (typeof companyId === "string" && companyId !== "") {
         return ownerIdForCompany(companyId);
     }
 
-    const id = props.id;
-    if (typeof id === "string") {
-        const known = rowOwner.get(id);
-        if (known) return isRegisteredSharedOwnerId(known) ? known : undefined;
-    }
-
     const parentKey = PARENT_KEYS[table];
     const parentId = parentKey ? props[parentKey] : undefined;
     if (typeof parentId === "string") {
-        const known = rowOwner.get(parentId);
-        if (known) return isRegisteredSharedOwnerId(known) ? known : undefined;
+        if (rowOwner.has(parentId)) {
+            return indexedOwner(parentId);
+        }
         if (import.meta.env.DEV) {
             console.warn(`[owner-scope] ${table}.${parentKey}=${parentId} not in the row index - writing to the AppOwner partition`);
         }
