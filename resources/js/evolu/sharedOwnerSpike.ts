@@ -135,6 +135,15 @@ export const sharedOwnerSpike = {
         return exportInvoicingBackup(evolu, app.id);
     },
 
+    /** C3 runbook recovery: return a duplicated / half-shared company to private using a pre-share backup. */
+    async recoverCompanyToPrivate(companyId: string, backupEnvelope: unknown): Promise<unknown> {
+        const { recoverCompanyToPrivate } = await import("./companyShareRecovery");
+        const envelope = backupEnvelope as { data?: unknown };
+        const result = await recoverCompanyToPrivate(evolu, companyId, (envelope.data ?? envelope) as never);
+        log("recoverCompanyToPrivate", result);
+        return result;
+    },
+
     /** C3 runbook: convert a company through the real migration (same code path as the UI card). */
     async convertCompany(companyId: string, force = false): Promise<unknown> {
         const { convertCompanyToShared } = await import("./companyShareMigration");
