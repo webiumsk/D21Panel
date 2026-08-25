@@ -104,6 +104,22 @@ export const sharedOwnerSpike = {
         return rows;
     },
 
+    /** C2 diagnostics: are query results indexed by owner inside the app's own module graph? */
+    async probeIndex(): Promise<{ companies: number; withOwnerId: number; indexed: number; shares: number }> {
+        const { allCompaniesQuery, allCompanySharesQuery } = await import("./client");
+        const { knownRowOwner } = await import("./ownerScope");
+        const rows = (await evolu.loadQuery(allCompaniesQuery)) as unknown as readonly { id: string; ownerId?: string }[];
+        const shares = await evolu.loadQuery(allCompanySharesQuery);
+        const result = {
+            companies: rows.length,
+            withOwnerId: rows.filter((r) => typeof r.ownerId === "string").length,
+            indexed: rows.filter((r) => knownRowOwner(r.id) === r.ownerId).length,
+            shares: shares.length,
+        };
+        log("probeIndex", result);
+        return result;
+    },
+
     async leave(ownerId: OwnerId): Promise<void> {
         unregisterSharedOwner(evolu, ownerId);
         log("leave", ownerId);

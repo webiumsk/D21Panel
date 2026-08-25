@@ -22,7 +22,9 @@ import {
 } from "./client";
 import type { InvoicingLocalSchema } from "./schema";
 
-type InvoicingTable = keyof InvoicingLocalSchema;
+// `companyShare` holds SharedOwner secrets and is deliberately outside the
+// snapshot / backup / restore cycle (docs/COMPANY_SHARING.md).
+type InvoicingTable = Exclude<keyof InvoicingLocalSchema, "companyShare">;
 
 const UPSERT_STRIP_KEYS = new Set(["createdAt", "updatedAt"]);
 

@@ -1,13 +1,21 @@
 import { createEvolu, kysely, SimpleName, sqliteTrue } from "@evolu/common";
 import { createUseEvolu } from "@evolu/vue";
 import { evoluTransports } from "./config";
+import { withCompanyOwnerScoping } from "./ownerScope";
 import { createEvoluWebDepsWithReloadGuard } from "./reloadGuard";
 import { EVOLU_APP_NAME, InvoicingLocalSchema } from "./schema";
 
-export const evolu = createEvolu(createEvoluWebDepsWithReloadGuard())(InvoicingLocalSchema, {
+const rawEvolu = createEvolu(createEvoluWebDepsWithReloadGuard())(InvoicingLocalSchema, {
     name: SimpleName.orThrow(EVOLU_APP_NAME),
     transports: evoluTransports(),
 });
+
+/**
+ * Every consumer (composables, CRUD modules, EvoluProvider) gets the
+ * owner-scoping proxy: mutations on rows of a shared company are routed to
+ * that company's SharedOwner automatically (docs/COMPANY_SHARING.md, C2).
+ */
+export const evolu = withCompanyOwnerScoping(rawEvolu);
 
 export const useInvoicingEvolu = createUseEvolu(evolu);
 
@@ -535,3 +543,23 @@ export const allBankTransactionMatchesQuery = evolu.createQuery((db) =>
 );
 
 export { EVOLU_RELAY_URL } from "./config";
+
+const companyShareColumns = [
+    "id",
+    "ownerId",
+    "companyId",
+    "sharedOwnerId",
+    "secretB64",
+    "role",
+    "status",
+    "bridgeCompanyId",
+] as const;
+
+/** Shares the current user holds (their own AppOwner partition only). */
+export const allCompanySharesQuery = evolu.createQuery((db) =>
+    db
+        .selectFrom("companyShare")
+        .select(companyShareColumns)
+        .where("isDeleted", "is not", sqliteTrue)
+        .orderBy("createdAt"),
+);
