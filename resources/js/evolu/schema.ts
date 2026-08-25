@@ -57,6 +57,8 @@ export const BankTransactionId = id("BankTransaction");
 export type BankTransactionId = typeof BankTransactionId.Type;
 
 export const BankTransactionMatchId = id("BankTransactionMatch");
+export const CompanyShareId = id("CompanyShare");
+export type CompanyShareId = typeof CompanyShareId.Type;
 export type BankTransactionMatchId = typeof BankTransactionMatchId.Type;
 
 export const DocumentSnapshotId = id("DocumentSnapshot");
@@ -106,6 +108,8 @@ export const CompanyJurisdiction = union(
 export type CompanyJurisdiction = typeof CompanyJurisdiction.Type;
 
 export const VatStatus = union("none", "payer", "partial");
+export const CompanyShareRole = union("owner", "accountant", "member");
+export const CompanyShareStatus = union("migrating", "active", "revoked");
 export type VatStatus = typeof VatStatus.Type;
 
 export const DocumentStatus = union("draft", "issued", "paid", "cancelled");
@@ -503,6 +507,21 @@ export const InvoicingLocalSchema = {
         matchedAmount: OptionalString32,
         matchType: BankMatchType,
         matchedAt: OptionalString32,
+    },
+    /**
+     * Company sharing (docs/COMPANY_SHARING.md): the SharedOwner secret of a
+     * shared company, kept in the user's OWN (AppOwner) partition so it is
+     * E2EE and syncs to their other devices. Never written under a shared
+     * owner (ownerScope.ts pins this table to the AppOwner).
+     */
+    companyShare: {
+        id: CompanyShareId,
+        companyId: CompanyId,
+        sharedOwnerId: maxLength(64)(NonEmptyString),
+        secretB64: maxLength(64)(NonEmptyString),
+        role: CompanyShareRole,
+        status: CompanyShareStatus,
+        bridgeCompanyId: OptionalString64,
     },
 } satisfies EvoluSchema;
 

@@ -21,7 +21,7 @@ Alternatíva "zdieľané firmy v server mode" bola zamietnutá: SPA už nemá pe
 |---|---|---|
 | **C0** | spike: `sharedOwner.ts` (secret, base64url, owner z secretu, relay transport, registrácia), `ownerScope.ts` (`scopedEvolu`), dev-only `window.__satfluxSharedOwnerSpike`, Vitest | **hotové** (táto vetva) |
 | C1 | server: `company_members` (owner/accountant/member), `Company::isAccessibleBy`, `EnsureCompanyOwnership` membership-aware, `EnsureCompanyRole:owner` pre deštruktívne routy, `CompanyController::index` union s rolou, entitlement podľa vlastníka firmy, allocator test s 2 usermi | **hotové** (viď nižšie) |
-| C2 | klient: Evolu tabuľka `companyShare` (secret E2EE v AppOwner partícii), `sharedOwnerRegistry` v bootstrape, `scopedEvolu` pretiahnutý cez composables/CRUD (~150 volaní), dev assertion na owner mismatch | plán |
+| C2 | klient: Evolu tabuľka `companyShare` (secret E2EE v AppOwner partícii), registry v bootstrape, **automatické scopovanie mutácií na singletone** (namiesto prepisu ~150 volaní), `ownerId` vo výsledkoch všetkých dotazov | **hotové** (viď nižšie) |
 | C3 | konverzia firmy na zdieľanú + migrácia riadkov AppOwner → SharedOwner (`companyShareMigration.ts`: status `migrating` pred kopírovaním, upsert so zachovaným `createdAt`, verifikácia počtov/hashov, soft-delete originálov, resumable), `numberAllocatorBridge` s explicitným `bridgeCompanyId` (obaja píšu do jedného countera) | plán |
 | C4 | invites: `company_invites`, sealed box na x25519 kľúč pozvaného, fingerprint, fallback share-link s payloadom v URL fragmente | plán |
 | C5 | revokácia + re-key + audit (`documentEvent` s ownerId/rolou, `reserved_by_user_id`), UI správa členov, tento doc dopísať ako threat model | plán |
@@ -35,6 +35,19 @@ Alternatíva "zdieľané firmy v server mode" bola zamietnutá: SPA už nemá pe
 - `GET /companies` vracia vlastné + zdieľané firmy s `role`; `GET /companies/{id}` má `role` v payloade.
 - Číslovanie: člen aj vlastník rezervujú z jedného countera (test s dvoma usermi - po sebe idúce čísla, idempotentný retry).
 - Zatiaľ bez endpointov na pozvanie/odobranie (C4/C5) - riadky členstva vznikajú len z invitov.
+
+## C2 - klientsky owner scoping (hotové)
+
+Rozhodnutie oproti pôvodnému plánu: namiesto pretiahnutia `scopedEvolu` cez ~150 volaní v CRUD moduloch je scoping **centrálny** - `client.ts` exportuje singleton obalený `withCompanyOwnerScoping()` (`ownerScope.ts`) a všetci konzumenti (`useInvoicingEvolu`, `EvoluProvider`, CRUD moduly cez parameter) ho dostanú automaticky:
+
+1. explicitný `options.ownerId` vždy vyhrá (migrácia, spike);
+2. tabuľka `companyShare` ostáva vždy v AppOwner partícii (nesie secret zdieľania);
+3. riadok s `companyId` ide do partície podľa registry (`companyShareRegistry.ts`: `companyId → SharedOwner`, plnená z tabuľky `companyShare` pri bootstrape a živo cez `subscribeQuery`);
+4. inak sa owner odvodí z **indexu riadok → owner**: `createQuery` v proxy každému dotazu pripojí `.select("ownerId")` (systémový stĺpec; typy v aplikácii sa nemenia) a výsledky `loadQuery` / `loadQueries` / `getQueryRows` (tým aj `useQuery` z `@evolu/vue`) index plnia; update/upsert sa hľadá podľa `id`, child inserty (`documentLine`, `documentEvent`, `documentSnapshot`, `expenseAttachment`, `recurringProfileLine`, `bankTransactionMatch`) podľa rodičovského kľúča; novo zapísané riadky sa indexujú hneď, takže riadky faktúry po vložení dokladu skončia v tej istej partícii. Pri duplicitnom `id` v oboch partíciách (migračné okno) vyhráva zdieľaná kópia. Miss = zápis do AppOwner + dev warning.
+
+Súkromné firmy → `undefined` = dnešné správanie, nič sa pre ne nemení. `invoicingSnapshot` (záloha/obnova/relay force push) tabuľku `companyShare` zámerne vynecháva. Schéma: `companyShare { companyId, sharedOwnerId, secretB64, role, status(migrating|active|revoked), bridgeCompanyId }` (aditívne). Testy: `__tests__/ownerScope.test.ts`.
+
+Overené proti dev appke (účet s 2 firmami a 68 dokladmi): všetky výsledky dotazov nesú `ownerId`, stránky Faktúry/Kontakty/Náklady/Export/prehľad sa načítajú bez chýb aplikácie.
 
 ## C0 spike - runbook (dev build, dve prehliadače, jeden relay)
 

@@ -62,6 +62,18 @@ export function ensureEvoluBoundToAccountSeed(): Promise<void> {
                     return;
                 }
                 bootstrapState = result === "owner_restore_failed" ? "failed" : "done";
+                if (bootstrapState === "done") {
+                    // Shared companies (docs/COMPANY_SHARING.md): register the
+                    // SharedOwners this user holds so their rows sync and
+                    // mutations get scoped. Best-effort, never blocks boot.
+                    void Promise.all([import("./client"), import("./companyShareBootstrap")])
+                        .then(([{ evolu }, { loadCompanyShareRegistry }]) => loadCompanyShareRegistry(evolu))
+                        .catch((error) => {
+                            if (import.meta.env.DEV) {
+                                console.warn("[company-share] registry load failed:", error);
+                            }
+                        });
+                }
             })
             .catch((error) => {
                 if (generation !== bootstrapGeneration) {
