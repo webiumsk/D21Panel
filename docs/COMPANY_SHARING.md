@@ -37,7 +37,16 @@ Predpoklad: `npm run dev` s `VITE_INVOICING_LOCAL_FIRST=true`, nakonfigurovaný 
 5. **B:** `await __satfluxSharedOwnerSpike.joinShare(s.secret)` → po chvíli `rows()` ukáže riadky zo zdieľanej partície (tvrdenia 1 a 4). B nikdy nedostal frázu A.
 6. Upratanie: `leave(ownerId)` na oboch; riadky ostanú lokálne (spike nemaže).
 
-Výsledok runbooku zapísať sem (dátum, relay, čo prešlo). Ak tvrdenie 2 alebo 3 nesedí, C3 migrácia sa musí prerobiť skôr, než sa začne C2.
+### Výsledok (2026-08-25, relay `wss://evolu.satflux.io`, dev build proti localhost:8080, dva testovacie účty v dvoch izolovaných Chromium kontextoch, automatizované cez Playwright)
+
+| Tvrdenie | Výsledok | Dôkaz |
+|---|---|---|
+| 1. SharedOwner registrovaný cez `useOwner` sa synchronizuje cez relay | **PASS** | riadky zapísané na A dorazili na B po `joinShare(secret)` do ~10 s |
+| 2. `upsert` s `{ ownerId }` a ROVNAKÝM `id` zapíše samostatný riadok | **PASS** | `rows()` na A ukázalo 2 riadky s jedným `id`: `app/deleted=null` + `shared/deleted=null` |
+| 3. soft-delete AppOwner kópie nechá viditeľný jediný (zdieľaný) riadok | **PASS** | po `softDeleteAppCopy`: `app/deleted=1`, `shared/deleted=null`; `allCompaniesQuery` (filtruje `isDeleted`) vidí 1 riadok |
+| 4. druhý prehliadač len so secretom vidí dáta | **PASS** | B (iný účet, iná fráza) dostal oba zdieľané riadky; **súkromná AppOwner partícia A na B = 0 riadkov** (žiadny únik) |
+
+Dôsledky pre ďalšie fázy: C3 migrácia „upsert pod SharedOwnerom s rovnakým id + soft-delete originálu" je potvrdená ako korektný postup. Pozorovanie do C2: `allCompaniesQuery` a ostatné dotazy vracajú **úniu všetkých partícií** bez rozlíšenia ownera - zoznam firiem teda zdieľanú firmu zobrazí automaticky, ale UI musí vedieť, ktorý riadok je zdieľaný (stĺpec `ownerId` do dotazov / `rowOwnerId`). Spike riadky boli po behu soft-deletnuté na oboch účtoch.
 
 ## Súbory
 
