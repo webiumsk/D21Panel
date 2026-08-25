@@ -803,6 +803,8 @@
     "company_share_error_company_not_found": "Firma nebyla nalezena.",
     "company_share_error_bridge_unavailable": "Serverovou mostovou firmu se nepodařilo připravit (chybí název firmy nebo jste offline).",
     "company_share_error_already_shared": "Firma už je sdílená.",
+    "company_share_error_migrating_elsewhere": "Převod zahájilo jiné zařízení - dokončí se tam automaticky.",
+    "company_share_error_orphaned_shared_copy": "Firma má osiřelou sdílenou kopii z předchozího pokusu - je třeba ji nejdřív vyčistit (kontaktujte podporu).",
     "company_share_error_share_row_failed": "Sdílený klíč se nepodařilo uložit.",
     "company_share_error_copy_failed": "Kopírování záznamů selhalo - původní data zůstala nedotčena, zkuste to znovu.",
     "company_share_error_verify_failed": "Ověření kopií selhalo - původní data zůstala nedotčena, zkuste to znovu.",

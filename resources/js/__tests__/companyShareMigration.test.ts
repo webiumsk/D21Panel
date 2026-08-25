@@ -32,6 +32,7 @@ const bridge = vi.hoisted(() => ({
     ensure: vi.fn<() => Promise<{ ok: boolean; bridgeCompanyId?: string | null }>>(async () => ({ ok: true, bridgeCompanyId: 'bridge-1' })),
 }));
 vi.mock('@/evolu/bridgeCompanyEnsure', () => ({ ensureBridgeCompanyIdForLocalCompany: bridge.ensure }));
+vi.mock('@/evolu/relaySyncWait', () => ({ waitForInvoicingDataSettled: vi.fn(async () => undefined), waitForInvoicingRelaySync: vi.fn(async () => true) }));
 
 import type { Evolu } from '@evolu/common/local-first';
 import {
@@ -222,6 +223,18 @@ describe('convertCompanyToShared', () => {
         expect(shares).toHaveLength(1);
         expect(shares[0].status).toBe('active');
         expect(mocks.upsert).not.toHaveBeenCalled();
+    });
+
+    it('refuses to mint a second owner when an orphaned shared copy exists', async () => {
+        const seed = seededCompany();
+        // A prior attempt left a shared copy of the company but no share row.
+        seed.company.push({ id: 'c1', ownerId: 'orphan-owner', legalName: 'Acme' });
+        const { evolu, mocks } = fakeEvolu(seed);
+
+        const result = await convertCompanyToShared(evolu, 'c1');
+
+        expect(result).toEqual({ ok: false, error: 'orphaned_shared_copy', detail: ['orphan-owner'] });
+        expect(mocks.insert).not.toHaveBeenCalled();
     });
 
     it('refuses an already shared company and reports a missing bridge', async () => {

@@ -553,6 +553,7 @@ const companyShareColumns = [
     "role",
     "status",
     "bridgeCompanyId",
+    "migratingDeviceId",
 ] as const;
 
 /** Shares the current user holds (their own AppOwner partition only). */

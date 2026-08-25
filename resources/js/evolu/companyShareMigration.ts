@@ -26,11 +26,13 @@ import {
 } from "./client";
 import { companyShareInfo, setCompanyShare } from "./companyShareRegistry";
 import { scopedEvolu } from "./ownerScope";
+import { waitForInvoicingDataSettled, waitForInvoicingRelaySync } from "./relaySyncWait";
 import type { CompanyId, CompanyShareId, InvoicingLocalSchema } from "./schema";
 import {
     createCompanyShareSecret,
     decodeOwnerSecret,
     encodeOwnerSecret,
+    localDeviceId,
     registerSharedOwner,
     sharedOwnerFromSecret,
 } from "./sharedOwner";
@@ -181,7 +183,12 @@ export type ShareMigrationProgress = { phase: "prepare" | "copy" | "verify" | "c
 
 export type ShareMigrationResult =
     | { ok: true; ownerId: OwnerId; copied: number; softDeleted: number; resumed: boolean }
-    | { ok: false; error: "company_not_found" | "bridge_unavailable" | "already_shared" | "share_row_failed" | "copy_failed" | "verify_failed"; detail?: unknown };
+    | { ok: false; error: "company_not_found" | "bridge_unavailable" | "already_shared" | "orphaned_shared_copy" | "migrating_elsewhere" | "share_row_failed" | "copy_failed" | "verify_failed"; detail?: unknown };
+
+const SHARE_ROW_SETTLE_MS = 3_000;
+const SYNC_WAIT_MS = 30_000;
+const VERIFY_ATTEMPTS = 5;
+const VERIFY_RETRY_MS = 750;
 
 type Loader = Evolu<InvoicingLocalSchema>;
 
@@ -227,6 +234,10 @@ function mutateAwait(run: (onComplete: () => void) => { ok: boolean; error?: unk
 
 export type ConvertOptions = {
     onProgress?: (progress: ShareMigrationProgress) => void;
+    /** Take over a conversion started on another device (only after that device is known to be gone). */
+    force?: boolean;
+    /** Skip the pre-flight relay sync wait (tests / callers that already synced). */
+    skipSyncWait?: boolean;
 };
 
 /**
@@ -242,18 +253,51 @@ export async function convertCompanyToShared(
     report({ phase: "prepare", done: 0, total: 0 });
 
     const appOwnerId = (await evolu.appOwner).id;
-    const companies = await evolu.loadQuery(allCompaniesDetailQuery);
-    if (!companies.some((row) => row.id === companyId)) {
+
+    // Adopting an existing share (from a prior attempt or another device)
+    // instead of minting a second SharedOwner requires that the relay has
+    // delivered its companyShare row and company copy first. Best-effort and
+    // bounded; skipped in tests.
+    if (!options.skipSyncWait) {
+        await waitForInvoicingRelaySync(evolu, { timeoutMs: SYNC_WAIT_MS }).catch(() => undefined);
+    }
+
+    const companies = (await evolu.loadQuery(allCompaniesDetailQuery)) as unknown as readonly Row[];
+    const companyRows = companies.filter((row) => row.id === companyId);
+    if (companyRows.length === 0) {
         return { ok: false, error: "company_not_found" };
     }
 
-    // Existing share row (resume) - only rows in the user's own partition count.
+    // Existing share row - only rows in the user's own partition count.
+    // Canonical (lowest sharedOwnerId) so a broken double-share converges.
     const shares = (await evolu.loadQuery(allCompanySharesQuery)) as unknown as readonly {
-        id: string; ownerId: string | null; companyId: string; sharedOwnerId: string; secretB64: string; status: string; bridgeCompanyId: string | null;
+        id: string; ownerId: string | null; companyId: string; sharedOwnerId: string; secretB64: string; status: string; bridgeCompanyId: string | null; migratingDeviceId: string | null;
     }[];
-    const existing = shares.find((row) => row.companyId === companyId && row.ownerId === appOwnerId && row.status !== "revoked");
+    const existing = shares
+        .filter((row) => row.companyId === companyId && row.ownerId === appOwnerId && row.status !== "revoked")
+        .sort((a, b) => (a.sharedOwnerId < b.sharedOwnerId ? -1 : 1))[0];
+
     if (existing?.status === "active") {
         return { ok: false, error: "already_shared" };
+    }
+
+    // A shared copy of this company already exists but no adoptable share row
+    // does (a previous conversion left an orphaned partition, or a member's
+    // copy is present): minting a fresh owner would DUPLICATE the company, so
+    // refuse and let the cleanup tooling reconcile it.
+    if (!existing && companyRows.some((row) => row.ownerId !== appOwnerId && row.isDeleted !== 1)) {
+        return {
+            ok: false,
+            error: "orphaned_shared_copy",
+            detail: companyRows.filter((row) => row.ownerId !== appOwnerId).map((row) => row.ownerId),
+        };
+    }
+
+    // Another device started this conversion: it owns the resume. This device
+    // may still be catching up through the relay and must not verify or
+    // soft-delete against a partial copy.
+    if (existing && existing.migratingDeviceId && existing.migratingDeviceId !== localDeviceId() && !options.force) {
+        return { ok: false, error: "migrating_elsewhere" };
     }
 
     const bridge = await ensureBridgeCompanyIdForLocalCompany(companyId);
@@ -279,6 +323,7 @@ export async function convertCompanyToShared(
                     role: "owner",
                     status: "migrating",
                     bridgeCompanyId,
+                    migratingDeviceId: localDeviceId(),
                 } as never,
                 { onComplete },
             ),
@@ -297,6 +342,12 @@ export async function convertCompanyToShared(
     const owner = sharedOwnerFromSecret(ownerSecret);
     registerSharedOwner(evolu, owner);
     setCompanyShare({ companyId, ownerId: owner.id, role: "owner", status: "migrating", bridgeCompanyId });
+
+    // The share row carries the only copy of the secret: give the relay a
+    // moment to take it before the long copy phase, so a tab closed mid-way
+    // still leaves the (resumable) share on the user's other devices. Evolu
+    // exposes no relay ack, so this is a settle wait, not a guarantee.
+    await waitForInvoicingDataSettled(evolu, { minWaitMs: SHARE_ROW_SETTLE_MS, timeoutMs: SHARE_ROW_SETTLE_MS + 3_000 }).catch(() => undefined);
     const shared = scopedEvolu(evolu, owner.id);
     const appScoped = scopedEvolu(evolu, appOwnerId);
 
@@ -317,9 +368,29 @@ export async function convertCompanyToShared(
     }
 
     // --- verify -------------------------------------------------------
+    // The last onComplete callbacks can fire a beat before the query layer
+    // sees the rows, so verification re-reads (and re-copies any real gaps)
+    // a few times before giving up.
     report({ phase: "verify", done, total });
-    set = collectCompanyRows(await loadAll(evolu), companyId);
-    const verification = verifyMigrated(set, appOwnerId, owner.id);
+    let verification = { ok: false, missing: {} as Record<string, string[]> };
+    for (let attempt = 0; attempt < VERIFY_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+            await new Promise((resolve) => setTimeout(resolve, VERIFY_RETRY_MS));
+        }
+        set = collectCompanyRows(await loadAll(evolu), companyId);
+        verification = verifyMigrated(set, appOwnerId, owner.id);
+        if (verification.ok) break;
+        const retry = pendingCopies(set, appOwnerId, owner.id);
+        for (const table of MIGRATION_ORDER) {
+            for (const row of retry[table]) {
+                const result = await mutateAwait((onComplete) => shared.upsert(table, rowForSharedUpsert(row) as never, { onComplete }));
+                if (!result.ok) {
+                    return { ok: false, error: "copy_failed", detail: { table, id: row.id, error: result.error } };
+                }
+                done++;
+            }
+        }
+    }
     if (!verification.ok) {
         return { ok: false, error: "verify_failed", detail: verification.missing };
     }
@@ -337,6 +408,9 @@ export async function convertCompanyToShared(
         }
     }
 
+    // Let the copied rows drain towards the relay before the share is
+    // announced as active (members joining meanwhile would see a partial set).
+    await waitForInvoicingDataSettled(evolu, { minWaitMs: SHARE_ROW_SETTLE_MS, timeoutMs: 20_000 }).catch(() => undefined);
     await mutateAwait((onComplete) => evolu.update("companyShare", { id: shareRowId, status: "active" } as never, { onComplete }));
     setCompanyShare({ companyId, ownerId: owner.id, role: "owner", status: "active", bridgeCompanyId });
     report({ phase: "done", done, total });
@@ -347,9 +421,11 @@ export async function convertCompanyToShared(
 /** Boot hook: finish conversions a reload interrupted. */
 export async function resumePendingCompanyShareMigrations(evolu: Loader): Promise<void> {
     const appOwnerId = (await evolu.appOwner).id;
-    const shares = (await evolu.loadQuery(allCompanySharesQuery)) as unknown as readonly { ownerId: string | null; companyId: string; status: string }[];
+    const shares = (await evolu.loadQuery(allCompanySharesQuery)) as unknown as readonly { ownerId: string | null; companyId: string; status: string; migratingDeviceId: string | null }[];
+    const device = localDeviceId();
     for (const row of shares) {
         if (row.ownerId !== appOwnerId || row.status !== "migrating") continue;
+        if (row.migratingDeviceId && row.migratingDeviceId !== device) continue;
         if (companyShareInfo(row.companyId)?.status === "active") continue;
         const result = await convertCompanyToShared(evolu, row.companyId);
         if (!result.ok && import.meta.env.DEV) {

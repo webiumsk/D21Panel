@@ -117,3 +117,23 @@ export function unregisterAllSharedOwners(evolu: Evolu<InvoicingLocalSchema>): v
     }
     registry.clear();
 }
+
+const DEVICE_ID_KEY = "satflux.invoicing_device_id";
+
+/**
+ * Stable per-browser-profile id (not secret, not synced) used to make sure a
+ * conversion interrupted by a reload is resumed ONLY by the device that
+ * started it - another device may still be receiving the company through
+ * the relay and would verify against a partial copy.
+ */
+export function localDeviceId(): string {
+    try {
+        const existing = window.localStorage.getItem(DEVICE_ID_KEY);
+        if (existing) return existing;
+        const fresh = crypto.randomUUID();
+        window.localStorage.setItem(DEVICE_ID_KEY, fresh);
+        return fresh;
+    } catch {
+        return "ephemeral-device";
+    }
+}
