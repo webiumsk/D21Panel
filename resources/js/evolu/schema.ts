@@ -109,7 +109,7 @@ export type CompanyJurisdiction = typeof CompanyJurisdiction.Type;
 
 export const VatStatus = union("none", "payer", "partial");
 export const CompanyShareRole = union("owner", "accountant", "member");
-export const CompanyShareStatus = union("migrating", "active", "revoked");
+export const CompanyShareStatus = union("migrating", "active", "revoked", "rekeying");
 export type VatStatus = typeof VatStatus.Type;
 
 export const DocumentStatus = union("draft", "issued", "paid", "cancelled");

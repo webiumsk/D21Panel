@@ -29,6 +29,32 @@
     </div>
 
     <p v-if="errorMsg" class="mt-2 text-sm text-red-600">{{ errorMsg }}</p>
+
+    <div class="mt-4 border-t border-gray-100 pt-4">
+      <h4 class="text-sm font-semibold text-gray-900">{{ t('invoicing.company_rekey_title') }}</h4>
+      <p class="mt-1 text-xs text-gray-500 max-w-2xl">{{ t('invoicing.company_rekey_intro') }}</p>
+
+      <div v-if="!confirmingRekey" class="mt-3">
+        <button type="button" class="invoicing-btn-secondary text-sm" :disabled="rekeying" @click="confirmingRekey = true">
+          {{ t('invoicing.company_rekey_button') }}
+        </button>
+      </div>
+      <div v-else class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-2 text-amber-950">
+        <p class="font-medium">{{ t('invoicing.company_rekey_confirm_title') }}</p>
+        <ul class="list-disc pl-5 space-y-1 text-amber-900">
+          <li>{{ t('invoicing.company_rekey_point_forward') }}</li>
+          <li>{{ t('invoicing.company_rekey_point_reinvite', { count: members.length }) }}</li>
+          <li>{{ t('invoicing.company_rekey_point_wait') }}</li>
+        </ul>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="invoicing-btn-primary text-sm" :disabled="rekeying" @click="rekey">
+            {{ rekeying ? t('invoicing.company_rekey_working') : t('invoicing.company_rekey_confirm_button') }}
+          </button>
+          <button type="button" class="invoicing-btn-secondary text-sm" :disabled="rekeying" @click="confirmingRekey = false">{{ t('common.cancel') }}</button>
+        </div>
+      </div>
+      <p v-if="rekeyMessage" class="mt-2 text-sm" :class="rekeyError ? 'text-red-600' : 'text-emerald-700'">{{ rekeyMessage }}</p>
+    </div>
   </div>
 </template>
 
@@ -36,6 +62,8 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { invoicingApi, type CompanyMemberSummary } from '@/services/api';
+import { useInvoicingEvolu } from '@/evolu/client';
+import { rekeyCompanyShare } from '@/evolu/companyShareRekey';
 
 /**
  * Owner-only member list + revoke for a shared company (docs/COMPANY_SHARING.md,
@@ -50,6 +78,11 @@ const loading = ref(true);
 const busy = ref(false);
 const errorMsg = ref('');
 const pendingRevoke = ref<CompanyMemberSummary | null>(null);
+const evolu = useInvoicingEvolu();
+const confirmingRekey = ref(false);
+const rekeying = ref(false);
+const rekeyMessage = ref('');
+const rekeyError = ref(false);
 
 async function refresh(): Promise<void> {
   try {
@@ -78,6 +111,29 @@ async function revoke(): Promise<void> {
     errorMsg.value = t('common.error');
   } finally {
     busy.value = false;
+  }
+}
+
+async function rekey(): Promise<void> {
+  rekeying.value = true;
+  rekeyMessage.value = '';
+  rekeyError.value = false;
+  try {
+    const result = await rekeyCompanyShare(evolu, props.companyId);
+    if (result.ok) {
+      confirmingRekey.value = false;
+      rekeyMessage.value = members.value.length
+        ? t('invoicing.company_rekey_done_reinvite', { count: members.value.length })
+        : t('invoicing.company_rekey_done');
+    } else {
+      rekeyError.value = true;
+      rekeyMessage.value = t(`invoicing.company_rekey_error_${result.error}`);
+    }
+  } catch (error) {
+    rekeyError.value = true;
+    rekeyMessage.value = error instanceof Error ? error.message : t('common.error');
+  } finally {
+    rekeying.value = false;
   }
 }
 

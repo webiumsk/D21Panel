@@ -8,7 +8,7 @@ import type { OwnerId } from "@evolu/common/local-first";
  */
 
 export type CompanyShareRole = "owner" | "accountant" | "member";
-export type CompanyShareStatus = "migrating" | "active" | "revoked";
+export type CompanyShareStatus = "migrating" | "active" | "revoked" | "rekeying";
 
 export type CompanyShareInfo = {
     companyId: string;
