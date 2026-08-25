@@ -40,6 +40,7 @@ import {
     convertCompanyToShared,
     MIGRATION_ORDER,
     pendingCopies,
+    purgeRevokedShareResidue,
     rowForSharedUpsert,
     verifyMigrated,
     type MigrationTable,
@@ -101,7 +102,9 @@ function fakeEvolu(seed: Record<MigrationTable, Row[]>) {
             return { ok: true, value: { id: props.id } };
         }),
     };
-    return { evolu: evolu as unknown as Evolu<InvoicingLocalSchema>, tables, shares, mocks: evolu };
+    const seedShare = (share: Record<string, unknown>) => shares.push({ id: `share-${++idSeq}`, ownerId: APP, ...share } as Row);
+    const seedRow = (table: string, row: Row) => put(table, row);
+    return { evolu: evolu as unknown as Evolu<InvoicingLocalSchema>, tables, shares, mocks: evolu, seedShare, seedRow };
 }
 
 afterEach(() => {
@@ -223,6 +226,23 @@ describe('convertCompanyToShared', () => {
         expect(shares).toHaveLength(1);
         expect(shares[0].status).toBe('active');
         expect(mocks.upsert).not.toHaveBeenCalled();
+    });
+
+    it('purges dead copies left by a revoked share and no longer blocks conversion', async () => {
+        const { evolu, tables, seedShare, seedRow } = fakeEvolu(seededCompany());
+        // A previous share was revoked, but a live company copy lingers under it.
+        seedShare({ companyId: 'c1', sharedOwnerId: 'ghost-owner', secretB64: 's', role: 'owner', status: 'revoked' });
+        seedRow('company', { id: 'c1', ownerId: 'ghost-owner', legalName: 'Acme' });
+        seedRow('document', { id: 'd1', companyId: 'c1', ownerId: 'ghost-owner' });
+
+        const purged = await purgeRevokedShareResidue(evolu, 'c1');
+        expect(purged).toBe(2);
+        expect(tables.get('company')?.get('ghost-owner|c1')?.isDeleted).toBe(1);
+        expect(tables.get('document')?.get('ghost-owner|d1')?.isDeleted).toBe(1);
+
+        // With the residue gone the guard does not fire; conversion proceeds.
+        const result = await convertCompanyToShared(evolu, 'c1');
+        expect(result.ok).toBe(true);
     });
 
     it('refuses to mint a second owner when an orphaned shared copy exists', async () => {

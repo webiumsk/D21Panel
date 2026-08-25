@@ -1,29 +1,8 @@
 import { sqliteFalse, sqliteTrue } from "@evolu/common";
 import type { Evolu } from "@evolu/common/local-first";
-import {
-    allBankImportBatchesQuery,
-    allBankTransactionMatchesQuery,
-    allBankTransactionsQuery,
-    allCompaniesDetailQuery,
-    allCompanySharesQuery,
-    allCompanyStockBalancesQuery,
-    allCompanyStockItemsQuery,
-    allCompanyStockMovementsQuery,
-    allCompanyWarehousesQuery,
-    allContactsQuery,
-    allDocumentEventsQuery,
-    allDocumentLinesQuery,
-    allDocumentSnapshotsQuery,
-    allDocumentsQuery,
-    allExpenseAttachmentsQuery,
-    allExpensesQuery,
-    allInvoiceTemplatesQuery,
-    allNumberSeriesQuery,
-    allRecurringProfileLinesQuery,
-    allRecurringProfilesQuery,
-} from "./client";
+import { allCompanySharesQuery } from "./client";
 import { removeCompanyShare } from "./companyShareRegistry";
-import { collectCompanyRows, MIGRATION_ORDER, type MigrationTable } from "./companyShareMigration";
+import { collectCompanyRows, MIGRATION_ORDER, MIGRATION_TABLE_QUERIES, type MigrationTable } from "./companyShareMigration";
 import { scopedEvolu } from "./ownerScope";
 import { unregisterSharedOwner } from "./sharedOwner";
 import type { InvoicingLocalSchema } from "./schema";
@@ -46,28 +25,6 @@ import { toAppRows } from "./queryLoad";
  */
 
 type Row = Record<string, unknown> & { id: string; ownerId?: string | null; isDeleted?: unknown };
-
-const TABLE_QUERIES: Record<MigrationTable, unknown> = {
-    company: allCompaniesDetailQuery,
-    contact: allContactsQuery,
-    numberSeries: allNumberSeriesQuery,
-    invoiceTemplate: allInvoiceTemplatesQuery,
-    companyWarehouse: allCompanyWarehousesQuery,
-    companyStockItem: allCompanyStockItemsQuery,
-    companyStockBalance: allCompanyStockBalancesQuery,
-    companyStockMovement: allCompanyStockMovementsQuery,
-    document: allDocumentsQuery,
-    documentLine: allDocumentLinesQuery,
-    documentEvent: allDocumentEventsQuery,
-    documentSnapshot: allDocumentSnapshotsQuery,
-    expense: allExpensesQuery,
-    expenseAttachment: allExpenseAttachmentsQuery,
-    recurringProfile: allRecurringProfilesQuery,
-    recurringProfileLine: allRecurringProfileLinesQuery,
-    bankImportBatch: allBankImportBatchesQuery,
-    bankTransaction: allBankTransactionsQuery,
-    bankTransactionMatch: allBankTransactionMatchesQuery,
-};
 
 export type RecoveryReport = {
     sharedOwners: string[];
@@ -100,7 +57,7 @@ export async function recoverCompanyToPrivate(
     //    targets the shared partition rows, not the app copies).
     let sharedSoftDeleted = 0;
     for (const table of MIGRATION_ORDER) {
-        const rows = toAppRows<Row>(await evolu.loadQuery(TABLE_QUERIES[table] as never));
+        const rows = toAppRows<Row>(await evolu.loadQuery(MIGRATION_TABLE_QUERIES[table] as never));
         for (const row of rows) {
             if (row.ownerId && sharedOwners.has(row.ownerId) && row.isDeleted !== 1) {
                 const result = scopedEvolu(evolu, row.ownerId as never).update(table, { id: row.id, isDeleted: sqliteTrue } as never);

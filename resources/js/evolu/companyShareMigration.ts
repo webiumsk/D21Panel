@@ -192,6 +192,29 @@ const VERIFY_RETRY_MS = 750;
 
 type Loader = Evolu<InvoicingLocalSchema>;
 
+/** Live-row query per table (owner-agnostic - the proxy adds ownerId to results). */
+export const MIGRATION_TABLE_QUERIES: Record<MigrationTable, unknown> = {
+    company: allCompaniesDetailQuery,
+    contact: allContactsQuery,
+    numberSeries: allNumberSeriesQuery,
+    invoiceTemplate: allInvoiceTemplatesQuery,
+    companyWarehouse: allCompanyWarehousesQuery,
+    companyStockItem: allCompanyStockItemsQuery,
+    companyStockBalance: allCompanyStockBalancesQuery,
+    companyStockMovement: allCompanyStockMovementsQuery,
+    document: allDocumentsQuery,
+    documentLine: allDocumentLinesQuery,
+    documentEvent: allDocumentEventsQuery,
+    documentSnapshot: allDocumentSnapshotsQuery,
+    expense: allExpensesQuery,
+    expenseAttachment: allExpenseAttachmentsQuery,
+    recurringProfile: allRecurringProfilesQuery,
+    recurringProfileLine: allRecurringProfileLinesQuery,
+    bankImportBatch: allBankImportBatchesQuery,
+    bankTransaction: allBankTransactionsQuery,
+    bankTransactionMatch: allBankTransactionMatchesQuery,
+};
+
 async function loadAll(evolu: Loader): Promise<Record<MigrationTable, readonly Row[]>> {
     const [
         company, contact, numberSeries, invoiceTemplate, companyWarehouse, companyStockItem, companyStockBalance,
@@ -223,6 +246,46 @@ async function loadAll(evolu: Loader): Promise<Record<MigrationTable, readonly R
         companyStockMovement, document, documentLine, documentEvent, documentSnapshot, expense, expenseAttachment,
         recurringProfile, recurringProfileLine, bankImportBatch, bankTransaction, bankTransactionMatch,
     } as unknown as Record<MigrationTable, readonly Row[]>;
+}
+
+/**
+ * Soft-deletes leftover copies of a company under owners whose share was
+ * REVOKED. A device that processed the revoke stops subscribing to that
+ * owner and never receives the cleanup soft-deletes, so the dead copy lingers
+ * as a duplicate; this reconciles it locally (and re-broadcasts the deletes).
+ * Cheap no-op when there is nothing to purge.
+ */
+export async function purgeRevokedShareResidue(evolu: Loader, companyId?: string): Promise<number> {
+    const appOwnerId = (await evolu.appOwner).id;
+    const shares = (await evolu.loadQuery(allCompanySharesQuery)) as unknown as readonly {
+        ownerId: string | null; companyId: string; sharedOwnerId: string; status: string;
+    }[];
+    const revokedOwners = new Set(
+        shares
+            .filter((row) => row.ownerId === appOwnerId && row.status === "revoked" && (!companyId || row.companyId === companyId))
+            .map((row) => row.sharedOwnerId),
+    );
+    if (revokedOwners.size === 0) {
+        return 0;
+    }
+
+    const companies = (await evolu.loadQuery(allCompaniesDetailQuery)) as unknown as readonly Row[];
+    const hasLiveResidue = companies.some((row) => row.ownerId != null && revokedOwners.has(row.ownerId) && row.isDeleted !== 1);
+    if (!hasLiveResidue) {
+        return 0;
+    }
+
+    let purged = 0;
+    for (const table of MIGRATION_ORDER) {
+        const rows = (await evolu.loadQuery(MIGRATION_TABLE_QUERIES[table] as never)) as unknown as readonly Row[];
+        for (const row of rows) {
+            if (row.ownerId != null && revokedOwners.has(row.ownerId) && row.isDeleted !== 1) {
+                const result = scopedEvolu(evolu, row.ownerId as never).update(table, { id: row.id, isDeleted: sqliteTrue } as never);
+                if (result.ok) purged++;
+            }
+        }
+    }
+    return purged;
 }
 
 function mutateAwait(run: (onComplete: () => void) => { ok: boolean; error?: unknown }): Promise<{ ok: boolean; error?: unknown }> {
@@ -261,6 +324,10 @@ export async function convertCompanyToShared(
     if (!options.skipSyncWait) {
         await waitForInvoicingRelaySync(evolu, { timeoutMs: SYNC_WAIT_MS }).catch(() => undefined);
     }
+
+    // Clear dead copies from previously revoked shares before deciding, so
+    // they neither block the conversion nor survive as duplicates.
+    await purgeRevokedShareResidue(evolu, companyId);
 
     const companies = (await evolu.loadQuery(allCompaniesDetailQuery)) as unknown as readonly Row[];
     const companyRows = companies.filter((row) => row.id === companyId);

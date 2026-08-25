@@ -93,10 +93,12 @@ export async function loadCompanyShareRegistry(evolu: Evolu<InvoicingLocalSchema
     const rows = toAppRows<CompanyShareRow>(await evolu.loadQuery(allCompanySharesQuery));
     applyCompanyShareRows(evolu, rows, appOwnerId);
     markCompanyShareRegistryReady();
-    // A conversion interrupted by a reload continues where it stopped.
-    if (rows.some((row) => row.ownerId === appOwnerId && row.status === "migrating")) {
-        const { resumePendingCompanyShareMigrations } = await import("./companyShareMigration");
+    // A conversion interrupted by a reload continues where it stopped, and
+    // dead copies from revoked shares get reconciled.
+    if (rows.some((row) => row.ownerId === appOwnerId && (row.status === "migrating" || row.status === "revoked"))) {
+        const { resumePendingCompanyShareMigrations, purgeRevokedShareResidue } = await import("./companyShareMigration");
         await resumePendingCompanyShareMigrations(evolu);
+        await purgeRevokedShareResidue(evolu);
     }
     if (!unsubscribe) {
         unsubscribe = evolu.subscribeQuery(allCompanySharesQuery)(() => {
