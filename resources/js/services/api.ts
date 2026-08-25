@@ -441,6 +441,50 @@ export interface CompanySummary {
     default_currency?: string | null;
 }
 
+/** Sealed invite blob - opaque to the server (services/companyInviteSeal.ts). */
+export interface SealedInviteBlob {
+    v: 1;
+    epkB64: string;
+    ivB64: string;
+    ctB64: string;
+}
+
+export interface InviteRecipientLookup {
+    found: boolean;
+    public_key: string | null;
+    has_recovery: boolean;
+    is_self?: boolean;
+    already_member?: boolean;
+}
+
+export interface CompanyInviteSummary {
+    id: string;
+    role: string;
+    mode: 'sealed' | 'link';
+    invited_email: string | null;
+    invitee_public_key: string | null;
+    expires_at: string | null;
+    created_at: string | null;
+}
+
+export interface CreateCompanyInvitePayload {
+    role: 'accountant' | 'member';
+    mode: 'sealed' | 'link';
+    invited_email?: string | null;
+    invitee_public_key?: string | null;
+    sealed_secret?: SealedInviteBlob | null;
+}
+
+export interface CompanyInvitePreview {
+    company_id: string;
+    company_name: string | null;
+    role: string;
+    mode: 'sealed' | 'link';
+    invited_by: string | null;
+    invitee_public_key: string | null;
+    sealed_secret: SealedInviteBlob | null;
+}
+
 export interface ContactListMeta {
     letters?: string[];
     total?: number;
@@ -552,6 +596,33 @@ export const invoicingApi = {
                 const { data } = await api.delete<ApiEnvelope<T>>(`/invoicing/companies/${companyId}/branding/signature-stamp`);
                 return data.data;
             },
+        },
+        /** Company sharing invites - owner-only (docs/COMPANY_SHARING.md, "C4"). */
+        async lookupInviteRecipient(companyId: string, email: string): Promise<InviteRecipientLookup> {
+            const { data } = await api.get<InviteRecipientLookup>(`/invoicing/companies/${companyId}/invite-recipient`, { params: { email } });
+            return data;
+        },
+        async listInvites(companyId: string): Promise<CompanyInviteSummary[]> {
+            const { data } = await api.get<ApiEnvelope<CompanyInviteSummary[]>>(`/invoicing/companies/${companyId}/invites`);
+            return data.data ?? [];
+        },
+        async createInvite(companyId: string, payload: CreateCompanyInvitePayload): Promise<{ invite: CompanyInviteSummary; token: string }> {
+            const { data } = await api.post<{ invite: CompanyInviteSummary; token: string }>(`/invoicing/companies/${companyId}/invites`, payload);
+            return data;
+        },
+        async revokeInvite(companyId: string, inviteId: string): Promise<void> {
+            await api.delete(`/invoicing/companies/${companyId}/invites/${inviteId}`);
+        },
+    },
+    /** Invite acceptance - reachable by any authenticated user (the invitee). */
+    invites: {
+        async preview(token: string): Promise<CompanyInvitePreview> {
+            const { data } = await api.get<CompanyInvitePreview>(`/invoicing/invites/${token}`);
+            return data;
+        },
+        async accept(token: string): Promise<{ company_id: string; role: string }> {
+            const { data } = await api.post<{ company_id: string; role: string }>(`/invoicing/invites/${token}/accept`);
+            return data;
         },
     },
     contacts: {

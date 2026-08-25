@@ -44,6 +44,7 @@ use App\Http\Controllers\Invoicing\CompanyBrandingController;
 use App\Http\Controllers\Invoicing\CompanyContactController;
 use App\Http\Controllers\Invoicing\CompanyController;
 use App\Http\Controllers\Invoicing\CompanyDocumentSequenceController;
+use App\Http\Controllers\Invoicing\CompanyInviteController;
 use App\Http\Controllers\Invoicing\CompanyEmailSettingsController;
 use App\Http\Controllers\Invoicing\CompanyNumberAllocatorController;
 use App\Http\Controllers\Invoicing\CompanyRegistryController;
@@ -358,6 +359,16 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
     Route::patch('/messages/{id}/read', [MessageController::class, 'markAsRead'])->where('id', '[a-zA-Z0-9_-]+');
     Route::post('/messages/mark-all-read', [MessageController::class, 'markAllAsRead']);
 
+    // Company invite acceptance (docs/COMPANY_SHARING.md, "C4"). Reachable by any
+    // authenticated user - the invitee is not yet a member and entitlement is
+    // scoped to the company OWNER's plan, so no per-invitee plan gate here.
+    Route::prefix('invoicing')->middleware(['throttle:30,1'])->group(function () {
+        Route::get('/invites/{token}', [CompanyInviteController::class, 'show'])
+            ->where('token', '[A-Za-z0-9_]{4,64}');
+        Route::post('/invites/{token}/accept', [CompanyInviteController::class, 'accept'])
+            ->where('token', '[A-Za-z0-9_]{4,64}');
+    });
+
     // Business invoicing (Pro+; seed accounts may use local-first + ephemeral bridges)
     Route::middleware([EnsurePlanAllowsBusinessInvoicing::class])
         ->prefix('invoicing')
@@ -437,6 +448,16 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::post('/companies/{company}/email-settings/ephemeral/test-smtp', [EphemeralBusinessDocumentController::class, 'testEmailSettingsSmtp'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::post('/companies/{company}/reset-data', [CompanyController::class, 'resetData'])
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
+
+            // Company invites - owner-only (docs/COMPANY_SHARING.md, "C4").
+            Route::get('/companies/{company}/invite-recipient', [CompanyInviteController::class, 'recipient'])
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
+            Route::get('/companies/{company}/invites', [CompanyInviteController::class, 'index'])
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
+            Route::post('/companies/{company}/invites', [CompanyInviteController::class, 'store'])
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
+            Route::delete('/companies/{company}/invites/{invite}', [CompanyInviteController::class, 'destroy'])
                 ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
             Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])
                 ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);

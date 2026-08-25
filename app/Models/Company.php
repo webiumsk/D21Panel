@@ -118,6 +118,16 @@ class Company extends Model
         return $this->hasMany(CompanyMember::class);
     }
 
+    /**
+     * Pending / historical invites into this company (docs/COMPANY_SHARING.md).
+     *
+     * @return HasMany<CompanyInvite, $this>
+     */
+    public function invites(): HasMany
+    {
+        return $this->hasMany(CompanyInvite::class);
+    }
+
     public function isOwnedBy(User $user): bool
     {
         return $this->user_id === $user->id;

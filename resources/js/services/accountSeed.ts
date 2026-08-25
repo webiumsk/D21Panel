@@ -43,6 +43,21 @@ export function deriveRecoveryPublicKeyHex(mnemonic: string): string {
     return bytesToHex(pk);
 }
 
+/**
+ * The 32-byte Ed25519 recovery SECRET seed for a phrase - the private
+ * counterpart of deriveRecoveryPublicKeyHex. Used to open company invites
+ * sealed to this account (services/companyInviteSeal.ts). Never leaves the
+ * device; callers must not log or transmit it.
+ */
+export function deriveRecoveryPrivateKey(mnemonic: string): Uint8Array {
+    const normalized = normalizeAccountMnemonic(mnemonic);
+    if (!validateMnemonic(normalized, wordlist)) {
+        throw new Error("invalid_mnemonic");
+    }
+    const seed = mnemonicToSeedSync(normalized, "");
+    return hkdf(sha512, seed, new Uint8Array(0), RECOVERY_HKDF_INFO, 32);
+}
+
 export function signRecoveryMessage(mnemonic: string, messageUtf8: string): string {
     const normalized = normalizeAccountMnemonic(mnemonic);
     if (!validateMnemonic(normalized, wordlist)) {
