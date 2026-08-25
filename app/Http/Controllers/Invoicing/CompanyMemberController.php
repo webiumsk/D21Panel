@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Invoicing;
 
+use App\Enums\CompanyMemberRole;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\CompanyMember;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Company member management (docs/COMPANY_SHARING.md, "C5"), owner-only.
@@ -25,6 +27,7 @@ class CompanyMemberController extends Controller
     {
         $members = $company->members()
             ->active()
+            ->where('role', '!=', CompanyMemberRole::Owner->value)
             ->with('user:id,name,email')
             ->get()
             ->map(fn (CompanyMember $member): array => [
@@ -42,15 +45,27 @@ class CompanyMemberController extends Controller
     public function destroy(Company $company, CompanyMember $member): JsonResponse
     {
         abort_unless($member->company_id === $company->id, 404);
+        // The owner is implicit (companies.user_id), never a member row; this
+        // endpoint may only revoke accountants / members.
+        abort_if($member->role === CompanyMemberRole::Owner, 403);
 
-        if ($member->revoked_at === null) {
-            $member->update(['revoked_at' => now()]);
+        // Serialize concurrent revocations: lock the row, re-check revoked_at
+        // after the lock, and keep the audit write in the same transaction so a
+        // second DELETE cannot double-revoke or emit a duplicate audit event,
+        // and an audit failure rolls back the membership update.
+        DB::transaction(function () use ($company, $member): void {
+            /** @var CompanyMember|null $locked */
+            $locked = CompanyMember::query()->whereKey($member->id)->lockForUpdate()->first();
+            if ($locked === null || $locked->revoked_at !== null || $locked->role === CompanyMemberRole::Owner) {
+                return;
+            }
+            $locked->update(['revoked_at' => now()]);
             AuditLog::log('company.member_revoked', 'company', $company->id, [
-                'member_id' => $member->id,
-                'user_id' => $member->user_id,
-                'role' => $member->role->value,
+                'member_id' => $locked->id,
+                'user_id' => $locked->user_id,
+                'role' => $locked->role->value,
             ]);
-        }
+        });
 
         return response()->json(['revoked' => true]);
     }

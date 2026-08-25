@@ -143,4 +143,53 @@ class CompanyMemberManagementTest extends TestCase
             ->assertOk()
             ->assertJson(['revoked' => true]);
     }
+
+    #[Test]
+    public function a_first_time_revocation_emits_exactly_one_audit_event(): void
+    {
+        $member = $this->addMember($this->accountant);
+
+        // Two first-time revokes (a duplicate/replayed DELETE): the locked
+        // re-check must keep it to a single membership write and audit row.
+        $this->actingAs($this->owner)
+            ->deleteJson("/api/invoicing/companies/{$this->company->id}/members/{$member->id}")
+            ->assertOk();
+        $this->actingAs($this->owner)
+            ->deleteJson("/api/invoicing/companies/{$this->company->id}/members/{$member->id}")
+            ->assertOk();
+
+        $this->assertDatabaseCount('audit_logs', 1);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'company.member_revoked', 'target_id' => $this->company->id]);
+    }
+
+    #[Test]
+    public function the_owner_role_row_is_rejected_at_the_model_and_the_endpoint(): void
+    {
+        // The model guard blocks an active Owner membership on any write path.
+        $this->expectException(\LogicException::class);
+        CompanyMember::create([
+            'company_id' => $this->company->id,
+            'user_id' => $this->owner->id,
+            'role' => CompanyMemberRole::Owner,
+            'invited_by' => $this->owner->id,
+            'accepted_at' => now(),
+        ]);
+    }
+
+    #[Test]
+    public function destroy_refuses_an_owner_role_row(): void
+    {
+        // A revoked Owner row is the only way one can persist (guard allows it);
+        // destroy must still refuse to act on an Owner-role row.
+        $owner = $this->addMember($this->accountant);
+        // Force the role to Owner + revoked directly, bypassing the active guard.
+        CompanyMember::withoutEvents(fn () => $owner->forceFill([
+            'role' => CompanyMemberRole::Owner->value,
+            'revoked_at' => now(),
+        ])->save());
+
+        $this->actingAs($this->owner)
+            ->deleteJson("/api/invoicing/companies/{$this->company->id}/members/{$owner->id}")
+            ->assertStatus(403);
+    }
 }

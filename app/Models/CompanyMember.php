@@ -32,6 +32,17 @@ class CompanyMember extends Model
         'revoked_at',
     ];
 
+    protected static function booted(): void
+    {
+        // The owner is implicit (companies.user_id); an ACTIVE Owner membership
+        // row must never exist. Guard every write path, not just the controller.
+        static::saving(function (CompanyMember $member): void {
+            if ($member->role === CompanyMemberRole::Owner && $member->revoked_at === null) {
+                throw new \LogicException('An active Owner membership row is not allowed; the owner is companies.user_id.');
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
