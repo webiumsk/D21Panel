@@ -24,7 +24,8 @@ Alternatíva "zdieľané firmy v server mode" bola zamietnutá: SPA už nemá pe
 | C2 | klient: Evolu tabuľka `companyShare` (secret E2EE v AppOwner partícii), registry v bootstrape, **automatické scopovanie mutácií na singletone** (namiesto prepisu ~150 volaní), `ownerId` vo výsledkoch všetkých dotazov | **hotové** (viď nižšie) |
 | C3 | konverzia firmy na zdieľanú + migrácia riadkov AppOwner → SharedOwner (`companyShareMigration.ts`), `numberAllocatorBridge` s explicitným `bridgeCompanyId`, UI karta „Zdieľanie firmy“ | **hotové** (viď nižšie) |
 | C4 | invites: `company_invites`, sealed box na x25519 kľúč pozvaného, fingerprint, fallback share-link s payloadom v URL fragmente | **hotové** |
-| C5 | revokácia + re-key + audit (`documentEvent` s ownerId/rolou, `reserved_by_user_id`), UI správa členov, tento doc dopísať ako threat model | plán |
+| C5 | revokácia + audit + UI správa členov | **hotové (member management)** |
+| C5b | re-key (forward secrecy: nový SharedOwner + re-migrácia), `reserved_by_user_id` atribúcia, threat model | plán |
 
 ## C1 - serverové členstvo (hotové)
 
@@ -101,6 +102,16 @@ Pozvanie doručí SharedOwner secret pozvanému **bez toho, aby ho videl server*
 **Krypto poznámka:** pribudol priamy dependency `@noble/curves` (predtým tranzitívny) kvôli X25519 a Ed25519->X25519 konverzii. Server konverziu nerobí (blob nikdy nededekóduje); PHP `sodium_crypto_sign_ed25519_pk_to_curve25519` by bol dostupný, ak by bola niekedy potrebná serverová kontrola.
 
 **Testy:** `__tests__/companyInviteSeal.test.ts` (round-trip, tamper, zlý kľúč, fingerprint), `__tests__/companyInviteAccept.test.ts` (decrypt cez session mnemonic), `tests/Feature/CompanyInviteTest.php` (9 testov: sealed create + key mismatch/no-key odmietnutia, non-owner 403, preview len pre cieľový účet, accept = membership + jednorazovosť, link mode, revoke/expiry, recipient lookup).
+
+## C5 - správa členov + revokácia (hotové)
+
+Vlastník vidí, kto má prístup, a môže ho odobrať. **Odobratie = `company_members.revoked_at = now()`** a je to úplný serverový lockout: `Company::roleFor`/`accessibleBy` aj obe middleware (`EnsureCompanyOwnership`, `EnsureCompanyRole`) revokované riadky vylučujú, takže bývalý člen dostane 403 na všetkých firemných routách okamžite (bez re-key).
+
+- Server: `CompanyMemberController` (owner-only) - `GET /companies/{company}/members` (aktívni členovia bez vlastníka), `DELETE /companies/{company}/members/{member}` (idempotentné, audit `company.member_revoked`).
+- Klient: `CompanyMembersPanel.vue` v `CompanyShareCard` (vedľa `CompanyInvitesPanel`, rovnaký owner guard) - zoznam + potvrdzovacie odobratie, ktoré poctivo hovorí, že dáta už zosynchronizované na zariadenie bývalého člena mu ostanú do re-key.
+- Testy: `tests/Feature/CompanyMemberManagementTest.php` (list bez revokovaných, revoke -> 403 lockout + audit, non-owner 403, cudzia firma 404, idempotencia).
+
+**Poctivý limit / čo je C5b:** Evolu 7.4.1 nemá rotáciu write key, takže revokácia **nezabezpečí forward secrecy** - bývalý člen si ponechá už stiahnutú históriu a mohol by čítať budúce zmeny cez starý SharedOwner secret, keby ho mal. Skutočná forward secrecy = **re-key** (nový SharedOwner + re-migrácia dát + re-invite zvyšných členov + soft-delete starej partície), plus `reserved_by_user_id` atribúcia rezervácií čísel - to je samostatný PR (C5b) s vlastným runbookom na jednorazovej firme, lebo re-migrácia je hard-to-reverse ako C3.
 
 Dôsledky pre ďalšie fázy: C3 migrácia „upsert pod SharedOwnerom s rovnakým id + soft-delete originálu“ je potvrdená ako korektný postup. Pozorovanie do C2: `allCompaniesQuery` a ostatné dotazy vracajú **úniu všetkých partícií** bez rozlíšenia ownera - zoznam firiem teda zdieľanú firmu zobrazí automaticky, ale UI musí vedieť, ktorý riadok je zdieľaný (stĺpec `ownerId` do dotazov / `rowOwnerId`). Spike riadky boli po behu soft-deletnuté: stačilo ich zmazať **na A pod SharedOwnerom** - B (stále registrovaný na ten istý owner) dostal `isDeleted` cez relay bez vlastného zásahu, čo potvrdzuje, že aj mazanie/úpravy v zdieľanej partícii sa šíria všetkým členom (dôležité pre C3 re-freeze a C5 re-key).
 

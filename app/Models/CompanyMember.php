@@ -7,7 +7,18 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property string $id
+ * @property string $company_id
+ * @property int $user_id
+ * @property CompanyMemberRole $role
+ * @property int|null $invited_by
+ * @property Carbon|null $accepted_at
+ * @property Carbon|null $revoked_at
+ * @property-read User|null $user
+ */
 class CompanyMember extends Model
 {
     use HasUuids;

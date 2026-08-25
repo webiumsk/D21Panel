@@ -49,7 +49,10 @@
 
     <p v-if="running && status !== 'private'" class="mt-3 text-xs text-gray-500">{{ progressLabel }}</p>
     <p v-if="resultMessage" class="mt-3 text-sm" :class="resultError ? 'text-red-600' : 'text-emerald-700'">{{ resultMessage }}</p>
-    <CompanyInvitesPanel v-if="status === 'active' && role === 'owner'" :company-id="companyId" />
+    <template v-if="status === 'active' && role === 'owner'">
+      <CompanyInvitesPanel :company-id="companyId" />
+      <CompanyMembersPanel :company-id="companyId" />
+    </template>
   </section>
 </template>
 
@@ -62,6 +65,7 @@ import { convertCompanyToShared, type ShareMigrationProgress } from '@/evolu/com
 import { exportInvoicingBackup } from '@/evolu/invoicingBackup';
 import { toAppRows } from '@/evolu/queryLoad';
 import CompanyInvitesPanel from './CompanyInvitesPanel.vue';
+import CompanyMembersPanel from './CompanyMembersPanel.vue';
 
 /**
  * "Zdieľanie firmy" (docs/COMPANY_SHARING.md, C3): shows whether the company
