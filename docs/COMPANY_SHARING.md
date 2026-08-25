@@ -22,7 +22,7 @@ Alternatíva "zdieľané firmy v server mode" bola zamietnutá: SPA už nemá pe
 | **C0** | spike: `sharedOwner.ts` (secret, base64url, owner z secretu, relay transport, registrácia), `ownerScope.ts` (`scopedEvolu`), dev-only `window.__satfluxSharedOwnerSpike`, Vitest | **hotové** (táto vetva) |
 | C1 | server: `company_members` (owner/accountant/member), `Company::isAccessibleBy`, `EnsureCompanyOwnership` membership-aware, `EnsureCompanyRole:owner` pre deštruktívne routy, `CompanyController::index` union s rolou, entitlement podľa vlastníka firmy, allocator test s 2 usermi | **hotové** (viď nižšie) |
 | C2 | klient: Evolu tabuľka `companyShare` (secret E2EE v AppOwner partícii), registry v bootstrape, **automatické scopovanie mutácií na singletone** (namiesto prepisu ~150 volaní), `ownerId` vo výsledkoch všetkých dotazov | **hotové** (viď nižšie) |
-| C3 | konverzia firmy na zdieľanú + migrácia riadkov AppOwner → SharedOwner (`companyShareMigration.ts`: status `migrating` pred kopírovaním, upsert so zachovaným `createdAt`, verifikácia počtov/hashov, soft-delete originálov, resumable), `numberAllocatorBridge` s explicitným `bridgeCompanyId` (obaja píšu do jedného countera) | plán |
+| C3 | konverzia firmy na zdieľanú + migrácia riadkov AppOwner → SharedOwner (`companyShareMigration.ts`), `numberAllocatorBridge` s explicitným `bridgeCompanyId`, UI karta „Zdieľanie firmy“ | **hotové** (viď nižšie) |
 | C4 | invites: `company_invites`, sealed box na x25519 kľúč pozvaného, fingerprint, fallback share-link s payloadom v URL fragmente | plán |
 | C5 | revokácia + re-key + audit (`documentEvent` s ownerId/rolou, `reserved_by_user_id`), UI správa členov, tento doc dopísať ako threat model | plán |
 
@@ -48,6 +48,20 @@ Rozhodnutie oproti pôvodnému plánu: namiesto pretiahnutia `scopedEvolu` cez ~
 Súkromné firmy → `undefined` = dnešné správanie, nič sa pre ne nemení. `invoicingSnapshot` (záloha/obnova/relay force push) tabuľku `companyShare` zámerne vynecháva. Schéma: `companyShare { companyId, sharedOwnerId, secretB64, role, status(migrating|active|revoked), bridgeCompanyId }` (aditívne). Testy: `__tests__/ownerScope.test.ts`.
 
 Overené proti dev appke (účet s 2 firmami a 68 dokladmi): všetky výsledky dotazov nesú `ownerId`, stránky Faktúry/Kontakty/Náklady/Export/prehľad sa načítajú bez chýb aplikácie.
+
+## C3 - konverzia firmy na zdieľanú (hotové)
+
+`convertCompanyToShared(evolu, companyId)` v `resources/js/evolu/companyShareMigration.ts`:
+
+1. **prepare** - firma existuje; bridge firma cez `ensureBridgeCompanyIdForLocalCompany` (bez nej `bridge_unavailable` - členovia musia číslovať v jednom counteri); ak už existuje `companyShare` riadok so stavom `active` → `already_shared`, so stavom `migrating` → **resume** s tým istým secretom.
+2. riadok `companyShare { status: "migrating", secretB64, sharedOwnerId, bridgeCompanyId, role: "owner" }` sa zapíše (a počká sa na commit) **skôr než sa čokoľvek kopíruje**; owner sa zaregistruje a registry dostane stav `migrating`, takže scoping proxy už smeruje nové zápisy do zdieľanej partície.
+3. **copy** - `collectCompanyRows` vyberie všetky živé riadky firmy naprieč 19 tabuľkami (deti podľa rodičovských kľúčov, `bankTransactionMatch` aj podľa dokladu), `pendingCopies` vynechá tie, ktoré už majú kópiu v zdieľanej partícii (idempotencia), a v poradí rodič → dieťa (`MIGRATION_ORDER`) sa každý upsertne s **rovnakým `id`** pod `scopedEvolu(evolu, sharedOwnerId)` (explicitný `ownerId` vyhrá nad registry) s čakaním na `onComplete`.
+4. **verify** - znovu načíta všetko a `verifyMigrated` vyžaduje kópiu pre každý zdrojový riadok; pri medzere ostáva stav `migrating` a originály nedotknuté.
+5. **cleanup** - originály sa soft-deletnú s explicitným AppOwner `ownerId` (nikdy hard delete), potom `companyShare.status = "active"`.
+
+Resume: `companyShareBootstrap` po načítaní registry zavolá `resumePendingCompanyShareMigrations` pre riadky `migrating` vo vlastnej partícii. Poznámka: Evolu upsert neprijíma systémové stĺpce, takže kópie dostanú nový `createdAt`; poradie zápisu (rodič → dieťa, v poradí dotazov) zachováva relatívne poradie udalostí v `documentEvent`.
+
+Allocator: `AllocatorIdentity.bridge_company_id` (z `companyShareInfo(companyId).bridgeCompanyId`) obíde identity match, takže vlastník aj člen rezervujú z jednej sekvencie. UI: `CompanyShareCard.vue` v profile firmy (local-first) - stav súkromná / konvertuje sa / zdieľaná + rola, potvrdzovací blok s dôsledkami a tlačidlom na zálohu, progres kopírovania. Testy: `__tests__/companyShareMigration.test.ts` (pure helpery + orchestrátor nad in-memory Evolu dvojníkom kľúčovaným `(ownerId, id)`: plná konverzia, resume bez druhého ownera, already_shared / not found / bridge_unavailable). **Runbook proti reálnej appke ešte nebežal** - pred C4: konverzia na účte A, `joinShare(secret)` na B, obaja vidia doklady a číslujú v jednom rade.
 
 ## C0 spike - runbook (dev build, dve prehliadače, jeden relay)
 
