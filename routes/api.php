@@ -46,6 +46,7 @@ use App\Http\Controllers\Invoicing\CompanyController;
 use App\Http\Controllers\Invoicing\CompanyDocumentSequenceController;
 use App\Http\Controllers\Invoicing\CompanyEmailSettingsController;
 use App\Http\Controllers\Invoicing\CompanyInviteController;
+use App\Http\Controllers\Invoicing\CompanyMemberController;
 use App\Http\Controllers\Invoicing\CompanyNumberAllocatorController;
 use App\Http\Controllers\Invoicing\CompanyRegistryController;
 use App\Http\Controllers\Invoicing\CompanyStockItemController;
@@ -458,6 +459,12 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::post('/companies/{company}/invites', [CompanyInviteController::class, 'store'])
                 ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
             Route::delete('/companies/{company}/invites/{invite}', [CompanyInviteController::class, 'destroy'])
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
+
+            // Company members - owner-only (docs/COMPANY_SHARING.md, "C5").
+            Route::get('/companies/{company}/members', [CompanyMemberController::class, 'index'])
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
+            Route::delete('/companies/{company}/members/{member}', [CompanyMemberController::class, 'destroy'])
                 ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
             Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])
                 ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);

@@ -475,6 +475,14 @@ export interface CreateCompanyInvitePayload {
     sealed_secret?: SealedInviteBlob | null;
 }
 
+export interface CompanyMemberSummary {
+    id: string;
+    role: string;
+    name: string | null;
+    email: string | null;
+    accepted_at: string | null;
+}
+
 export interface CompanyInvitePreview {
     company_id: string;
     company_name: string | null;
@@ -612,6 +620,14 @@ export const invoicingApi = {
         },
         async revokeInvite(companyId: string, inviteId: string): Promise<void> {
             await api.delete(`/invoicing/companies/${companyId}/invites/${inviteId}`);
+        },
+        /** Company members - owner-only (docs/COMPANY_SHARING.md, "C5"). */
+        async listMembers(companyId: string): Promise<CompanyMemberSummary[]> {
+            const { data } = await api.get<ApiEnvelope<CompanyMemberSummary[]>>(`/invoicing/companies/${companyId}/members`);
+            return data.data ?? [];
+        },
+        async revokeMember(companyId: string, memberId: string): Promise<void> {
+            await api.delete(`/invoicing/companies/${companyId}/members/${memberId}`);
         },
     },
     /** Invite acceptance - reachable by any authenticated user (the invitee). */
