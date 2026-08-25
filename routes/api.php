@@ -92,6 +92,7 @@ use App\Http\Middleware\EnsureAdminRole;
 use App\Http\Middleware\EnsureApiKeyLimit;
 use App\Http\Middleware\EnsureCompanyLimit;
 use App\Http\Middleware\EnsureCompanyOwnership;
+use App\Http\Middleware\EnsureCompanyRole;
 use App\Http\Middleware\EnsurePlanAllowsBusinessInvoicing;
 use App\Http\Middleware\EnsurePlanAllowsExportsAccess;
 use App\Http\Middleware\EnsurePlanAllowsLnAddressCreation;
@@ -405,9 +406,9 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::patch('/companies/{company}', [CompanyController::class, 'update'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::patch('/companies/{company}/app-settings', [CompanyController::class, 'updateAppSettings'])
-                ->middleware(EnsureCompanyOwnership::class);
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
             Route::patch('/companies/{company}/email-settings', [CompanyEmailSettingsController::class, 'update'])
-                ->middleware(EnsureCompanyOwnership::class);
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
 
             Route::get('/companies/{company}/number-series/preview', [CompanyDocumentSequenceController::class, 'preview'])
                 ->middleware(EnsureCompanyOwnership::class);
@@ -432,15 +433,15 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::delete('/companies/{company}/number-series/{sequence}', [CompanyDocumentSequenceController::class, 'destroy'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::post('/companies/{company}/email-settings/test-smtp', [CompanyEmailSettingsController::class, 'testSmtp'])
-                ->middleware(EnsureCompanyOwnership::class);
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
             Route::post('/companies/{company}/email-settings/ephemeral/test-smtp', [EphemeralBusinessDocumentController::class, 'testEmailSettingsSmtp'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::post('/companies/{company}/reset-data', [CompanyController::class, 'resetData'])
-                ->middleware(EnsureCompanyOwnership::class);
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
             Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])
-                ->middleware(EnsureCompanyOwnership::class);
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
             Route::patch('/companies/{company}/stores', [CompanyController::class, 'updateStores'])
-                ->middleware(EnsureCompanyOwnership::class);
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
 
             Route::post('/companies/{company}/branding/logo', [CompanyBrandingController::class, 'uploadLogo'])
                 ->middleware(EnsureCompanyOwnership::class);

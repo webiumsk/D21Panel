@@ -17,11 +17,11 @@ class EnsureCompanyOwnership
             abort(404, 'Company not found');
         }
 
+        // Owner, active member (docs/COMPANY_SHARING.md) or support / admin.
+        // Owner-only routes add EnsureCompanyRole on top.
         $user = $request->user();
-        if ($company->user_id !== $user->id) {
-            if (! $user->isSupport() && ! $user->isAdmin()) {
-                abort(403, 'Unauthorized access to company');
-            }
+        if ($user === null || ! $company->isAccessibleBy($user)) {
+            abort(403, 'Unauthorized access to company');
         }
 
         return $next($request);

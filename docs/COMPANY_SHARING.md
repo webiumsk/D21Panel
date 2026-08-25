@@ -20,11 +20,21 @@ Alternatíva "zdieľané firmy v server mode" bola zamietnutá: SPA už nemá pe
 | PR | Obsah | Stav |
 |---|---|---|
 | **C0** | spike: `sharedOwner.ts` (secret, base64url, owner z secretu, relay transport, registrácia), `ownerScope.ts` (`scopedEvolu`), dev-only `window.__satfluxSharedOwnerSpike`, Vitest | **hotové** (táto vetva) |
-| C1 | server: `company_members` (owner/accountant/member), `Company::isAccessibleBy`, `EnsureCompanyOwnership` membership-aware, `EnsureCompanyRole:owner` pre deštruktívne routy, `CompanyController::index` union s rolou, entitlement podľa vlastníka firmy, allocator test s 2 usermi | plán |
+| C1 | server: `company_members` (owner/accountant/member), `Company::isAccessibleBy`, `EnsureCompanyOwnership` membership-aware, `EnsureCompanyRole:owner` pre deštruktívne routy, `CompanyController::index` union s rolou, entitlement podľa vlastníka firmy, allocator test s 2 usermi | **hotové** (viď nižšie) |
 | C2 | klient: Evolu tabuľka `companyShare` (secret E2EE v AppOwner partícii), `sharedOwnerRegistry` v bootstrape, `scopedEvolu` pretiahnutý cez composables/CRUD (~150 volaní), dev assertion na owner mismatch | plán |
 | C3 | konverzia firmy na zdieľanú + migrácia riadkov AppOwner → SharedOwner (`companyShareMigration.ts`: status `migrating` pred kopírovaním, upsert so zachovaným `createdAt`, verifikácia počtov/hashov, soft-delete originálov, resumable), `numberAllocatorBridge` s explicitným `bridgeCompanyId` (obaja píšu do jedného countera) | plán |
 | C4 | invites: `company_invites`, sealed box na x25519 kľúč pozvaného, fingerprint, fallback share-link s payloadom v URL fragmente | plán |
 | C5 | revokácia + re-key + audit (`documentEvent` s ownerId/rolou, `reserved_by_user_id`), UI správa členov, tento doc dopísať ako threat model | plán |
+
+## C1 - serverové členstvo (hotové)
+
+- `company_members` (`role` owner/accountant/member, `invited_by`, `accepted_at`, `revoked_at`, unique company+user); model `CompanyMember` (`active()` = prijaté a neodvolané), enum `CompanyMemberRole`. Vlastník ostáva `companies.user_id` a nikdy nemá vlastný riadok.
+- `Company::roleFor(User)` (owner implicitne, inak aktívny člen), `isAccessibleBy(User)` (owner / aktívny člen / support / admin), `Company::accessibleBy(User)` builder pre index.
+- `EnsureCompanyOwnership` púšťa členov; nový `EnsureCompanyRole:owner` drží pri vlastníkovi: `DELETE /companies/{id}`, `reset-data`, `PATCH stores`, `PATCH email-settings`, `email-settings/test-smtp` (SMTP credentials) a `PATCH app-settings` (Stripe Tax / SAPI-SK secret). Všetko ostatné (doklady, kontakty, náklady, allocator, ephemeral bridges, profil firmy, export) je otvorené členom.
+- `EnsurePlanAllowsBusinessInvoicing`: člen pracuje **pod plánom vlastníka** - pri route s `{company}` stačí, že vlastník má invoicing; pri company-less routách (index, ephemeral) stačí aspoň jedno aktívne členstvo pod oprávneným vlastníkom. Účtovník teda nepotrebuje vlastný Pro plán.
+- `GET /companies` vracia vlastné + zdieľané firmy s `role`; `GET /companies/{id}` má `role` v payloade.
+- Číslovanie: člen aj vlastník rezervujú z jedného countera (test s dvoma usermi - po sebe idúce čísla, idempotentný retry).
+- Zatiaľ bez endpointov na pozvanie/odobranie (C4/C5) - riadky členstva vznikajú len z invitov.
 
 ## C0 spike - runbook (dev build, dve prehliadače, jeden relay)
 

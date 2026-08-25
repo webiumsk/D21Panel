@@ -26,13 +26,14 @@ class CompanyController extends Controller
 {
     public function index(Request $request, CompanyBrandingService $brandingService): JsonResponse
     {
-        $companies = Company::query()
-            ->where('user_id', $request->user()->id)
+        $user = $request->user();
+        $companies = Company::accessibleBy($user)
+            ->with('members')
             ->withCount(['contacts', 'documents'])
             ->orderBy('legal_name')
             ->get();
 
-        $data = $companies->map(function (Company $company) use ($brandingService) {
+        $data = $companies->map(function (Company $company) use ($brandingService, $user): array {
             return array_merge(
                 [
                     'id' => $company->id,
@@ -40,6 +41,9 @@ class CompanyController extends Controller
                     'trade_name' => $company->trade_name,
                     'registration_number' => $company->registration_number,
                     'documents_count' => (int) $company->documents_count,
+                    // Shared companies show up next to the user's own - the
+                    // role tells the client which actions to offer.
+                    'role' => $company->roleFor($user)?->value,
                 ],
                 $brandingService->brandingMeta($company),
             );
@@ -216,10 +220,13 @@ class CompanyController extends Controller
      */
     protected function companyPayload(Company $company, CompanyBrandingService $brandingService): array
     {
+        $viewer = request()->user();
+
         return array_merge(
             $company->toArray(),
             ['app_settings' => $company->resolvedAppSettings()],
             ['email_settings' => $company->resolvedEmailSettings()],
+            ['role' => $viewer !== null ? $company->roleFor($viewer)?->value : null],
             $brandingService->brandingMeta($company),
         );
     }
