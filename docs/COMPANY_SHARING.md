@@ -25,7 +25,8 @@ Alternatíva "zdieľané firmy v server mode" bola zamietnutá: SPA už nemá pe
 | C3 | konverzia firmy na zdieľanú + migrácia riadkov AppOwner → SharedOwner (`companyShareMigration.ts`), `numberAllocatorBridge` s explicitným `bridgeCompanyId`, UI karta „Zdieľanie firmy“ | **hotové** (viď nižšie) |
 | C4 | invites: `company_invites`, sealed box na x25519 kľúč pozvaného, fingerprint, fallback share-link s payloadom v URL fragmente | **hotové** |
 | C5 | revokácia + audit + UI správa členov | **hotové (member management)** |
-| C5b | re-key (forward secrecy: nový SharedOwner + re-migrácia), `reserved_by_user_id` atribúcia, threat model | plán |
+| C5b | `reserved_by_user_id` atribúcia rezervácií | **hotové** |
+| C5c | re-key (forward secrecy: nový SharedOwner + re-migrácia), threat model | plán |
 
 ## C1 - serverové členstvo (hotové)
 
@@ -111,7 +112,9 @@ Vlastník vidí, kto má prístup, a môže ho odobrať. **Odobratie = `company_
 - Klient: `CompanyMembersPanel.vue` v `CompanyShareCard` (vedľa `CompanyInvitesPanel`, rovnaký owner guard) - zoznam + potvrdzovacie odobratie, ktoré poctivo hovorí, že dáta už zosynchronizované na zariadenie bývalého člena mu ostanú do re-key.
 - Testy: `tests/Feature/CompanyMemberManagementTest.php` (list bez revokovaných, revoke -> 403 lockout + audit, non-owner 403, cudzia firma 404, idempotencia).
 
-**Poctivý limit / čo je C5b:** Evolu 7.4.1 nemá rotáciu write key, takže revokácia **nezabezpečí forward secrecy** - bývalý člen si ponechá už stiahnutú históriu a mohol by čítať budúce zmeny cez starý SharedOwner secret, keby ho mal. Skutočná forward secrecy = **re-key** (nový SharedOwner + re-migrácia dát + re-invite zvyšných členov + soft-delete starej partície), plus `reserved_by_user_id` atribúcia rezervácií čísel - to je samostatný PR (C5b) s vlastným runbookom na jednorazovej firme, lebo re-migrácia je hard-to-reverse ako C3.
+**Rezervácia čísel = kto (C5b, hotové):** `document_number_reservations.reserved_by_user_id` (nullable, nullOnDelete) sa plní z `$request->user()` v `CompanyNumberAllocatorController::reserve` -> `DocumentSequenceService::reserveNumberForIssue($reservedByUserId)`. V zdieľanej firme tak vidno, ktorý člen ktoré číslo alokoval. Automatické vystavenie (WooCommerce webhook, `IntegrationAutoIssueService`) nemá prihláseného usera -> ostáva null (system-attributed), čo je zámerne odlíšiteľné od používateľských rezervácií.
+
+**Poctivý limit / čo je C5c:** Evolu 7.4.1 nemá rotáciu write key, takže revokácia **nezabezpečí forward secrecy** - bývalý člen si ponechá už stiahnutú históriu a mohol by čítať budúce zmeny cez starý SharedOwner secret, keby ho mal. Skutočná forward secrecy = **re-key** (nový SharedOwner + re-migrácia dát + re-invite zvyšných členov + soft-delete starej partície), to je samostatný PR (C5c) s vlastným runbookom na jednorazovej firme, lebo re-migrácia je hard-to-reverse ako C3.
 
 Dôsledky pre ďalšie fázy: C3 migrácia „upsert pod SharedOwnerom s rovnakým id + soft-delete originálu“ je potvrdená ako korektný postup. Pozorovanie do C2: `allCompaniesQuery` a ostatné dotazy vracajú **úniu všetkých partícií** bez rozlíšenia ownera - zoznam firiem teda zdieľanú firmu zobrazí automaticky, ale UI musí vedieť, ktorý riadok je zdieľaný (stĺpec `ownerId` do dotazov / `rowOwnerId`). Spike riadky boli po behu soft-deletnuté: stačilo ich zmazať **na A pod SharedOwnerom** - B (stále registrovaný na ten istý owner) dostal `isDeleted` cez relay bez vlastného zásahu, čo potvrdzuje, že aj mazanie/úpravy v zdieľanej partícii sa šíria všetkým členom (dôležité pre C3 re-freeze a C5 re-key).
 

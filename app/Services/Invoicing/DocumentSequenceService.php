@@ -55,8 +55,9 @@ class DocumentSequenceService
         string $documentType,
         string $issueRequestId,
         ?int $localHighCounter = null,
+        ?int $reservedByUserId = null,
     ): DocumentNumberReservation {
-        return DB::transaction(function () use ($company, $documentType, $issueRequestId, $localHighCounter) {
+        return DB::transaction(function () use ($company, $documentType, $issueRequestId, $localHighCounter, $reservedByUserId) {
             $existing = DocumentNumberReservation::query()
                 ->where('company_id', $company->id)
                 ->where('document_type', $documentType)
@@ -96,6 +97,7 @@ class DocumentSequenceService
                 'counter' => $counter,
                 'number' => $this->formatter->format($series->format, $counter),
                 'status' => DocumentNumberReservation::STATUS_RESERVED,
+                'reserved_by_user_id' => $reservedByUserId,
             ]);
         });
     }

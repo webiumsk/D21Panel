@@ -59,6 +59,7 @@ class CompanyNumberAllocatorController extends Controller
             $validated['document_type'],
             $validated['issue_request_id'],
             $validated['local_high_counter'] ?? null,
+            $request->user()?->id,
         );
 
         return response()->json(['data' => $this->reservationPayload($reservation)]);
