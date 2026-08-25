@@ -97,6 +97,7 @@ export const ACCOUNTANT_EXPORT_ATTACHMENT_MIMES = new Set([
 
 /** Server-side per-attachment cap on the base64 string (~512 KB decoded). */
 export const ACCOUNTANT_EXPORT_MAX_ATTACHMENT_BASE64 = 700_000;
+export const ACCOUNTANT_EXPORT_MAX_DOCUMENTS_PER_BATCH = 50;
 
 export function attachmentDecodedBytes(base64: string): number {
     const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
@@ -182,12 +183,14 @@ type PlannedRow = { kind: "document" | "expense"; id: string; date: string; byte
 /**
  * Split the selection into cap-compliant requests. Rows are consumed in issue
  * date order and a batch closes as soon as the next row would push it over
- * `maxRows` (documents and expenses are capped separately) or
+ * the row caps (documents and expenses are capped separately) or
  * `maxAttachmentBytes`; a single expense above the byte cap still gets its
  * own batch (the server rejects it with 413 and the user sees the error).
  * Record-based batching - unlike date-range chunking - holds even when one
- * day carries more rows than the caps allow. `maxRows` / `maxAttachmentBytes`
- * mirror config/invoicing.php defaults.
+ * day carries more rows than the caps allow. Expenses use the server package
+ * row cap, while issued documents are capped to the already-proven bulk
+ * document size so the JSON snapshot body stays below the 20 MB request limit.
+ * `maxRows` / `maxAttachmentBytes` mirror config/invoicing.php defaults.
  */
 export function planAccountantExport(input: {
     range: ExportDateRange;
@@ -197,9 +200,14 @@ export function planAccountantExport(input: {
     companyId: string;
     includeAttachments: boolean;
     maxRows?: number;
+    maxDocumentRows?: number;
     maxAttachmentBytes?: number;
 }): AccountantExportPlan {
     const maxRows = Math.max(1, input.maxRows ?? 500);
+    const maxDocumentRows = Math.max(
+        1,
+        input.maxDocumentRows ?? Math.min(maxRows, ACCOUNTANT_EXPORT_MAX_DOCUMENTS_PER_BATCH),
+    );
     const maxBytes = Math.max(1, input.maxAttachmentBytes ?? 12 * 1024 * 1024);
 
     const documents = selectIssuedDocumentsForExport(input.documents, input.companyId, input.range);
@@ -233,7 +241,7 @@ export function planAccountantExport(input: {
     for (const row of rows) {
         const overflow =
             current !== null
-            && ((row.kind === "document" && docCount >= maxRows)
+            && ((row.kind === "document" && docCount >= maxDocumentRows)
                 || (row.kind === "expense" && expenseCount >= maxRows)
                 || current.attachmentBytes + row.bytes > maxBytes);
         if (current === null || overflow) {

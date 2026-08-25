@@ -22,7 +22,8 @@ import {
 } from "@/evolu/accountantExportSelect";
 import {
     buildAccountantExportEphemeralRequest,
-    downloadEphemeralAccountantExport,
+    downloadResponseBlob,
+    fetchEphemeralAccountantExport,
 } from "@/evolu/ephemeralBridge";
 import { downloadCsvBlob } from "@/evolu/documentBulkLocal";
 import { useLocalInvoiceDocumentSupport } from "@/composables/useLocalInvoiceDocument";
@@ -126,13 +127,13 @@ export function useAccountantExport(companyId: Ref<string>, companyName: Ref<str
         return `accountant-${slug(companyName.value ?? "company")}-${chunk.from}_${chunk.to}.zip`;
     }
 
-    async function downloadLocalBatch(batch: AccountantExportBatch, signal?: AbortSignal): Promise<void> {
-        if (!localDoc) return;
+    async function prepareLocalBatch(batch: AccountantExportBatch, signal?: AbortSignal): Promise<{ blob: Blob; filename: string } | null> {
+        if (!localDoc) return null;
         const expenseIds = new Set(batch.expenseIds);
         const expensePayloads = expenses.value
             .filter((row) => expenseIds.has(String(row.id)))
             .map((row) => buildExpensePayload(row, attachments.value, options.value.includeExpenseAttachments).payload);
-        if (batch.documentIds.length === 0 && expensePayloads.length === 0) return;
+        if (batch.documentIds.length === 0 && expensePayloads.length === 0) return null;
 
         const request = await buildAccountantExportEphemeralRequest(localDoc, companyId.value, {
             documentIds: batch.documentIds,
@@ -143,7 +144,8 @@ export function useAccountantExport(companyId: Ref<string>, companyName: Ref<str
         if (!request) {
             throw new Error("accountant_export_build_failed");
         }
-        await downloadEphemeralAccountantExport(request.body, request.bridgeCompanyId, filename(batch.range), { signal });
+        const blob = await fetchEphemeralAccountantExport(request.body, request.bridgeCompanyId, { signal });
+        return { blob, filename: filename(batch.range) };
     }
 
     async function downloadServer(signal?: AbortSignal): Promise<void> {
@@ -178,10 +180,17 @@ export function useAccountantExport(companyId: Ref<string>, companyName: Ref<str
                 return;
             }
             const batches = plan.value?.batches ?? [];
+            const prepared: { blob: Blob; filename: string }[] = [];
             progress.value = { done: 0, total: batches.length };
             for (const batch of batches) {
-                await downloadLocalBatch(batch, abort.signal);
+                const file = await prepareLocalBatch(batch, abort.signal);
+                if (file) {
+                    prepared.push(file);
+                }
                 progress.value = { done: progress.value.done + 1, total: batches.length };
+            }
+            for (const file of prepared) {
+                downloadResponseBlob(file.blob, file.filename);
             }
         } catch (e) {
             if ((e as { name?: string })?.name === "CanceledError" || (e as { name?: string })?.name === "AbortError") {
