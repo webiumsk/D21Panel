@@ -120,6 +120,8 @@ export function unregisterAllSharedOwners(evolu: Evolu<InvoicingLocalSchema>): v
 
 const DEVICE_ID_KEY = "satflux.invoicing_device_id";
 
+let sessionFallbackDeviceId: string | null = null;
+
 /**
  * Stable per-browser-profile id (not secret, not synced) used to make sure a
  * conversion interrupted by a reload is resumed ONLY by the device that
@@ -134,6 +136,15 @@ export function localDeviceId(): string {
         window.localStorage.setItem(DEVICE_ID_KEY, fresh);
         return fresh;
     } catch {
-        return "ephemeral-device";
+        // Storage unavailable (private window): a stable per-session random id
+        // still keeps this device distinct from others for the device guard.
+        if (!sessionFallbackDeviceId) {
+            try {
+                sessionFallbackDeviceId = crypto.randomUUID();
+            } catch {
+                sessionFallbackDeviceId = `ephemeral-${crypto.getRandomValues(new Uint32Array(2)).join("-")}`;
+            }
+        }
+        return sessionFallbackDeviceId;
     }
 }

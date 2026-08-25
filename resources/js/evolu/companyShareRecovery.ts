@@ -5,6 +5,7 @@ import { removeCompanyShare } from "./companyShareRegistry";
 import { collectCompanyRows, MIGRATION_ORDER, MIGRATION_TABLE_QUERIES, type MigrationTable } from "./companyShareMigration";
 import { scopedEvolu } from "./ownerScope";
 import { unregisterSharedOwner } from "./sharedOwner";
+import { waitForInvoicingRelaySync } from "./relaySyncWait";
 import type { InvoicingLocalSchema } from "./schema";
 import type { InvoicingDataSnapshot } from "./invoicingSnapshot";
 import { toAppRows } from "./queryLoad";
@@ -54,17 +55,28 @@ export async function recoverCompanyToPrivate(
     }
 
     // 2. Soft-delete everything under those shared owners (owner-scoped so it
-    //    targets the shared partition rows, not the app copies).
+    //    targets the shared partition rows, not the app copies). Await each
+    //    mutation and let the relay settle BEFORE unregistering the owners -
+    //    otherwise the deletes never reach other devices (the same footgun
+    //    that strands residue).
     let sharedSoftDeleted = 0;
     for (const table of MIGRATION_ORDER) {
         const rows = toAppRows<Row>(await evolu.loadQuery(MIGRATION_TABLE_QUERIES[table] as never));
         for (const row of rows) {
             if (row.ownerId && sharedOwners.has(row.ownerId) && row.isDeleted !== 1) {
-                const result = scopedEvolu(evolu, row.ownerId as never).update(table, { id: row.id, isDeleted: sqliteTrue } as never);
+                const result = await new Promise<{ ok: boolean }>((resolve) => {
+                    const res = scopedEvolu(evolu, row.ownerId as never).update(
+                        table,
+                        { id: row.id, isDeleted: sqliteTrue } as never,
+                        { onComplete: () => resolve({ ok: true }) },
+                    );
+                    if (!res.ok) resolve({ ok: false });
+                });
                 if (result.ok) sharedSoftDeleted++;
             }
         }
     }
+    await waitForInvoicingRelaySync(evolu, { timeoutMs: 30_000 }).catch(() => undefined);
 
     // 3. Un-delete the AppOwner rows the conversion soft-deleted, keyed by the
     //    company's pre-share ids from the backup.

@@ -245,6 +245,18 @@ describe('convertCompanyToShared', () => {
         expect(result.ok).toBe(true);
     });
 
+    it('purges child residue even when the shared company row is already deleted', async () => {
+        const { evolu, tables, seedShare, seedRow } = fakeEvolu(seededCompany());
+        seedShare({ companyId: 'c1', sharedOwnerId: 'ghost-owner', secretB64: 's', role: 'owner', status: 'revoked' });
+        // Company row already soft-deleted, but a child row still lingers live.
+        seedRow('company', { id: 'c1', ownerId: 'ghost-owner', legalName: 'Acme', isDeleted: 1 });
+        seedRow('contact', { id: 'k9', companyId: 'c1', ownerId: 'ghost-owner' });
+
+        const purged = await purgeRevokedShareResidue(evolu, 'c1');
+        expect(purged).toBe(1);
+        expect(tables.get('contact')?.get('ghost-owner|k9')?.isDeleted).toBe(1);
+    });
+
     it('refuses to mint a second owner when an orphaned shared copy exists', async () => {
         const seed = seededCompany();
         // A prior attempt left a shared copy of the company but no share row.

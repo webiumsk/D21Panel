@@ -269,12 +269,9 @@ export async function purgeRevokedShareResidue(evolu: Loader, companyId?: string
         return 0;
     }
 
-    const companies = (await evolu.loadQuery(allCompaniesDetailQuery)) as unknown as readonly Row[];
-    const hasLiveResidue = companies.some((row) => row.ownerId != null && revokedOwners.has(row.ownerId) && row.isDeleted !== 1);
-    if (!hasLiveResidue) {
-        return 0;
-    }
-
+    // Scan every table (not just companies): a partially-propagated cleanup
+    // can leave child rows live under a revoked owner while the company row
+    // is already deleted.
     let purged = 0;
     for (const table of MIGRATION_ORDER) {
         const rows = (await evolu.loadQuery(MIGRATION_TABLE_QUERIES[table] as never)) as unknown as readonly Row[];
@@ -374,8 +371,15 @@ export async function convertCompanyToShared(
     }
 
     let shareRowId: CompanyShareId;
-    let ownerSecret = existing ? decodeOwnerSecret(existing.secretB64) : null;
-    if (existing && ownerSecret) {
+    let ownerSecret;
+    if (existing) {
+        // Reuse the in-flight share. A corrupt secret must NOT fall through to
+        // minting a second owner - that is the very duplication we prevent.
+        const decoded = decodeOwnerSecret(existing.secretB64);
+        if (!decoded) {
+            return { ok: false, error: "share_row_failed", detail: "undecodable existing share secret" };
+        }
+        ownerSecret = decoded;
         shareRowId = existing.id as CompanyShareId;
     } else {
         ownerSecret = createCompanyShareSecret();
