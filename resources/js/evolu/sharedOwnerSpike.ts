@@ -73,7 +73,7 @@ export const sharedOwnerSpike = {
         }
         const owner = sharedOwnerFromSecret(decoded);
         registerSharedOwner(evolu, owner);
-        log("joinShare - owner registered, waiting for relay", { ownerId: owner.id, alreadyRegistered: isSharedOwnerRegistered(owner.id) });
+        log("joinShare - owner registered, waiting for relay", { ownerId: owner.id, alreadyRegistered: isSharedOwnerRegistered(evolu, owner.id) });
         return owner.id;
     },
 
@@ -105,7 +105,7 @@ export const sharedOwnerSpike = {
     },
 
     async leave(ownerId: OwnerId): Promise<void> {
-        unregisterSharedOwner(ownerId);
+        unregisterSharedOwner(evolu, ownerId);
         log("leave", ownerId);
     },
 };

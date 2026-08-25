@@ -58,7 +58,7 @@ describe('company share secret and SharedOwner', () => {
         expect(sync.transports).toHaveLength(1);
     });
 
-    it('registers each owner once and unregisters on demand', () => {
+    it('registers each owner once per instance and unregisters on demand', () => {
         const useOwner = vi.fn(() => vi.fn());
         const evolu = { useOwner } as unknown as Evolu<InvoicingLocalSchema>;
         const owner = sharedOwnerFromSecret(createCompanyShareSecret());
@@ -66,16 +66,34 @@ describe('company share secret and SharedOwner', () => {
         expect(registerSharedOwner(evolu, owner)).toBe(owner.id);
         expect(registerSharedOwner(evolu, owner)).toBe(owner.id);
         expect(useOwner).toHaveBeenCalledTimes(1);
-        expect(isSharedOwnerRegistered(owner.id)).toBe(true);
+        expect(isSharedOwnerRegistered(evolu, owner.id)).toBe(true);
 
         const unuse = useOwner.mock.results[0].value as ReturnType<typeof vi.fn>;
-        unregisterSharedOwner(owner.id);
+        unregisterSharedOwner(evolu, owner.id);
         expect(unuse).toHaveBeenCalledTimes(1);
-        expect(isSharedOwnerRegistered(owner.id)).toBe(false);
+        expect(isSharedOwnerRegistered(evolu, owner.id)).toBe(false);
 
         registerSharedOwner(evolu, owner);
-        unregisterAllSharedOwners();
-        expect(isSharedOwnerRegistered(owner.id)).toBe(false);
+        unregisterAllSharedOwners(evolu);
+        expect(isSharedOwnerRegistered(evolu, owner.id)).toBe(false);
+    });
+
+    it('keeps registrations of different Evolu instances apart', () => {
+        const useOwnerA = vi.fn(() => vi.fn());
+        const useOwnerB = vi.fn(() => vi.fn());
+        const evoluA = { useOwner: useOwnerA } as unknown as Evolu<InvoicingLocalSchema>;
+        const evoluB = { useOwner: useOwnerB } as unknown as Evolu<InvoicingLocalSchema>;
+        const owner = sharedOwnerFromSecret(createCompanyShareSecret());
+
+        registerSharedOwner(evoluA, owner);
+        registerSharedOwner(evoluB, owner);
+        expect(useOwnerA).toHaveBeenCalledTimes(1);
+        expect(useOwnerB).toHaveBeenCalledTimes(1);
+
+        unregisterSharedOwner(evoluA, owner.id);
+        expect(isSharedOwnerRegistered(evoluA, owner.id)).toBe(false);
+        expect(isSharedOwnerRegistered(evoluB, owner.id)).toBe(true);
+        expect(useOwnerB.mock.results[0].value).not.toHaveBeenCalled();
     });
 });
 

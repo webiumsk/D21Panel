@@ -74,32 +74,46 @@ export function sharedOwnerForRelay(owner: SharedOwner): SyncOwner {
     };
 }
 
-const activeOwners = new Map<OwnerId, UnuseOwner>();
+/** Registrations are scoped per Evolu instance so two clients (or tests) can use the same owner independently. */
+const activeOwners = new WeakMap<Evolu<InvoicingLocalSchema>, Map<OwnerId, UnuseOwner>>();
+
+function registryFor(evolu: Evolu<InvoicingLocalSchema>): Map<OwnerId, UnuseOwner> {
+    let registry = activeOwners.get(evolu);
+    if (!registry) {
+        registry = new Map();
+        activeOwners.set(evolu, registry);
+    }
+    return registry;
+}
 
 /**
- * Register the owner for sync (idempotent per owner id). Returns the id so
- * callers can scope mutations with it.
+ * Register the owner for sync (idempotent per instance + owner id). Returns
+ * the id so callers can scope mutations with it.
  */
 export function registerSharedOwner(evolu: Evolu<InvoicingLocalSchema>, owner: SharedOwner): OwnerId {
-    if (!activeOwners.has(owner.id)) {
-        activeOwners.set(owner.id, evolu.useOwner(sharedOwnerForRelay(owner)));
+    const registry = registryFor(evolu);
+    if (!registry.has(owner.id)) {
+        registry.set(owner.id, evolu.useOwner(sharedOwnerForRelay(owner)));
     }
     return owner.id;
 }
 
-export function unregisterSharedOwner(ownerId: OwnerId): void {
-    activeOwners.get(ownerId)?.();
-    activeOwners.delete(ownerId);
+export function unregisterSharedOwner(evolu: Evolu<InvoicingLocalSchema>, ownerId: OwnerId): void {
+    const registry = activeOwners.get(evolu);
+    registry?.get(ownerId)?.();
+    registry?.delete(ownerId);
 }
 
-export function isSharedOwnerRegistered(ownerId: OwnerId): boolean {
-    return activeOwners.has(ownerId);
+export function isSharedOwnerRegistered(evolu: Evolu<InvoicingLocalSchema>, ownerId: OwnerId): boolean {
+    return activeOwners.get(evolu)?.has(ownerId) ?? false;
 }
 
-/** Test / teardown helper. */
-export function unregisterAllSharedOwners(): void {
-    for (const unuse of activeOwners.values()) {
+/** Test / teardown helper for one instance. */
+export function unregisterAllSharedOwners(evolu: Evolu<InvoicingLocalSchema>): void {
+    const registry = activeOwners.get(evolu);
+    if (!registry) return;
+    for (const unuse of registry.values()) {
         unuse();
     }
-    activeOwners.clear();
+    registry.clear();
 }
