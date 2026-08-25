@@ -23,7 +23,7 @@ Alternatíva "zdieľané firmy v server mode" bola zamietnutá: SPA už nemá pe
 | C1 | server: `company_members` (owner/accountant/member), `Company::isAccessibleBy`, `EnsureCompanyOwnership` membership-aware, `EnsureCompanyRole:owner` pre deštruktívne routy, `CompanyController::index` union s rolou, entitlement podľa vlastníka firmy, allocator test s 2 usermi | **hotové** (viď nižšie) |
 | C2 | klient: Evolu tabuľka `companyShare` (secret E2EE v AppOwner partícii), registry v bootstrape, **automatické scopovanie mutácií na singletone** (namiesto prepisu ~150 volaní), `ownerId` vo výsledkoch všetkých dotazov | **hotové** (viď nižšie) |
 | C3 | konverzia firmy na zdieľanú + migrácia riadkov AppOwner → SharedOwner (`companyShareMigration.ts`), `numberAllocatorBridge` s explicitným `bridgeCompanyId`, UI karta „Zdieľanie firmy“ | **hotové** (viď nižšie) |
-| C4 | invites: `company_invites`, sealed box na x25519 kľúč pozvaného, fingerprint, fallback share-link s payloadom v URL fragmente | plán |
+| C4 | invites: `company_invites`, sealed box na x25519 kľúč pozvaného, fingerprint, fallback share-link s payloadom v URL fragmente | **hotové** |
 | C5 | revokácia + re-key + audit (`documentEvent` s ownerId/rolou, `reserved_by_user_id`), UI správa členov, tento doc dopísať ako threat model | plán |
 
 ## C1 - serverové členstvo (hotové)
@@ -84,6 +84,23 @@ Predpoklad: `npm run dev` s `VITE_INVOICING_LOCAL_FIRST=true`, nakonfigurovaný 
 | 2. `upsert` s `{ ownerId }` a ROVNAKÝM `id` zapíše samostatný riadok | **PASS** | `rows()` na A ukázalo 2 riadky s jedným `id`: `app/deleted=null` + `shared/deleted=null` |
 | 3. soft-delete AppOwner kópie nechá viditeľný jediný (zdieľaný) riadok | **PASS** | po `softDeleteAppCopy`: `app/deleted=1`, `shared/deleted=null`; `allCompaniesQuery` (filtruje `isDeleted`) vidí 1 riadok |
 | 4. druhý prehliadač len so secretom vidí dáta | **PASS** | B (iný účet, iná fráza) dostal oba zdieľané riadky; **súkromná AppOwner partícia A na B = 0 riadkov** (žiadny únik) |
+
+## C4 - invites (hotové)
+
+Pozvanie doručí SharedOwner secret pozvanému **bez toho, aby ho videl server**. Dve cesty:
+
+- **sealed (primárna):** vlastník vyhľadá pozvaného podľa e-mailu (`GET /companies/{company}/invite-recipient`), server vráti jeho `guest_recovery_public_key` (Ed25519). Klient ho prevedie na X25519 (`ed25519.utils.toMontgomery`), spraví efemérny ECDH a zabalí secret AES-GCM (ECIES) - `services/companyInviteSeal.ts`. Server pri vytvorení overí, že kľúč sedí s **aktuálnym** kľúčom príjemcu (`hash_equals`), takže zapečatenie na zastaraný/podvrhnutý kľúč odmietne. Uložený je len opaque blob (`sealed_secret_json`).
+- **link (fallback):** keď pozvaný nemá recovery kľúč, secret ide v **URL fragmente** (`#s=...`), server nič tajné neukladá. Fragment sa nikdy neposiela na server.
+
+**Fingerprint:** `inviteFingerprint(pubkey)` = base32 skupiny zo SHA-256 kľúča, zobrazený obom stranám na out-of-band overenie správneho príjemcu.
+
+**Server:** `company_invites` (token len ako sha256, `expires_at` 14 dní, jednorazový), `CompanyInviteController` (owner-only create/list/revoke/recipient-lookup; recipient-facing `show`/`accept` mimo `EnsurePlanAllowsBusinessInvoicing` - entitlement je podľa vlastníka firmy, účtovník bez planu prijme). Accept zapíše `company_members` riadok.
+
+**Klient:** `evolu/companyInviteCreate.ts` (seal), `evolu/companyInviteAccept.ts` (`decryptSealedInvite`, `materializeAcceptedShare` - zaregistruje owner, počká na sync firmy, zapíše lokálny `companyShare` riadok, idempotentne). UI: `CompanyInvitesPanel.vue` (v `CompanyShareCard` pre vlastníka zdieľanej firmy), `pages/invoicing/InviteAccept.vue` na `/invoicing/invite/:token`.
+
+**Krypto poznámka:** pribudol priamy dependency `@noble/curves` (predtým tranzitívny) kvôli X25519 a Ed25519->X25519 konverzii. Server konverziu nerobí (blob nikdy nededekóduje); PHP `sodium_crypto_sign_ed25519_pk_to_curve25519` by bol dostupný, ak by bola niekedy potrebná serverová kontrola.
+
+**Testy:** `__tests__/companyInviteSeal.test.ts` (round-trip, tamper, zlý kľúč, fingerprint), `__tests__/companyInviteAccept.test.ts` (decrypt cez session mnemonic), `tests/Feature/CompanyInviteTest.php` (9 testov: sealed create + key mismatch/no-key odmietnutia, non-owner 403, preview len pre cieľový účet, accept = membership + jednorazovosť, link mode, revoke/expiry, recipient lookup).
 
 Dôsledky pre ďalšie fázy: C3 migrácia „upsert pod SharedOwnerom s rovnakým id + soft-delete originálu“ je potvrdená ako korektný postup. Pozorovanie do C2: `allCompaniesQuery` a ostatné dotazy vracajú **úniu všetkých partícií** bez rozlíšenia ownera - zoznam firiem teda zdieľanú firmu zobrazí automaticky, ale UI musí vedieť, ktorý riadok je zdieľaný (stĺpec `ownerId` do dotazov / `rowOwnerId`). Spike riadky boli po behu soft-deletnuté: stačilo ich zmazať **na A pod SharedOwnerom** - B (stále registrovaný na ten istý owner) dostal `isDeleted` cez relay bez vlastného zásahu, čo potvrdzuje, že aj mazanie/úpravy v zdieľanej partícii sa šíria všetkým členom (dôležité pre C3 re-freeze a C5 re-key).
 

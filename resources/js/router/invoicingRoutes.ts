@@ -15,6 +15,14 @@ export const invoicingRoutes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
     },
     {
+        // Invite acceptance (docs/COMPANY_SHARING.md, C4) - reachable by any
+        // authenticated user, including an accountant without their own plan.
+        path: 'invite/:token',
+        name: 'invoicing-invite-accept',
+        component: () => import('../pages/invoicing/InviteAccept.vue'),
+        meta: { requiresAuth: true },
+    },
+    {
         path: 'companies/:companyId',
         name: 'invoicing-company',
         component: () => import('../pages/invoicing/CompanyShow.vue'),
