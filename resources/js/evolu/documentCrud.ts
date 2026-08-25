@@ -20,6 +20,7 @@ import {
     localHighCounterForStoreBridge,
 } from "./numberSequenceBridge";
 import { confirmIssueNumber, reserveIssueNumber } from "./numberAllocatorBridge";
+import { companyShareInfo } from "./companyShareRegistry";
 import type { EvoluNumberSeriesRow } from "./numberSeriesMap";
 import { documentVariableSymbol } from "./documentNumber";
 import { evoluCompanyToApi, type EvoluCompanyRow } from "./companyMap";
@@ -518,6 +519,7 @@ export async function issueLocalDocumentAsync(
             jurisdiction: company.jurisdiction ?? null,
             country: company.country ?? null,
             default_currency: company.defaultCurrency ?? null,
+            bridge_company_id: companyShareInfo(company.id)?.bridgeCompanyId ?? null,
         },
         draft.documentType,
         documentId,
