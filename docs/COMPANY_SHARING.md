@@ -30,7 +30,7 @@ Alternatíva "zdieľané firmy v server mode" bola zamietnutá: SPA už nemá pe
 
 - `company_members` (`role` owner/accountant/member, `invited_by`, `accepted_at`, `revoked_at`, unique company+user); model `CompanyMember` (`active()` = prijaté a neodvolané), enum `CompanyMemberRole`. Vlastník ostáva `companies.user_id` a nikdy nemá vlastný riadok.
 - `Company::roleFor(User)` (owner implicitne, inak aktívny člen), `isAccessibleBy(User)` (owner / aktívny člen / support / admin), `Company::accessibleBy(User)` builder pre index.
-- `EnsureCompanyOwnership` púšťa členov; nový `EnsureCompanyRole:owner` drží pri vlastníkovi: `DELETE /companies/{id}`, `reset-data`, `PATCH stores`, `PATCH email-settings`, `email-settings/test-smtp` (SMTP credentials). Všetko ostatné (doklady, kontakty, náklady, allocator, ephemeral bridges, app-settings, export) je otvorené členom.
+- `EnsureCompanyOwnership` púšťa členov; nový `EnsureCompanyRole:owner` drží pri vlastníkovi: `DELETE /companies/{id}`, `reset-data`, `PATCH stores`, `PATCH email-settings`, `email-settings/test-smtp` (SMTP credentials) a `PATCH app-settings` (Stripe Tax / SAPI-SK secret). Všetko ostatné (doklady, kontakty, náklady, allocator, ephemeral bridges, profil firmy, export) je otvorené členom.
 - `EnsurePlanAllowsBusinessInvoicing`: člen pracuje **pod plánom vlastníka** - pri route s `{company}` stačí, že vlastník má invoicing; pri company-less routách (index, ephemeral) stačí aspoň jedno aktívne členstvo pod oprávneným vlastníkom. Účtovník teda nepotrebuje vlastný Pro plán.
 - `GET /companies` vracia vlastné + zdieľané firmy s `role`; `GET /companies/{id}` má `role` v payloade.
 - Číslovanie: člen aj vlastník rezervujú z jedného countera (test s dvoma usermi - po sebe idúce čísla, idempotentný retry).

@@ -406,7 +406,7 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::patch('/companies/{company}', [CompanyController::class, 'update'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::patch('/companies/{company}/app-settings', [CompanyController::class, 'updateAppSettings'])
-                ->middleware(EnsureCompanyOwnership::class);
+                ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
             Route::patch('/companies/{company}/email-settings', [CompanyEmailSettingsController::class, 'update'])
                 ->middleware([EnsureCompanyOwnership::class, EnsureCompanyRole::class.':owner']);
 

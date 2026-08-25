@@ -178,11 +178,16 @@ class CompanyMembershipTest extends TestCase
         $this->actingAs($this->accountant)->patchJson("/api/invoicing/companies/{$id}/email-settings", [])->assertForbidden();
         $this->actingAs($this->accountant)->postJson("/api/invoicing/companies/{$id}/email-settings/test-smtp", [])->assertForbidden();
 
+        // app-settings carry write-only secrets (Stripe Tax key, SAPI-SK secret).
+        $this->actingAs($this->accountant)
+            ->patchJson("/api/invoicing/companies/{$id}/app-settings", ['default_constant_symbol' => '0308'])
+            ->assertForbidden();
+
         $this->assertDatabaseHas('companies', ['id' => $id]);
 
         // Non-destructive writes stay open to the member.
         $this->actingAs($this->accountant)
-            ->patchJson("/api/invoicing/companies/{$id}/app-settings", ['default_constant_symbol' => '0308'])
+            ->patchJson("/api/invoicing/companies/{$id}", ['trade_name' => 'Acme'])
             ->assertOk();
     }
 
