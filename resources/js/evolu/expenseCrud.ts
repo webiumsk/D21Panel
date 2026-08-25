@@ -99,7 +99,7 @@ export function insertLocalExpense(
     companyId: CompanyId,
     payload: ExpenseSavePayload,
     existingRows: EvoluExpenseRow[],
-    options?: { internalNumber?: string },
+    options?: { internalNumber?: string; id?: ExpenseId },
 ) {
     const mapped = mapPayloadFields(payload);
     if (!mapped.ok) return mapped;
@@ -111,15 +111,23 @@ export function insertLocalExpense(
 
     const markPaid = Boolean(payload.mark_paid);
     const now = new Date().toISOString();
-
-    return evolu.insert("expense", {
+    const row = {
         companyId,
         status: markPaid ? "paid" : "recorded",
         internalNumber: internalNumber.value,
         ...mapped.value,
         paidAt: markPaid ? now.slice(0, 10) : null,
         cancelledAt: null,
-    });
+    };
+
+    // A caller-provided id (stable id derived from a server inbox item) makes
+    // the import idempotent across devices: the same item lands on the same
+    // row everywhere instead of once per device.
+    if (options?.id) {
+        return evolu.upsert("expense", { id: options.id, ...row });
+    }
+
+    return evolu.insert("expense", row);
 }
 
 export function updateLocalExpense(
