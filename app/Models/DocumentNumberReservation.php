@@ -32,6 +32,7 @@ class DocumentNumberReservation extends Model
         'status',
         'confirmed_hash',
         'confirmed_format_version',
+        'reserved_by_user_id',
     ];
 
     protected function casts(): array
@@ -49,5 +50,11 @@ class DocumentNumberReservation extends Model
     public function sequence(): BelongsTo
     {
         return $this->belongsTo(CompanyDocumentSequence::class, 'company_document_sequence_id');
+    }
+
+    /** The user who made this reservation (null for legacy / deleted users). */
+    public function reserver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reserved_by_user_id');
     }
 }

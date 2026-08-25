@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Enums\CompanyJurisdiction;
+use App\Enums\CompanyMemberRole;
 use App\Models\Company;
+use App\Models\CompanyMember;
 use App\Models\DocumentNumberReservation;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -62,6 +64,40 @@ class CompanyNumberAllocatorTest extends TestCase
             "/api/invoicing/companies/{$this->company->id}/number-allocator/reserve",
             $payload,
         );
+    }
+
+    #[Test]
+    public function a_reservation_records_the_user_who_made_it(): void
+    {
+        $this->reserve([
+            'document_type' => 'invoice',
+            'issue_request_id' => 'req-owner-1',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('document_number_reservations', [
+            'issue_request_id' => 'req-owner-1',
+            'reserved_by_user_id' => $this->proUser->id,
+        ]);
+
+        // A shared accountant reserving from the SAME sequence is attributed to
+        // them, not the owner - the point of per-user reservation audit.
+        $accountant = User::factory()->create();
+        CompanyMember::create([
+            'company_id' => $this->company->id,
+            'user_id' => $accountant->id,
+            'role' => CompanyMemberRole::Accountant,
+            'invited_by' => $this->proUser->id,
+            'accepted_at' => now(),
+        ]);
+        $this->actingAs($accountant)->postJson(
+            "/api/invoicing/companies/{$this->company->id}/number-allocator/reserve",
+            ['document_type' => 'invoice', 'issue_request_id' => 'req-acct-1'],
+        )->assertOk();
+
+        $this->assertDatabaseHas('document_number_reservations', [
+            'issue_request_id' => 'req-acct-1',
+            'reserved_by_user_id' => $accountant->id,
+        ]);
     }
 
     #[Test]
