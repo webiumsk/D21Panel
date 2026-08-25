@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Enums\CompanyJurisdiction;
+use App\Enums\CompanyMemberRole;
 use App\Services\Invoicing\CompanyEmailSettingsService;
 use App\Support\Invoicing\CompanyAppSettings;
 use App\Support\Invoicing\CompanyEfakturaSettings;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -104,6 +106,71 @@ class Company extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Additional people working in this company (docs/COMPANY_SHARING.md).
+     *
+     * @return HasMany<CompanyMember, $this>
+     */
+    public function members(): HasMany
+    {
+        return $this->hasMany(CompanyMember::class);
+    }
+
+    public function isOwnedBy(User $user): bool
+    {
+        return $this->user_id === $user->id;
+    }
+
+    /**
+     * The user's role in this company, or null for outsiders. The owner is
+     * implicit (`user_id`), members come from accepted, unrevoked rows.
+     */
+    public function roleFor(User $user): ?CompanyMemberRole
+    {
+        if ($this->isOwnedBy($user)) {
+            return CompanyMemberRole::Owner;
+        }
+
+        /** @var CompanyMember|null $member */
+        $member = $this->relationLoaded('members')
+            ? $this->members->first(fn (CompanyMember $row): bool => $row->user_id === $user->id && $row->isActive())
+            : $this->members()->where('user_id', $user->id)->active()->first();
+
+        if ($member === null) {
+            return null;
+        }
+
+        // Read the raw column: the enum cast is a runtime fact larastan does
+        // not see through, and tryFrom keeps unknown roles (future values) out.
+        return CompanyMemberRole::tryFrom((string) $member->getRawOriginal('role'));
+    }
+
+    /** Owner, active member, or platform support / admin. */
+    public function isAccessibleBy(User $user): bool
+    {
+        if ($user->isSupport() || $user->isAdmin()) {
+            return true;
+        }
+
+        return $this->roleFor($user) !== null;
+    }
+
+    /**
+     * Companies the user owns or is an active member of.
+     *
+     * @return Builder<static>
+     */
+    public static function accessibleBy(User $user): Builder
+    {
+        return static::query()->where(function ($query) use ($user) {
+            $query->where('user_id', $user->id)
+                ->orWhereHas('members', fn ($members) => $members
+                    ->where('user_id', $user->id)
+                    ->whereNotNull('accepted_at')
+                    ->whereNull('revoked_at'));
+        });
     }
 
     public function contacts(): HasMany
