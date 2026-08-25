@@ -52,7 +52,7 @@ export type RekeyProgress = { phase: "prepare" | "copy" | "verify" | "cleanup" |
 
 export type RekeyResult =
     | { ok: true; oldOwnerId: string; newOwnerId: OwnerId; copied: number; softDeleted: number; resumed: boolean }
-    | { ok: false; error: "not_shared" | "not_owner" | "rekeying_elsewhere" | "share_row_failed" | "copy_failed" | "verify_failed"; detail?: unknown };
+    | { ok: false; error: "not_shared" | "not_owner" | "rekeying_elsewhere" | "share_row_failed" | "copy_failed" | "verify_failed" | "cleanup_failed" | "activation_failed"; detail?: unknown };
 
 type ShareRow = {
     id: string; ownerId: string | null; companyId: string; sharedOwnerId: string;
@@ -196,25 +196,40 @@ export async function rekeyCompanyShare(evolu: Loader, companyId: string, option
     }
 
     // --- cutover -----------------------------------------------------
-    // Flip the NEW row active FIRST (registry + sync move to the new owner),
-    // then soft-delete the OLD partition while its owner is still registered
-    // so the deletes propagate to former members, settle, and only THEN mark
-    // the old row revoked (which unregisters the old owner).
-    await mutate((onComplete) => evolu.update("companyShare", { id: newShareRowId, status: "active" } as never, { onComplete }));
-    setCompanyShare({ companyId, ownerId: newOwner.id, role: "owner", status: "active", bridgeCompanyId: bridgeCompanyId ?? null });
-
+    // Every step below is checked; a failure returns WITHOUT activating,
+    // revoking, or unregistering, leaving the "rekeying" row intact so the
+    // bootstrap resumes. Ordering is deliberate: the old partition is
+    // soft-deleted FIRST, while the new row is still "rekeying" (the resumable
+    // marker) and the old owner is still registered so the deletes propagate to
+    // former members. Only once every delete has succeeded do we activate the
+    // new owner and revoke the old - activating flips the resumable marker, so
+    // it must be the last point of no return.
     report({ phase: "cleanup", done, total });
     let softDeleted = 0;
     for (const table of MIGRATION_ORDER) {
         for (const row of set[table] as Row[]) {
             if (row.ownerId !== oldOwnerId) continue;
             const result = await mutate((onComplete) => source.update(table, { id: row.id, isDeleted: sqliteTrue } as never, { onComplete }));
-            if (result.ok) softDeleted++;
+            if (!result.ok) {
+                return { ok: false, error: "cleanup_failed", detail: { table, id: row.id, error: result.error } };
+            }
+            softDeleted++;
         }
     }
     await waitForInvoicingDataSettled(evolu, { minWaitMs: SETTLE_MS, timeoutMs: 20_000 }).catch(() => undefined);
 
-    await mutate((onComplete) => evolu.update("companyShare", { id: active.id as never, status: "revoked" } as never, { onComplete }));
+    // Point of no return: activate the new owner (registry + sync move here).
+    const activated = await mutate((onComplete) => evolu.update("companyShare", { id: newShareRowId, status: "active" } as never, { onComplete }));
+    if (!activated.ok) {
+        return { ok: false, error: "activation_failed", detail: activated.error };
+    }
+    setCompanyShare({ companyId, ownerId: newOwner.id, role: "owner", status: "active", bridgeCompanyId: bridgeCompanyId ?? null });
+
+    // Retire the old share; unregister its owner only once it is revoked.
+    const revoked = await mutate((onComplete) => evolu.update("companyShare", { id: active.id as never, status: "revoked" } as never, { onComplete }));
+    if (!revoked.ok) {
+        return { ok: false, error: "activation_failed", detail: revoked.error };
+    }
     unregisterSharedOwner(evolu, oldOwnerId as never);
 
     report({ phase: "done", done, total });
