@@ -46,7 +46,7 @@ Predpoklad: `npm run dev` s `VITE_INVOICING_LOCAL_FIRST=true`, nakonfigurovaný 
 | 3. soft-delete AppOwner kópie nechá viditeľný jediný (zdieľaný) riadok | **PASS** | po `softDeleteAppCopy`: `app/deleted=1`, `shared/deleted=null`; `allCompaniesQuery` (filtruje `isDeleted`) vidí 1 riadok |
 | 4. druhý prehliadač len so secretom vidí dáta | **PASS** | B (iný účet, iná fráza) dostal oba zdieľané riadky; **súkromná AppOwner partícia A na B = 0 riadkov** (žiadny únik) |
 
-Dôsledky pre ďalšie fázy: C3 migrácia „upsert pod SharedOwnerom s rovnakým id + soft-delete originálu" je potvrdená ako korektný postup. Pozorovanie do C2: `allCompaniesQuery` a ostatné dotazy vracajú **úniu všetkých partícií** bez rozlíšenia ownera - zoznam firiem teda zdieľanú firmu zobrazí automaticky, ale UI musí vedieť, ktorý riadok je zdieľaný (stĺpec `ownerId` do dotazov / `rowOwnerId`). Spike riadky boli po behu soft-deletnuté na oboch účtoch.
+Dôsledky pre ďalšie fázy: C3 migrácia „upsert pod SharedOwnerom s rovnakým id + soft-delete originálu" je potvrdená ako korektný postup. Pozorovanie do C2: `allCompaniesQuery` a ostatné dotazy vracajú **úniu všetkých partícií** bez rozlíšenia ownera - zoznam firiem teda zdieľanú firmu zobrazí automaticky, ale UI musí vedieť, ktorý riadok je zdieľaný (stĺpec `ownerId` do dotazov / `rowOwnerId`). Spike riadky boli po behu soft-deletnuté: stačilo ich zmazať **na A pod SharedOwnerom** - B (stále registrovaný na ten istý owner) dostal `isDeleted` cez relay bez vlastného zásahu, čo potvrdzuje, že aj mazanie/úpravy v zdieľanej partícii sa šíria všetkým členom (dôležité pre C3 re-freeze a C5 re-key).
 
 ## Súbory
 
