@@ -215,7 +215,7 @@ export const MIGRATION_TABLE_QUERIES: Record<MigrationTable, unknown> = {
     bankTransactionMatch: allBankTransactionMatchesQuery,
 };
 
-async function loadAll(evolu: Loader): Promise<Record<MigrationTable, readonly Row[]>> {
+export async function loadAllMigrationRows(evolu: Loader): Promise<Record<MigrationTable, readonly Row[]>> {
     const [
         company, contact, numberSeries, invoiceTemplate, companyWarehouse, companyStockItem, companyStockBalance,
         companyStockMovement, document, documentLine, documentEvent, documentSnapshot, expense, expenseAttachment,
@@ -423,7 +423,7 @@ export async function convertCompanyToShared(
     const appScoped = scopedEvolu(evolu, appOwnerId);
 
     // --- copy ---------------------------------------------------------
-    let set = collectCompanyRows(await loadAll(evolu), companyId);
+    let set = collectCompanyRows(await loadAllMigrationRows(evolu), companyId);
     const pending = pendingCopies(set, appOwnerId, owner.id);
     const total = MIGRATION_ORDER.reduce((n, table) => n + pending[table].length, 0);
     let done = 0;
@@ -448,7 +448,7 @@ export async function convertCompanyToShared(
         if (attempt > 0) {
             await new Promise((resolve) => setTimeout(resolve, VERIFY_RETRY_MS));
         }
-        set = collectCompanyRows(await loadAll(evolu), companyId);
+        set = collectCompanyRows(await loadAllMigrationRows(evolu), companyId);
         verification = verifyMigrated(set, appOwnerId, owner.id);
         if (verification.ok) break;
         const retry = pendingCopies(set, appOwnerId, owner.id);

@@ -51,7 +51,11 @@ export function applyCompanyShareRows(
             }
             continue;
         }
-        if (row.status === "revoked") {
+        if (row.status === "revoked" || row.status === "rekeying") {
+            // "rekeying" is the in-flight NEW owner of a key rotation; the
+            // rekey flow (companyShareRekey.ts) owns its registration and
+            // scoping until it flips the row to "active". Ignoring it here
+            // keeps live writes on the current owner until cutover.
             continue;
         }
         const secret = decodeOwnerSecret(row.secretB64);
@@ -99,6 +103,10 @@ export async function loadCompanyShareRegistry(evolu: Evolu<InvoicingLocalSchema
         const { resumePendingCompanyShareMigrations, purgeRevokedShareResidue } = await import("./companyShareMigration");
         await resumePendingCompanyShareMigrations(evolu);
         await purgeRevokedShareResidue(evolu);
+    }
+    if (rows.some((row) => row.ownerId === appOwnerId && row.status === "rekeying")) {
+        const { resumePendingCompanyShareRekeys } = await import("./companyShareRekey");
+        await resumePendingCompanyShareRekeys(evolu);
     }
     if (!unsubscribe) {
         unsubscribe = evolu.subscribeQuery(allCompanySharesQuery)(() => {
