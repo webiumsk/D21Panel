@@ -13,12 +13,15 @@
 
         <p v-if="secretError" class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ secretError }}</p>
 
-        <div v-else class="mt-5 flex flex-wrap gap-2">
-          <button type="button" class="invoicing-btn-primary text-sm" :disabled="working" @click="accept">
-            {{ working ? t('invoicing.invite_accept_working') : t('invoicing.invite_accept_button') }}
-          </button>
-          <router-link to="/invoicing" class="invoicing-btn-secondary text-sm">{{ t('common.cancel') }}</router-link>
-        </div>
+        <template v-else>
+          <p v-if="retryError" class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ retryError }}</p>
+          <div class="mt-5 flex flex-wrap gap-2">
+            <button type="button" class="invoicing-btn-primary text-sm" :disabled="working" @click="accept">
+              {{ working ? t('invoicing.invite_accept_working') : t(accepted ? 'invoicing.invite_accept_retry' : 'invoicing.invite_accept_button') }}
+            </button>
+            <router-link to="/invoicing" class="invoicing-btn-secondary text-sm">{{ t('common.cancel') }}</router-link>
+          </div>
+        </template>
       </template>
 
       <p v-else class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ errorMsg || t('invoicing.invite_accept_invalid') }}</p>
@@ -52,6 +55,12 @@ const preview = ref<CompanyInvitePreview | null>(null);
 const errorMsg = ref('');
 const secretError = ref('');
 const secretEncoded = ref('');
+// Once the server has recorded membership the invite is consumed (one-time),
+// so a failed local materialization must resume WITHOUT calling accept again.
+const accepted = ref(false);
+const retryError = ref('');
+const acceptedRole = ref('');
+const acceptedBridgeCompanyId = ref<string | null>(null);
 
 function fragmentSecret(): string | null {
   try {
@@ -86,21 +95,35 @@ onMounted(async () => {
 async function accept(): Promise<void> {
   if (!preview.value || !secretEncoded.value) return;
   working.value = true;
+  retryError.value = '';
   try {
-    const { company_id, role } = await invoicingApi.invites.accept(token);
+    // Consume the invite only once; on a materialize retry we keep the
+    // membership we already have and re-run just the local step.
+    if (!accepted.value) {
+      const { company_id, role } = await invoicingApi.invites.accept(token);
+      accepted.value = true;
+      acceptedRole.value = role;
+      acceptedBridgeCompanyId.value = company_id;
+    }
     const result = await materializeAcceptedShare(evolu, {
       secretEncoded: secretEncoded.value,
-      role: role as ShareRole,
-      bridgeCompanyId: company_id,
+      role: acceptedRole.value as ShareRole,
+      bridgeCompanyId: acceptedBridgeCompanyId.value,
     });
     if (result.ok) {
       await router.push(`/invoicing/companies/${result.companyId}`);
     } else {
-      secretError.value = t(`invoicing.invite_accept_error_${result.error}`);
+      // Retryable: membership stands, only the local sync/write failed.
+      retryError.value = t(`invoicing.invite_accept_error_${result.error}`);
     }
   } catch (error) {
     const status = (error as { response?: { status?: number } })?.response?.status;
-    secretError.value = status === 404 ? t('invoicing.invite_accept_invalid') : t('common.error');
+    // A pre-accept failure blocks the flow; a failure after accept stays retryable.
+    if (accepted.value) {
+      retryError.value = t('common.error');
+    } else {
+      secretError.value = status === 404 ? t('invoicing.invite_accept_invalid') : t('common.error');
+    }
   } finally {
     working.value = false;
   }

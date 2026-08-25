@@ -131,10 +131,17 @@ class CompanyInviteController extends Controller
     {
         abort_unless($invite->company_id === $company->id, 404);
 
-        if ($invite->isPending()) {
-            $invite->update(['revoked_at' => now()]);
-            AuditLog::log('company.invite_revoked', 'company', $company->id, ['invite_id' => $invite->id]);
-        }
+        // Serialize revocation with acceptance: lock the row and re-check
+        // pending state after the lock, so a concurrent accept cannot slip
+        // through between the check and the write (and vice versa).
+        DB::transaction(function () use ($company, $invite): void {
+            /** @var CompanyInvite|null $locked */
+            $locked = CompanyInvite::query()->whereKey($invite->id)->lockForUpdate()->first();
+            if ($locked !== null && $locked->isPending()) {
+                $locked->update(['revoked_at' => now()]);
+                AuditLog::log('company.invite_revoked', 'company', $company->id, ['invite_id' => $locked->id]);
+            }
+        });
 
         return response()->json(['revoked' => true]);
     }

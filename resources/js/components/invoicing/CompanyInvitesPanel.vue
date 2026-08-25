@@ -183,10 +183,13 @@ async function createLink(): Promise<void> {
 }
 
 async function revoke(id: string): Promise<void> {
+  errorMsg.value = '';
   busy.value = true;
   try {
     await invoicingApi.companies.revokeInvite(props.companyId, id);
     await refresh();
+  } catch (error) {
+    errorMsg.value = messageFrom(error);
   } finally {
     busy.value = false;
   }

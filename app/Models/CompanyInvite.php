@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
@@ -25,11 +26,11 @@ use Illuminate\Support\Str;
  * @property string $token_hash
  * @property int|null $created_by
  * @property int|null $accepted_by
- * @property \Illuminate\Support\Carbon $expires_at
- * @property \Illuminate\Support\Carbon|null $accepted_at
- * @property \Illuminate\Support\Carbon|null $revoked_at
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon $expires_at
+ * @property Carbon|null $accepted_at
+ * @property Carbon|null $revoked_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property-read Company|null $company
  * @property-read User|null $creator
  */
