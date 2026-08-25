@@ -106,6 +106,7 @@ export function insertLocalExpenseAttachmentFromBase64(
     evolu: Evolu<InvoicingLocalSchema>,
     expenseId: ExpenseId,
     input: { filename: string; mimeType: string | null; contentBase64: string },
+    options?: { id?: ExpenseAttachmentId },
 ) {
     const originalFilename = FilenameType.from(input.filename);
     if (!originalFilename.ok) return originalFilename;
@@ -121,13 +122,21 @@ export function insertLocalExpenseAttachmentFromBase64(
     const sizeBytes = SizeType.from(String(base64DecodedLength(input.contentBase64)));
     if (!sizeBytes.ok) return sizeBytes;
 
-    return evolu.insert("expenseAttachment", {
+    const row = {
         expenseId,
         originalFilename: originalFilename.value,
         mimeType: mimeType.value,
         sizeBytes: sizeBytes.value,
         contentBase64: encoded.value,
-    });
+    };
+
+    // A deterministic id (derived from the source inbox item) keeps repeated
+    // imports on several devices on one attachment row.
+    if (options?.id) {
+        return evolu.upsert("expenseAttachment", { id: options.id, ...row });
+    }
+
+    return evolu.insert("expenseAttachment", row);
 }
 
 export function base64DecodedLength(base64: string): number {

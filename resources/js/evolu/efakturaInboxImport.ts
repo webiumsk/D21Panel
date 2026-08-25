@@ -8,7 +8,7 @@ import {
     LOCAL_EXPENSE_ATTACHMENT_MAX_BYTES,
 } from "./expenseAttachmentCrud";
 import type { EvoluExpenseRow } from "./expenseMap";
-import { ExpenseId, type CompanyId, type InvoicingLocalSchema } from "./schema";
+import { ExpenseAttachmentId, ExpenseId, type CompanyId, type InvoicingLocalSchema } from "./schema";
 import { toAppRows } from "./queryLoad";
 
 /**
@@ -47,6 +47,16 @@ export function stableExpenseIdFromInboxUuid(inboxEvoluUuid: string | null | und
         return null;
     }
     const parsed = ExpenseId.from(createIdFromString(`satflux.efaktura-expense.v1.${normalized}`));
+    return parsed.ok ? parsed.value : null;
+}
+
+/** The UBL attachment of that expense - one row per inbox item on every device. */
+export function stableAttachmentIdFromInboxUuid(inboxEvoluUuid: string | null | undefined): ExpenseAttachmentId | null {
+    const normalized = String(inboxEvoluUuid ?? "").trim().toLowerCase();
+    if (!normalized) {
+        return null;
+    }
+    const parsed = ExpenseAttachmentId.from(createIdFromString(`satflux.efaktura-expense-attachment.v1.${normalized}`));
     return parsed.ok ? parsed.value : null;
 }
 
@@ -171,11 +181,12 @@ export async function importEfakturaInboxEntry(
             attachmentSkipped = true;
         } else {
             const filename = `efaktura-${sanitizeFilenamePart(entry.external_document_id)}.xml`;
-            const attachment = insertLocalExpenseAttachmentFromBase64(evolu, stableId, {
-                filename,
-                mimeType: "application/xml",
-                contentBase64,
-            });
+            const attachment = insertLocalExpenseAttachmentFromBase64(
+                evolu,
+                stableId,
+                { filename, mimeType: "application/xml", contentBase64 },
+                { id: stableAttachmentIdFromInboxUuid(entry.evolu_expense_id) ?? undefined },
+            );
             if (!attachment.ok) {
                 attachmentSkipped = true;
             }

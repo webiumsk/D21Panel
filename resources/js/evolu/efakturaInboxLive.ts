@@ -30,6 +30,8 @@ let enabled = false;
 let refreshing = false;
 let lastRefreshAt = 0;
 let listenersInstalled = false;
+/** Bumped on every company switch / settings reload; stale async results are discarded. */
+let generation = 0;
 
 type CompanyRowSlice = { id: string; appSettingsJson: string | null };
 
@@ -44,44 +46,60 @@ export function inboundEnabledFromSettingsJson(json: string | null): boolean {
 }
 
 async function deriveCompanyParams(nextCompanyId: string): Promise<void> {
+    // Switch synchronously first so nothing from the previous company leaks
+    // into the new one while the bridge lookup below is still in flight.
+    const myGeneration = ++generation;
+    companyId = nextCompanyId;
+    enabled = false;
+    bridgeCompanyIdRef.value = null;
+    entries.value = [];
+
     const { evolu, allCompaniesQuery } = await import("./client");
     const rows = toAppRows<CompanyRowSlice>(await evolu.loadQuery(allCompaniesQuery));
+    if (myGeneration !== generation) return;
     const row = rows.find((r) => String(r.id) === nextCompanyId) ?? null;
-
-    companyId = nextCompanyId;
-    enabled = row != null && inboundEnabledFromSettingsJson(row.appSettingsJson);
-    bridgeCompanyIdRef.value = null;
-    if (!enabled) {
-        entries.value = [];
+    if (row == null || !inboundEnabledFromSettingsJson(row.appSettingsJson)) {
         return;
     }
+
     const bridge = await ensureBridgeCompanyIdForLocalCompany(nextCompanyId);
-    bridgeCompanyIdRef.value = bridge.ok ? bridge.bridgeCompanyId : null;
-    if (!bridgeCompanyIdRef.value) {
-        enabled = false;
-        entries.value = [];
-    }
+    if (myGeneration !== generation) return;
+    const bridgeId = bridge.ok ? bridge.bridgeCompanyId : null;
+    bridgeCompanyIdRef.value = bridgeId;
+    enabled = bridgeId !== null;
 }
 
-export async function refreshEfakturaInboxLive(force = false): Promise<void> {
-    if (!enabled || !companyId || !bridgeCompanyIdRef.value || refreshing) {
+/**
+ * Fetch + reconcile. Background callers (poll timer, focus) swallow errors;
+ * an explicit user refresh passes `throwOnError` so the panel can show them.
+ * Results are discarded when the company / bridge changed meanwhile.
+ */
+export async function refreshEfakturaInboxLive(
+    force = false,
+    options: { throwOnError?: boolean } = {},
+): Promise<void> {
+    const bridgeId = bridgeCompanyIdRef.value;
+    if (!enabled || !companyId || !bridgeId || refreshing) {
         return;
     }
     if (!force && Date.now() - lastRefreshAt < REFRESH_MIN_GAP_MS) {
         return;
     }
+    const myGeneration = generation;
+    const myCompanyId = companyId;
     refreshing = true;
     try {
         const { evolu } = await import("./client");
-        const fetched = await fetchEfakturaInbox(bridgeCompanyIdRef.value);
-        entries.value = await reconcileEfakturaInboxWithLocalExpenses(
-            evolu,
-            companyId,
-            bridgeCompanyIdRef.value,
-            fetched,
-        );
+        const fetched = await fetchEfakturaInbox(bridgeId);
+        if (myGeneration !== generation) return;
+        const remaining = await reconcileEfakturaInboxWithLocalExpenses(evolu, myCompanyId, bridgeId, fetched);
+        if (myGeneration !== generation || bridgeCompanyIdRef.value !== bridgeId) return;
+        entries.value = remaining;
         lastRefreshAt = Date.now();
-    } catch {
+    } catch (error) {
+        if (options.throwOnError) {
+            throw error;
+        }
         // Background poll: errors stay silent, the panel surfaces its own.
     } finally {
         refreshing = false;

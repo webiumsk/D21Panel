@@ -15,6 +15,7 @@ vi.mock('@/evolu/client', () => ({ allExpensesQuery: {} }));
 import {
     draftToExpensePayload,
     findLocalExpenseForInboxEntry,
+    stableAttachmentIdFromInboxUuid,
     stableExpenseIdFromInboxUuid,
     utf8ToBase64,
     type EfakturaInboxEntry,
@@ -56,6 +57,13 @@ describe('efaktura inbox import helpers', () => {
         expect(stableExpenseIdFromInboxUuid('other')).not.toBe(a);
         expect(stableExpenseIdFromInboxUuid(null)).toBeNull();
         expect(stableExpenseIdFromInboxUuid('')).toBeNull();
+
+        // The attachment id is deterministic too, and distinct from the expense id.
+        const att = stableAttachmentIdFromInboxUuid('0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b');
+        expect(att).not.toBeNull();
+        expect(att).toBe(stableAttachmentIdFromInboxUuid('0192A3B4-C5D6-7E8F-9A0B-1C2D3E4F5A6B'));
+        expect(String(att)).not.toBe(String(a));
+        expect(stableAttachmentIdFromInboxUuid(null)).toBeNull();
     });
 
     it('maps the server draft to an expense payload', () => {

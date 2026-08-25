@@ -95,7 +95,7 @@ const error = ref('');
 const notice = ref('');
 const busyId = ref<string | null>(null);
 
-const showPanel = computed(() => items.value.length > 0 || error.value !== '');
+const showPanel = computed(() => items.value.length > 0 || error.value !== '' || notice.value !== '');
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -111,7 +111,7 @@ async function refresh(): Promise<void> {
   loading.value = true;
   error.value = '';
   try {
-    await refreshEfakturaInboxLive(true);
+    await refreshEfakturaInboxLive(true, { throwOnError: true });
   } catch (rawError) {
     error.value = describeError(rawError);
   } finally {
