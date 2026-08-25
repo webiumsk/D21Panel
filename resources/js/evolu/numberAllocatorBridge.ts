@@ -24,6 +24,12 @@ export type AllocatorIdentity = {
     jurisdiction?: string | null;
     country?: string | null;
     default_currency?: string | null;
+    /**
+     * Shared company (docs/COMPANY_SHARING.md): every member must hit the
+     * SAME bridge row so the counter is one sequence - the id recorded at
+     * conversion time short-circuits the identity match.
+     */
+    bridge_company_id?: string | null;
 };
 
 export type AllocatorReservation = {
@@ -74,6 +80,9 @@ function canonicalIdentityMatch(
  * sequence. A losing duplicate stays behind empty and harmless.
  */
 export async function resolveOrCreateBridgeCompanyId(identity: AllocatorIdentity): Promise<string | null> {
+    if (identity.bridge_company_id) {
+        return identity.bridge_company_id;
+    }
     if (!identity.legal_name) {
         return null;
     }

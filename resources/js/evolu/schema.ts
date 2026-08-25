@@ -522,6 +522,8 @@ export const InvoicingLocalSchema = {
         role: CompanyShareRole,
         status: CompanyShareStatus,
         bridgeCompanyId: OptionalString64,
+        /** Device that started the conversion - only it may resume (others may hold partial sync data). */
+        migratingDeviceId: OptionalString64,
     },
 } satisfies EvoluSchema;
 

@@ -120,6 +120,91 @@ export const sharedOwnerSpike = {
         return result;
     },
 
+    /** C3 runbook: wait until relay sync settled (fresh browser profiles start empty). */
+    async waitForSync(): Promise<boolean> {
+        const { waitForInvoicingRelaySync } = await import("./relaySyncWait");
+        const ok = await waitForInvoicingRelaySync(evolu, { timeoutMs: 120_000 });
+        log("waitForSync", ok);
+        return ok;
+    },
+
+    /** C3 runbook: plain JSON backup of the whole local database (same as the account backup card). */
+    async exportBackup(): Promise<unknown> {
+        const { exportInvoicingBackup } = await import("./invoicingBackup");
+        const app = await evolu.appOwner;
+        return exportInvoicingBackup(evolu, app.id);
+    },
+
+    /** C3 runbook recovery: return a duplicated / half-shared company to private using a pre-share backup. */
+    async recoverCompanyToPrivate(companyId: string, backupEnvelope: unknown): Promise<unknown> {
+        const { recoverCompanyToPrivate } = await import("./companyShareRecovery");
+        const envelope = backupEnvelope as { data?: unknown };
+        const result = await recoverCompanyToPrivate(evolu, companyId, (envelope.data ?? envelope) as never);
+        log("recoverCompanyToPrivate", result);
+        return result;
+    },
+
+    /** C3 runbook: convert a company through the real migration (same code path as the UI card). */
+    async convertCompany(companyId: string, force = false): Promise<unknown> {
+        const { convertCompanyToShared } = await import("./companyShareMigration");
+        const result = await convertCompanyToShared(evolu, companyId, {
+            force,
+            onProgress: (p) => log("convert progress", p),
+        });
+        log("convertCompany", result);
+        return result;
+    },
+
+    /** C3 runbook: the share secret of a company (own partition only) - hand it to device B. */
+    async shareSecret(companyId: string): Promise<{ secret: string; ownerId: string; bridgeCompanyId: string | null; status: string; migratingDeviceId: string | null } | null> {
+        const { allCompanySharesQuery } = await import("./client");
+        const app = await evolu.appOwner;
+        const rows = (await evolu.loadQuery(allCompanySharesQuery)) as unknown as readonly {
+            companyId: string; ownerId: string | null; sharedOwnerId: string; secretB64: string; bridgeCompanyId: string | null; status: string; migratingDeviceId: string | null;
+        }[];
+        const row = rows.find((r) => r.companyId === companyId && r.ownerId === app.id && r.status !== "revoked");
+        return row ? { secret: row.secretB64, ownerId: row.sharedOwnerId, bridgeCompanyId: row.bridgeCompanyId, status: row.status, migratingDeviceId: (row as { migratingDeviceId?: string | null }).migratingDeviceId ?? null } : null;
+    },
+
+    /** C3 runbook: per-partition counts of a company's documents / contacts / expenses. */
+    async partitionReport(companyId: string): Promise<Record<string, { app: number; shared: number; appDeleted: number }>> {
+        const { allDocumentsQuery, allContactsQuery, allExpensesQuery, allDocumentLinesQuery } = await import("./client");
+        const app = await evolu.appOwner;
+        const count = (rows: readonly { companyId?: unknown; ownerId?: unknown; isDeleted?: unknown }[], filter: (r: { companyId?: unknown }) => boolean) => {
+            const mine = rows.filter(filter);
+            return {
+                app: mine.filter((r) => r.ownerId === app.id && r.isDeleted !== 1).length,
+                shared: mine.filter((r) => r.ownerId !== app.id && r.isDeleted !== 1).length,
+                appDeleted: mine.filter((r) => r.ownerId === app.id && r.isDeleted === 1).length,
+            };
+        };
+        const documents = (await evolu.loadQuery(allDocumentsQuery)) as unknown as readonly { id: string; companyId?: unknown; ownerId?: unknown; isDeleted?: unknown }[];
+        const docIds = new Set(documents.filter((r) => r.companyId === companyId).map((r) => r.id));
+        const lines = (await evolu.loadQuery(allDocumentLinesQuery)) as unknown as readonly { documentId?: unknown; ownerId?: unknown; isDeleted?: unknown }[];
+        const report = {
+            document: count(documents, (r) => r.companyId === companyId),
+            documentLine: count(lines as never, (r) => docIds.has(String((r as { documentId?: unknown }).documentId))),
+            contact: count(await evolu.loadQuery(allContactsQuery) as never, (r) => r.companyId === companyId),
+            expense: count(await evolu.loadQuery(allExpensesQuery) as never, (r) => r.companyId === companyId),
+        };
+        log("partitionReport", report);
+        return report;
+    },
+
+    /** C3 runbook: reserve a number on the bridge company (exercises the shared sequence + membership). */
+    async reserveNumberProbe(bridgeCompanyId: string, issueRequestId: string): Promise<unknown> {
+        const { invoicingApi } = await import("@/services/api");
+        try {
+            const data = await invoicingApi.numberAllocator.reserve(bridgeCompanyId, { document_type: "invoice", issue_request_id: issueRequestId });
+            log("reserveNumberProbe", data);
+            return data;
+        } catch (error) {
+            const status = (error as { response?: { status?: number } })?.response?.status;
+            log("reserveNumberProbe failed", status);
+            return { error: status ?? String(error) };
+        }
+    },
+
     async leave(ownerId: OwnerId): Promise<void> {
         unregisterSharedOwner(evolu, ownerId);
         log("leave", ownerId);

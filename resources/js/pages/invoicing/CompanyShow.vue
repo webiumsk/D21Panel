@@ -55,6 +55,7 @@
         :company-id="companyId"
         :company="company as unknown as Record<string, unknown>"
       />
+      <CompanyShareCard v-if="localFirst" :company-id="companyId" />
       <CompanySettingsForm
         :company-id="companyId"
         :company="company"
@@ -79,6 +80,7 @@ import CompanyAutoIssueCard from '../../components/invoicing/CompanyAutoIssueCar
 import CompanyEmailSettingsForm from '../../components/invoicing/CompanyEmailSettingsForm.vue';
 import CompanyNumberSeriesPanel from '../../components/invoicing/CompanyNumberSeriesPanel.vue';
 import CompanySettingsForm from '../../components/invoicing/CompanySettingsForm.vue';
+import CompanyShareCard from '../../components/invoicing/CompanyShareCard.vue';
 import EfakturaReadinessCard from '../../components/invoicing/EfakturaReadinessCard.vue';
 import InvoicingAppHeader from '../../components/invoicing/InvoicingAppHeader.vue';
 import InvoicingPageShell from '../../components/invoicing/InvoicingPageShell.vue';

@@ -1,6 +1,7 @@
 import { invoicingApi } from "@/services/api";
 import { ensureBridgeCompanyIdForLocalCompany } from "./bridgeCompanyEnsure";
 import { isNetworkError } from "./numberAllocatorBridge";
+import { companyShareInfo } from "./companyShareRegistry";
 
 /**
  * Gapless numbering (P3): deleting the LAST issued invoice must free its
@@ -24,16 +25,23 @@ export async function releaseIssuedNumber(
     }
 
     try {
-        const bridge = await ensureBridgeCompanyIdForLocalCompany(localCompanyId);
-        if (!bridge.ok) {
-            return { ok: false, error: "release_failed" };
-        }
-        if (!bridge.bridgeCompanyId) {
-            // No server identity - nothing can hold a reservation floor.
-            return { ok: true };
+        // A shared company pins its bridge at conversion time: use it directly
+        // so a later legal-identity change cannot release against a different
+        // (identity-matched) bridge than the one the reservation lives on.
+        let bridgeCompanyId = companyShareInfo(localCompanyId)?.bridgeCompanyId ?? null;
+        if (!bridgeCompanyId) {
+            const bridge = await ensureBridgeCompanyIdForLocalCompany(localCompanyId);
+            if (!bridge.ok) {
+                return { ok: false, error: "release_failed" };
+            }
+            if (!bridge.bridgeCompanyId) {
+                // No server identity - nothing can hold a reservation floor.
+                return { ok: true };
+            }
+            bridgeCompanyId = bridge.bridgeCompanyId;
         }
 
-        await invoicingApi.numberAllocator.release(bridge.bridgeCompanyId, {
+        await invoicingApi.numberAllocator.release(bridgeCompanyId, {
             document_type: documentType,
             number,
         });
