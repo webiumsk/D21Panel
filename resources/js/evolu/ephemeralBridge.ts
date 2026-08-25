@@ -710,7 +710,7 @@ export type EphemeralBulkRequestBody = {
     documents: EphemeralBulkDocumentItem[];
 };
 
-function downloadResponseBlob(blob: Blob, filename: string): void {
+export function downloadResponseBlob(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -822,13 +822,22 @@ export async function downloadEphemeralAccountantExport(
     filename: string,
     options?: { signal?: AbortSignal },
 ): Promise<void> {
+    const blob = await fetchEphemeralAccountantExport(body, bridgeCompanyId, options);
+    downloadResponseBlob(blob, filename);
+}
+
+export async function fetchEphemeralAccountantExport(
+    body: EphemeralAccountantExportBody,
+    bridgeCompanyId: string | null | undefined,
+    options?: { signal?: AbortSignal },
+): Promise<Blob> {
     const res = await postWithCompanyScopedFallback<Blob>(
         EPHEMERAL_ACCOUNTANT_EXPORT_PATH,
         bridgeCompanyId ? companyScopedEphemeralAccountantExportPath(bridgeCompanyId) : null,
         body,
         { responseType: "blob", signal: options?.signal },
     );
-    downloadResponseBlob(res.data as Blob, filename);
+    return res.data as Blob;
 }
 
 export async function buildBulkEphemeralRequest(

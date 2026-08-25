@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    ACCOUNTANT_EXPORT_MAX_DOCUMENTS_PER_BATCH,
     attachmentDecodedBytes,
     buildExpensePayload,
     planAccountantExport,
@@ -195,5 +196,24 @@ describe('accountant export selection', () => {
         // expenses overflow into further batches.
         expect(plan.batches.length).toBeGreaterThanOrEqual(3);
         expect(plan.batches.every((b) => b.range.from === '2026-03-05' && b.range.to === '2026-03-05')).toBe(true);
+    });
+
+    it('splits issued documents at the bulk snapshot cap by default', () => {
+        const documents = Array.from({ length: ACCOUNTANT_EXPORT_MAX_DOCUMENTS_PER_BATCH + 1 }, (_, i) =>
+            doc({ id: `d${i}`, number: String(i).padStart(3, '0'), issueDate: '2026-03-05' }),
+        );
+
+        const plan = planAccountantExport({
+            range: MARCH,
+            documents,
+            expenses: [],
+            attachments: [],
+            companyId: COMPANY,
+            includeAttachments: true,
+        });
+
+        expect(plan.batches).toHaveLength(2);
+        expect(plan.batches[0].documentIds).toHaveLength(ACCOUNTANT_EXPORT_MAX_DOCUMENTS_PER_BATCH);
+        expect(plan.batches[1].documentIds).toHaveLength(1);
     });
 });
