@@ -33,6 +33,20 @@ export type CompanyShareRow = {
 
 let unsubscribe: (() => void) | null = null;
 
+function hasSupersededActiveShareRows(rows: readonly CompanyShareRow[], appOwnerId: string): boolean {
+    const activeByCompany = new Map<string, number>();
+    for (const row of rows) {
+        if (row.ownerId !== appOwnerId || row.status !== "active") {
+            continue;
+        }
+        activeByCompany.set(row.companyId, (activeByCompany.get(row.companyId) ?? 0) + 1);
+        if ((activeByCompany.get(row.companyId) ?? 0) > 1) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Only rows from the user's OWN partition are trusted: a member could write a
  * `companyShare` row into the shared partition, and honouring it would make
@@ -104,7 +118,8 @@ export async function loadCompanyShareRegistry(evolu: Evolu<InvoicingLocalSchema
         await resumePendingCompanyShareMigrations(evolu);
         await purgeRevokedShareResidue(evolu);
     }
-    if (rows.some((row) => row.ownerId === appOwnerId && row.status === "rekeying")) {
+    const hasPendingRekey = rows.some((row) => row.ownerId === appOwnerId && row.status === "rekeying");
+    if (hasPendingRekey || hasSupersededActiveShareRows(rows, appOwnerId)) {
         const { resumePendingCompanyShareRekeys } = await import("./companyShareRekey");
         await resumePendingCompanyShareRekeys(evolu);
     }

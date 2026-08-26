@@ -199,15 +199,32 @@ class CompanyInviteController extends Controller
                 return ['status' => 403, 'body' => ['message' => 'invite_not_for_this_account']];
             }
 
-            CompanyMember::query()->updateOrCreate(
-                ['company_id' => $invite->company_id, 'user_id' => $user->id],
-                [
-                    'role' => $invite->role->value,
-                    'invited_by' => $invite->created_by,
-                    'accepted_at' => now(),
-                    'revoked_at' => null,
-                ],
-            );
+            /** @var CompanyMember|null $existingMember */
+            $existingMember = CompanyMember::query()
+                ->where('company_id', $invite->company_id)
+                ->where('user_id', $user->id)
+                ->lockForUpdate()
+                ->first();
+            if ($existingMember?->revoked_at !== null
+                && ($invite->created_at === null || $invite->created_at->lessThanOrEqualTo($existingMember->revoked_at))) {
+                return ['status' => 403, 'body' => ['message' => 'membership_revoked']];
+            }
+
+            $membershipData = [
+                'role' => $invite->role->value,
+                'invited_by' => $invite->created_by,
+                'accepted_at' => now(),
+                'revoked_at' => null,
+            ];
+            if ($existingMember) {
+                $existingMember->update($membershipData);
+            } else {
+                CompanyMember::query()->create([
+                    'company_id' => $invite->company_id,
+                    'user_id' => $user->id,
+                    ...$membershipData,
+                ]);
+            }
 
             $invite->update(['accepted_at' => now(), 'accepted_by' => $user->id]);
 
