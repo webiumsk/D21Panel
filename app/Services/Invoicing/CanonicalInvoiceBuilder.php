@@ -51,6 +51,7 @@ class CanonicalInvoiceBuilder
             $currency,
             $document !== null ? (float) ($document->amount_paid ?? 0) : 0.0,
             $usResult->taxBreakdown !== [] ? $usResult->taxBreakdown : null,
+            $document !== null && (bool) $document->self_billed,
         );
     }
 
@@ -82,6 +83,7 @@ class CanonicalInvoiceBuilder
             $currency,
             (float) ($document->amount_paid ?? 0),
             $usResult->taxBreakdown !== [] ? $usResult->taxBreakdown : null,
+            (bool) $document->self_billed,
         );
     }
 
@@ -209,6 +211,7 @@ class CanonicalInvoiceBuilder
         string $currency,
         float $amountPaid,
         ?array $taxBreakdownOverride = null,
+        bool $selfBilled = false,
     ): CanonicalInvoice {
         $subtotal = 0.0;
         $taxTotal = 0.0;
@@ -281,6 +284,7 @@ class CanonicalInvoiceBuilder
             lines: $lines,
             taxBreakdown: $taxBreakdown,
             currency: $currency,
+            selfBilled: $selfBilled,
         );
     }
 
