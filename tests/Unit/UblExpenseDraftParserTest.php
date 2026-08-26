@@ -87,6 +87,92 @@ XML;
         $this->assertTrue($draft['self_billed']);
     }
 
+    public function test_self_billed_document_captures_customer_and_lines(): void
+    {
+        $xml = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+ xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+ xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>SB-DOC-1</cbc:ID>
+  <cbc:IssueDate>2026-06-01</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>389</cbc:InvoiceTypeCode>
+  <cac:AccountingSupplierParty>
+    <cac:Party><cac:PartyName><cbc:Name>My Company</cbc:Name></cac:PartyName></cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cac:PartyName><cbc:Name>Odberateľ a.s.</cbc:Name></cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>Hlavná 1</cbc:StreetName>
+        <cbc:CityName>Bratislava</cbc:CityName>
+        <cbc:PostalZone>81101</cbc:PostalZone>
+        <cac:Country><cbc:IdentificationCode>SK</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme><cbc:CompanyID>SK2020304050</cbc:CompanyID></cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Odberateľ a.s.</cbc:RegistrationName>
+        <cbc:CompanyID>36012345</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">200.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Name>Widget</cbc:Name>
+      <cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>23</cbc:Percent></cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">100.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">50.00</cbc:LineExtensionAmount>
+    <cac:Item><cbc:Name>Práca</cbc:Name></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">50.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>
+XML;
+
+        $draft = (new UblExpenseDraftParser)->parse($xml);
+
+        $this->assertTrue($draft['self_billed']);
+        $this->assertSame('Odberateľ a.s.', $draft['customer']['name']);
+        $this->assertSame('36012345', $draft['customer']['registration_number']);
+        $this->assertSame('SK2020304050', $draft['customer']['vat_number']);
+        $this->assertSame('Bratislava', $draft['customer']['city']);
+        $this->assertSame('SK', $draft['customer']['country']);
+
+        $this->assertCount(2, $draft['lines']);
+        $this->assertSame('Widget', $draft['lines'][0]['name']);
+        $this->assertSame('2.00', $draft['lines'][0]['quantity']);
+        $this->assertSame('C62', $draft['lines'][0]['unit']);
+        $this->assertSame('100.00', $draft['lines'][0]['unit_price']);
+        $this->assertSame('23.00', $draft['lines'][0]['tax_rate']);
+        $this->assertSame('Práca', $draft['lines'][1]['name']);
+    }
+
+    public function test_non_self_billed_draft_has_no_customer_or_lines(): void
+    {
+        $xml = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+ xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+ xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>INV-1</cbc:ID>
+  <cbc:IssueDate>2026-06-01</cbc:IssueDate>
+  <cac:LegalMonetaryTotal><cbc:PayableAmount currencyID="EUR">10.00</cbc:PayableAmount></cac:LegalMonetaryTotal>
+</Invoice>
+XML;
+
+        $draft = (new UblExpenseDraftParser)->parse($xml);
+
+        $this->assertArrayNotHasKey('customer', $draft);
+        $this->assertArrayNotHasKey('lines', $draft);
+    }
+
     public function test_ordinary_invoice_380_is_not_self_billed(): void
     {
         $xml = <<<'XML'

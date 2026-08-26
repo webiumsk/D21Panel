@@ -67,10 +67,28 @@ Tests: parser (389/261 -> self_billed, 380 -> not), inbound routing (self-billed
 UBL -> pending inbox, zero `business_expenses`), client (detect + refuse expense
 import).
 
-## D3.2 - book a self-billed receipt as an issued invoice (planned)
+## D3.2 - parse the full self-billed document (done)
+
+For a self-billed receipt, `UblExpenseDraftParser` now also extracts, into the
+inbox `draft_json`:
+
+- `customer` - the UBL `AccountingCustomerParty` (the party who created the
+  document; on the supplier side this becomes the contact): name, legal name,
+  registration number, VAT number, address.
+- `lines` - each `cac:InvoiceLine` / `cac:CreditNoteLine`: name, description,
+  quantity (+ unit code), unit price, tax rate, line total.
+
+These are added only for self-billed documents (ordinary expenses keep the lean
+header draft). Tests: `UblExpenseDraftParserTest` (customer + lines captured for
+389; absent for a non-self-billed draft).
+
+## D3.3 - book a self-billed receipt as an issued document (planned)
 
 Turn a pending self-billed inbox item into an issued `BusinessDocument`
-(revenue): resolve the counterparty (the UBL customer = the party who created
-it) as the contact, take the number from the received UBL (self-billed docs are
-numbered by the issuer, so no allocator call), parse lines, and dedupe by number
-/ variable symbol against documents the supplier may already have.
+(revenue) on the client: resolve/create the counterparty contact from
+`draft.customer`, set the number from the received UBL (self-billed docs are
+numbered by the issuer, so no allocator call), map `draft.lines` to document
+lines, mark `self_billed`, dedupe by number / variable symbol, and attach the
+UBL. The Evolu writes mirror `insertLocalExpense`; because they cannot be
+unit-tested under jsdom, this phase needs a manual runbook (share A -> B, A
+issues a self-billed invoice to B, B books it from the inbox).
