@@ -31,6 +31,9 @@
         <div class="min-w-0">
           <p class="text-sm font-medium text-gray-900 truncate">
             {{ item.summary.supplier_name || t('invoicing.efaktura_inbox_unknown_supplier') }}
+            <span v-if="isSelfBilledInboxEntry(item)" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 align-middle">
+              {{ t('invoicing.efaktura_inbox_self_billed_badge') }}
+            </span>
           </p>
           <p class="text-xs text-gray-600 mt-0.5">
             <span v-if="item.summary.external_number">{{ item.summary.external_number }} · </span>
@@ -47,7 +50,11 @@
           >
             {{ t('invoicing.efaktura_inbox_dismiss') }}
           </button>
+          <span v-if="isSelfBilledInboxEntry(item)" class="self-center text-xs text-amber-700 max-w-[16rem]">
+            {{ t('invoicing.efaktura_inbox_self_billed_note') }}
+          </span>
           <button
+            v-else
             type="button"
             class="invoicing-btn-primary"
             :disabled="busyId === item.inbox_id"
@@ -69,6 +76,7 @@ import { useInvoicingEvolu } from '@/evolu/client';
 import {
   dismissEfakturaInboxItem,
   importEfakturaInboxEntry,
+  isSelfBilledInboxEntry,
   type EfakturaInboxEntry,
 } from '@/evolu/efakturaInboxImport';
 import { refreshEfakturaInboxLive, useEfakturaInboxLive } from '@/evolu/efakturaInboxLive';
