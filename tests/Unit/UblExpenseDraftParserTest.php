@@ -154,6 +154,35 @@ XML;
         $this->assertSame('Práca', $draft['lines'][1]['name']);
     }
 
+    public function test_line_unit_price_divides_by_base_quantity(): void
+    {
+        $xml = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+ xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+ xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>SB-BQ-1</cbc:ID>
+  <cbc:IssueDate>2026-06-01</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>389</cbc:InvoiceTypeCode>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">500</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">50.00</cbc:LineExtensionAmount>
+    <cac:Item><cbc:Name>Skrutky</cbc:Name></cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">10.00</cbc:PriceAmount>
+      <cbc:BaseQuantity unitCode="C62">100</cbc:BaseQuantity>
+    </cac:Price>
+  </cac:InvoiceLine>
+</Invoice>
+XML;
+
+        $draft = (new UblExpenseDraftParser)->parse($xml);
+
+        // BT-146 10.00 is the price for BT-149 100 units -> 0.10 per unit.
+        $this->assertSame('0.10', $draft['lines'][0]['unit_price']);
+    }
+
     public function test_non_self_billed_draft_has_no_customer_or_lines(): void
     {
         $xml = <<<'XML'

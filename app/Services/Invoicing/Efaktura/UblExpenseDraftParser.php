@@ -102,13 +102,32 @@ class UblExpenseDraftParser
                 'description' => $this->nullableString($node, 'cac:Item/cbc:Description'),
                 'quantity' => $this->parseAmount($qty !== null ? (string) $qty : '1') ?: '1',
                 'unit' => $qty !== null ? trim((string) ($qty['unitCode'] ?? '')) : '',
-                'unit_price' => $this->parseAmount($this->xpathString($node, 'cac:Price/cbc:PriceAmount') ?: '0'),
+                'unit_price' => $this->unitPrice($node),
                 'tax_rate' => $this->parseAmount($this->xpathString($node, 'cac:Item/cac:ClassifiedTaxCategory/cbc:Percent') ?: '0'),
                 'line_total' => $this->parseAmount($this->xpathString($node, 'cbc:LineExtensionAmount') ?: '0'),
             ];
         }
 
         return $lines;
+    }
+
+    /**
+     * BT-146 PriceAmount is the net price for BT-149 BaseQuantity units, so the
+     * per-unit price is PriceAmount / BaseQuantity. A missing base quantity
+     * means 1; a zero (invalid) base quantity falls back to the raw amount
+     * rather than dividing by zero.
+     */
+    protected function unitPrice(\SimpleXMLElement $node): string
+    {
+        $priceAmount = $this->parseAmount($this->xpathString($node, 'cac:Price/cbc:PriceAmount') ?: '0');
+        $baseRaw = $this->xpathString($node, 'cac:Price/cbc:BaseQuantity');
+        $baseQuantity = $baseRaw !== '' ? $this->parseAmount($baseRaw) : '1';
+
+        if ((float) $baseQuantity <= 0.0) {
+            return $priceAmount;
+        }
+
+        return bcdiv($priceAmount, $baseQuantity, 2);
     }
 
     protected function nullableString(\SimpleXMLElement $root, string $query): ?string
