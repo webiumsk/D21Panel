@@ -37,10 +37,10 @@ export type EfakturaInboxEntry = {
 export type EfakturaInboxEntryDetail = EfakturaInboxEntry & { ubl: string | null };
 
 /**
- * A self-billed received invoice (UBL 389/261) is the supplier's own SALE, not
- * an expense - it must never be booked as a cost. Detection comes from the
- * server parser (UblExpenseDraftParser -> draft.self_billed); creating an issued
- * document from it is a follow-up (D3.2).
+ * A self-billed received DOCUMENT (UBL 389 invoice / 261 credit note) is the
+ * supplier's own issued document, not an expense - it must never be booked as a
+ * cost. Detection comes from the server parser (UblExpenseDraftParser ->
+ * draft.self_billed); creating the issued document from it is a follow-up (D3.2).
  */
 export function isSelfBilledInboxEntry(entry: EfakturaInboxEntry): boolean {
     return entry.draft?.self_billed === true;
