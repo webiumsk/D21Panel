@@ -40,6 +40,73 @@ XML;
         $this->assertSame('123.00', $draft['total']);
         $this->assertSame('EUR', $draft['currency']);
         $this->assertSame('20260615001', $draft['variable_symbol']);
+        $this->assertFalse($draft['self_billed']);
+    }
+
+    public function test_flags_self_billed_invoice_type_code_389(): void
+    {
+        $xml = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+ xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+ xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>SB-2026-001</cbc:ID>
+  <cbc:IssueDate>2026-06-01</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>389</cbc:InvoiceTypeCode>
+  <cac:LegalMonetaryTotal>
+    <cbc:PayableAmount currencyID="EUR">100.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+</Invoice>
+XML;
+
+        $draft = (new UblExpenseDraftParser)->parse($xml);
+
+        $this->assertSame('389', $draft['document_type_code']);
+        $this->assertTrue($draft['self_billed']);
+    }
+
+    public function test_self_billed_credit_note_type_code_261_is_flagged(): void
+    {
+        $xml = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<CreditNote xmlns="urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2"
+ xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+ xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>SB-CN-1</cbc:ID>
+  <cbc:IssueDate>2026-06-01</cbc:IssueDate>
+  <cbc:CreditNoteTypeCode>261</cbc:CreditNoteTypeCode>
+  <cac:LegalMonetaryTotal>
+    <cbc:PayableAmount currencyID="EUR">50.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+</CreditNote>
+XML;
+
+        $draft = (new UblExpenseDraftParser)->parse($xml);
+
+        $this->assertSame('261', $draft['document_type_code']);
+        $this->assertTrue($draft['self_billed']);
+    }
+
+    public function test_ordinary_invoice_380_is_not_self_billed(): void
+    {
+        $xml = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+ xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+ xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>INV-380</cbc:ID>
+  <cbc:IssueDate>2026-06-01</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+  <cac:LegalMonetaryTotal>
+    <cbc:PayableAmount currencyID="EUR">10.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+</Invoice>
+XML;
+
+        $draft = (new UblExpenseDraftParser)->parse($xml);
+
+        $this->assertSame('380', $draft['document_type_code']);
+        $this->assertFalse($draft['self_billed']);
     }
 
     public function test_parses_comma_decimal_amounts(): void

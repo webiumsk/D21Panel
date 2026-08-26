@@ -225,17 +225,20 @@ class EfakturaInboundService
         // server mode as a file).
         $detail = $this->detailWithoutDocumentBody($detail);
 
-        if (! $company->usesServerInvoicing()) {
-            $draft = $this->parser->parse($ubl);
+        $draft = $this->parser->parse($ubl);
 
+        // A self-billed document (UBL 389/261) received here is the SUPPLIER's
+        // own sale, not an expense: never auto-create a BusinessExpense for it.
+        // Park it as an inbox item (like every local-first document) so it can
+        // be reviewed and booked as an issued invoice instead of a cost.
+        if (! $company->usesServerInvoicing() || ($draft['self_billed'] ?? false)) {
             return $this->inboxService->storeAsInboxItem($company, $externalId, $ubl, $draft, $detail, $existingReceipt);
         }
 
         $attachment = null;
 
         try {
-            return DB::transaction(function () use ($company, $externalId, $ubl, $detail, $existingReceipt, &$attachment) {
-                $draft = $this->parser->parse($ubl);
+            return DB::transaction(function () use ($company, $externalId, $ubl, $detail, $existingReceipt, $draft, &$attachment) {
                 $expense = $this->expenseService->create($company, $draft);
                 $attachment = $this->storeUblAttachment($expense, $ubl, $externalId);
 

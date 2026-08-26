@@ -49,11 +49,28 @@ Tests: `documentSelfBilled.test.ts` (selfBilled -> self_billed mapping + default
 false). The PHP plumbing mirrors the tested `pdf_show_signature` flow; the UBL
 output itself is covered by D1's `BusinessDocumentUblTest`.
 
-## D3 - supplier-side inbox routing (planned)
+## D3.1 - supplier-side detection (done)
 
-A received self-billed invoice (UBL `InvoiceTypeCode` 389) must land on the
-supplier side as an **issued invoice**, not an expense. Extend
-`UblExpenseDraftParser` to read `//cbc:InvoiceTypeCode`, then branch in
-`EfakturaInboundService::importInboundDocument()` and client
-`efakturaInboxImport.ts` so 389 becomes a document; match by number / variable
-symbol.
+A received self-billed invoice is the SUPPLIER's own sale (revenue), not an
+expense, so it must never be booked as a cost.
+
+- `UblExpenseDraftParser` now reads `//cbc:InvoiceTypeCode` / `//cbc:CreditNoteTypeCode`
+  and adds `document_type_code` + `self_billed` (389/261) to the draft.
+- `EfakturaInboundService::importInboundDocument()` parks a self-billed document
+  as a **pending inbox item** in BOTH modes (never a `BusinessExpense`).
+- Client: `isSelfBilledInboxEntry()` reads `draft.self_billed`;
+  `importEfakturaInboxEntry()` refuses a self-billed entry
+  (`self_billed_not_expense`); `EfakturaInboxPanel` shows a "self-billed" badge
+  and a note instead of the "import as expense" button.
+
+Tests: parser (389/261 -> self_billed, 380 -> not), inbound routing (self-billed
+UBL -> pending inbox, zero `business_expenses`), client (detect + refuse expense
+import).
+
+## D3.2 - book a self-billed receipt as an issued invoice (planned)
+
+Turn a pending self-billed inbox item into an issued `BusinessDocument`
+(revenue): resolve the counterparty (the UBL customer = the party who created
+it) as the contact, take the number from the received UBL (self-billed docs are
+numbered by the issuer, so no allocator call), parse lines, and dedupe by number
+/ variable symbol against documents the supplier may already have.

@@ -85,6 +85,69 @@ class EfakturaInboundServiceTest extends TestCase
 XML;
     }
 
+    private function selfBilledInboundUbl(): string
+    {
+        return <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+ xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+ xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>IN-SB-1</cbc:ID>
+  <cbc:IssueDate>2026-06-02</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>389</cbc:InvoiceTypeCode>
+  <cac:AccountingSupplierParty>
+    <cac:Party><cac:PartyName><cbc:Name>Supplier s.r.o.</cbc:Name></cac:PartyName></cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:LegalMonetaryTotal>
+    <cbc:PayableAmount currencyID="EUR">88.50</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+</Invoice>
+XML;
+    }
+
+    #[Test]
+    public function poll_company_parks_a_self_billed_document_as_inbox_never_an_expense(): void
+    {
+        config([
+            'efaktura.enabled' => true,
+            'efaktura.allowed_sapi_hosts' => ['sapi.test'],
+        ]);
+
+        $ubl = $this->selfBilledInboundUbl();
+
+        Http::fake(function ($request) use ($ubl) {
+            $url = $request->url();
+            if (str_contains($url, '/sapi/v1/auth/token')) {
+                return Http::response(['access_token' => 'token-abc', 'expires_in' => 900]);
+            }
+            if ($request->method() === 'GET' && str_contains($url, '/sapi/v1/document/receive/inbound-42') && ! str_contains($url, '/acknowledge')) {
+                return Http::response(['providerDocumentId' => 'inbound-42', 'payload' => $ubl]);
+            }
+            if ($request->method() === 'GET' && (str_ends_with($url, '/sapi/v1/document/receive') || str_contains($url, '/document/receive?'))) {
+                return Http::response(['documents' => [['providerDocumentId' => 'inbound-42']]]);
+            }
+            if (str_contains($url, '/acknowledge')) {
+                return Http::response(['status' => 'ACKNOWLEDGED']);
+            }
+
+            return Http::response([], 404);
+        });
+
+        $company = $this->inboundCompany();
+        app(EfakturaInboundService::class)->pollCompany($company);
+
+        // A self-billed sale must never be booked as an expense - it is parked
+        // as a pending inbox item for review instead.
+        $this->assertDatabaseCount('business_expenses', 0);
+        $this->assertDatabaseHas('efaktura_inbound_receipts', [
+            'company_id' => $company->id,
+            'external_document_id' => 'inbound-42',
+            'external_number' => 'IN-SB-1',
+            'business_expense_id' => null,
+            'inbox_status' => 'pending',
+        ]);
+    }
+
     #[Test]
     public function poll_company_imports_inbound_document_as_expense(): void
     {

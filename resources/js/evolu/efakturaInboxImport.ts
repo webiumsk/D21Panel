@@ -36,9 +36,19 @@ export type EfakturaInboxEntry = {
 
 export type EfakturaInboxEntryDetail = EfakturaInboxEntry & { ubl: string | null };
 
+/**
+ * A self-billed received DOCUMENT (UBL 389 invoice / 261 credit note) is the
+ * supplier's own issued document, not an expense - it must never be booked as a
+ * cost. Detection comes from the server parser (UblExpenseDraftParser ->
+ * draft.self_billed); creating the issued document from it is a follow-up (D3.2).
+ */
+export function isSelfBilledInboxEntry(entry: EfakturaInboxEntry): boolean {
+    return entry.draft?.self_billed === true;
+}
+
 export type EfakturaInboxImportResult =
     | { ok: true; expenseId: ExpenseId; attachmentSkipped: boolean; alreadyImported: boolean }
-    | { ok: false; error: "invalid_entry" | "expense_insert_failed" };
+    | { ok: false; error: "invalid_entry" | "expense_insert_failed" | "self_billed_not_expense" };
 
 /** Same inbox item -> same Evolu expense id on every device. */
 export function stableExpenseIdFromInboxUuid(inboxEvoluUuid: string | null | undefined): ExpenseId | null {
@@ -150,6 +160,10 @@ export async function importEfakturaInboxEntry(
     bridgeCompanyId: string,
     entry: EfakturaInboxEntry,
 ): Promise<EfakturaInboxImportResult> {
+    if (isSelfBilledInboxEntry(entry)) {
+        // Never file a self-billed sale as an expense.
+        return { ok: false, error: "self_billed_not_expense" };
+    }
     const stableId = stableExpenseIdFromInboxUuid(entry.evolu_expense_id);
     if (!stableId) {
         return { ok: false, error: "invalid_entry" };
