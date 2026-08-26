@@ -50,15 +50,9 @@
           >
             {{ t('invoicing.efaktura_inbox_dismiss') }}
           </button>
-          <button
-            v-if="isSelfBilledInboxEntry(item)"
-            type="button"
-            class="invoicing-btn-primary"
-            :disabled="busyId === item.inbox_id"
-            @click="bookItem(item)"
-          >
-            {{ t('invoicing.efaktura_inbox_book') }}
-          </button>
+          <span v-if="isSelfBilledInboxEntry(item)" class="self-center text-xs text-amber-700 max-w-[16rem]">
+            {{ t('invoicing.efaktura_inbox_self_billed_note') }}
+          </span>
           <button
             v-else
             type="button"
@@ -79,7 +73,6 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { asApiError } from '../../utils/apiError';
 import { useInvoicingEvolu } from '@/evolu/client';
-import { bookSelfBilledInboxEntry } from '@/evolu/efakturaSelfBilledBooking';
 import {
   dismissEfakturaInboxItem,
   importEfakturaInboxEntry,
@@ -147,26 +140,6 @@ async function importItem(item: EfakturaInboxEntry): Promise<void> {
     }
     if (result.attachmentSkipped) {
       notice.value = t('invoicing.efaktura_inbox_attachment_skipped');
-    }
-    items.value = items.value.filter((row) => row.inbox_id !== item.inbox_id);
-    emit('imported');
-  } catch (rawError) {
-    error.value = describeError(rawError);
-  } finally {
-    busyId.value = null;
-  }
-}
-
-async function bookItem(item: EfakturaInboxEntry): Promise<void> {
-  if (!bridgeCompanyId.value) return;
-  busyId.value = item.inbox_id;
-  error.value = '';
-  notice.value = '';
-  try {
-    const result = await bookSelfBilledInboxEntry(evolu, props.companyId, bridgeCompanyId.value, item);
-    if (!result.ok) {
-      error.value = t(`invoicing.efaktura_inbox_book_error_${result.error}`);
-      return;
     }
     items.value = items.value.filter((row) => row.inbox_id !== item.inbox_id);
     emit('imported');

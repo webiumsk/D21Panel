@@ -82,26 +82,13 @@ These are added only for self-billed documents (ordinary expenses keep the lean
 header draft). Tests: `UblExpenseDraftParserTest` (customer + lines captured for
 389; absent for a non-self-billed draft).
 
-## D3.3 - book a self-billed receipt as an issued document (done)
+## D3.3 - book a self-billed receipt as an issued document (planned)
 
-`evolu/efakturaSelfBilledBooking.ts` turns a pending self-billed inbox item into
-an issued local `document` (revenue):
-
-- resolve the counterparty contact from `draft.customer` (match by registration
-  number -> VAT -> name, else create via `insertLocalContactFromForm`);
-- document id + line ids are stable ids derived from the inbox item, so a
-  re-import upserts the same rows on every device (mirrors `insertLocalExpense`);
-- the number comes from the received UBL (self-billed docs are numbered by the
-  issuer - no allocator call); `document_type_code` 389 -> invoice, 261 -> credit
-  note; `self_billed = true`; totals reconcile the tax to the UBL payable amount;
-- dedupe: a DIFFERENT document with the same number (one the supplier created
-  manually) blocks a second copy (`duplicate_number`).
-- `EfakturaInboxPanel` shows a "Book as issued document" button for self-billed
-  items; the UBL itself is not attached (there is no local documentAttachment
-  table - it stays on the inbox item until marked imported).
-
-Tests: `efakturaSelfBilledBooking.test.ts` covers the pure mapping (type code,
-contact form, contact matching, totals, stable id). The Evolu writes cannot be
-unit-tested under jsdom, so end-to-end still needs a manual runbook: share a
-company A -> B, A issues a self-billed invoice to B, B books it from the inbox
-and checks the resulting issued document (parties, number, lines, self_billed).
+Turn a pending self-billed inbox item into an issued `BusinessDocument`
+(revenue) on the client: resolve/create the counterparty contact from
+`draft.customer`, set the number from the received UBL (self-billed docs are
+numbered by the issuer, so no allocator call), map `draft.lines` to document
+lines, mark `self_billed`, dedupe by number / variable symbol, and attach the
+UBL. The Evolu writes mirror `insertLocalExpense`; because they cannot be
+unit-tested under jsdom, this phase needs a manual runbook (share A -> B, A
+issues a self-billed invoice to B, B books it from the inbox).
