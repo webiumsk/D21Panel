@@ -12,8 +12,8 @@ self-billed document the UBL parties are the reverse of an ordinary invoice.
 - `BusinessDocumentUblService::xml()` - when `self_billed` (and not the German
   XRechnung path): `CustomizationID` / `ProfileID` use the Peppol BIS
   **Self-Billing** URNs (`App\Support\Invoicing\SelfBillingUblProfile`),
-  `InvoiceTypeCode` is **389** (credit notes keep 381 - self-billing is conveyed
-  by the profile), and `AccountingSupplierParty` / `AccountingCustomerParty` are
+  `InvoiceTypeCode` is **389** (self-billed credit notes use **261**), and
+  `AccountingSupplierParty` / `AccountingCustomerParty` are
   swapped (contact = supplier, company = customer).
 - `CanonicalInvoice.selfBilled` carries the flag from
   `CanonicalInvoiceBuilder` (`fromDocument` / `fromPayload`) into the UBL.

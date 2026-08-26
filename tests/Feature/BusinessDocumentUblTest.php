@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\Invoicing\BusinessDocumentUblService;
 use App\Services\Invoicing\CanonicalInvoiceBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -204,6 +205,75 @@ class BusinessDocumentUblTest extends TestCase
         $this->assertStringContainsString('Dodávateľ s.r.o.', $supplierBlock);
         $this->assertStringNotContainsString('Webium s.r.o.', $supplierBlock);
         $this->assertStringContainsString('Webium s.r.o.', $customerBlock);
+    }
+
+    #[Test]
+    public function self_billed_credit_note_emits_credit_note_type_code_261(): void
+    {
+        [, $company] = $this->proUserWithCompany();
+        $supplier = CompanyContact::create([
+            'company_id' => $company->id, 'name' => 'Dodávateľ s.r.o.', 'country' => 'SK',
+        ]);
+        $doc = BusinessDocument::create([
+            'company_id' => $company->id, 'company_contact_id' => $supplier->id,
+            'type' => 'credit_note', 'self_billed' => true, 'status' => BusinessDocumentStatus::Issued,
+            'number' => '20260701', 'subtotal' => 100, 'tax_total' => 23, 'total' => 123, 'currency' => 'EUR',
+            'issue_date' => now(), 'variable_symbol' => '20260701',
+        ]);
+        BusinessDocumentLine::create([
+            'business_document_id' => $doc->id, 'sort_order' => 0, 'name' => 'Služba',
+            'quantity' => 1, 'unit' => 'ks.', 'unit_price' => 100, 'tax_rate' => 23, 'line_total' => 123,
+        ]);
+
+        $xml = app(BusinessDocumentUblService::class)->xml($doc->fresh(['company', 'contact', 'lines']));
+        $this->assertStringContainsString('<cbc:CreditNoteTypeCode>261</cbc:CreditNoteTypeCode>', $xml);
+        $this->assertStringContainsString('urn:fdc:peppol.eu:2017:poacc:selfbilling:3.0', $xml);
+    }
+
+    #[Test]
+    public function self_billed_document_without_a_supplier_contact_is_rejected(): void
+    {
+        [, $company] = $this->proUserWithCompany();
+        $doc = BusinessDocument::create([
+            'company_id' => $company->id, 'company_contact_id' => null,
+            'type' => 'invoice', 'self_billed' => true, 'status' => BusinessDocumentStatus::Issued,
+            'number' => '20260801', 'subtotal' => 100, 'tax_total' => 23, 'total' => 123, 'currency' => 'EUR',
+            'issue_date' => now(),
+        ]);
+        BusinessDocumentLine::create([
+            'business_document_id' => $doc->id, 'sort_order' => 0, 'name' => 'Služba',
+            'quantity' => 1, 'unit' => 'ks.', 'unit_price' => 100, 'tax_rate' => 23, 'line_total' => 123,
+        ]);
+
+        $this->expectException(ValidationException::class);
+        app(BusinessDocumentUblService::class)->xml($doc->fresh(['company', 'contact', 'lines']));
+    }
+
+    #[Test]
+    public function self_billed_payment_means_uses_the_supplier_account_not_the_buyer(): void
+    {
+        [, $company] = $this->proUserWithCompany();
+        // company (buyer) IBAN is SK31...541 from proUserWithCompany; supplier has its own.
+        $supplier = CompanyContact::create([
+            'company_id' => $company->id, 'name' => 'Dodávateľ s.r.o.', 'country' => 'SK',
+            'iban' => 'SK6807200002891987426353',
+        ]);
+        $doc = BusinessDocument::create([
+            'company_id' => $company->id, 'company_contact_id' => $supplier->id,
+            'type' => 'invoice', 'self_billed' => true, 'status' => BusinessDocumentStatus::Issued,
+            'number' => '20260802', 'subtotal' => 100, 'tax_total' => 23, 'total' => 123, 'currency' => 'EUR',
+            'issue_date' => now(), 'variable_symbol' => '20260802',
+        ]);
+        BusinessDocumentLine::create([
+            'business_document_id' => $doc->id, 'sort_order' => 0, 'name' => 'Služba',
+            'quantity' => 1, 'unit' => 'ks.', 'unit_price' => 100, 'tax_rate' => 23, 'line_total' => 123,
+        ]);
+
+        $xml = app(BusinessDocumentUblService::class)->xml($doc->fresh(['company', 'contact', 'lines']));
+        $payeeStart = strpos($xml, 'PayeeFinancialAccount');
+        $payeeBlock = substr($xml, $payeeStart, 200);
+        $this->assertStringContainsString('SK6807200002891987426353', $payeeBlock);
+        $this->assertStringNotContainsString('SK3112000000198742637541', $payeeBlock);
     }
 
     #[Test]
