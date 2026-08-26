@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
+const contact = vi.hoisted(() => ({ insert: vi.fn(() => ({ ok: true, value: { id: 'new-contact' } })) }));
+const inbox = vi.hoisted(() => ({ markImported: vi.fn(async () => undefined) }));
+
 vi.mock('@/evolu/client', () => ({ allContactsQuery: { name: 'contacts' }, allDocumentsQuery: { name: 'documents' } }));
 vi.mock('@/evolu/contactCrud', () => ({ insertLocalContactFromForm: contact.insert }));
-const inbox = vi.hoisted(() => ({ markImported: vi.fn(async () => undefined) }));
 vi.mock('@/evolu/efakturaInboxImport', () => ({
     markEfakturaInboxImported: inbox.markImported,
     isSelfBilledInboxEntry: (e: { draft?: { self_billed?: unknown } | null }) => e?.draft?.self_billed === true,
 }));
-const contact = vi.hoisted(() => ({ insert: vi.fn(() => ({ ok: true, value: { id: 'new-contact' } })) }));
 
 import {
     bookedDocumentType,
@@ -122,7 +123,7 @@ describe('self-billed booking - orchestration', () => {
     });
 
     it('refuses a duplicate number the supplier already has', async () => {
-        const { evolu, upserts } = fakeEvolu({ documents: [{ id: 'other-doc', companyId: 'company-b', number: '20260909' }] });
+        const { evolu, upserts } = fakeEvolu({ documents: [{ id: 'other-doc', companyId: 'company-b', number: '20260909', documentType: 'invoice' }] });
         const result = await bookSelfBilledInboxEntry(evolu, 'company-b', 'bridge', selfBilledEntry(sampleDraft));
         expect(result).toEqual({ ok: false, error: 'duplicate_number' });
         expect(upserts.document).toHaveLength(0);

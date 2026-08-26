@@ -125,14 +125,21 @@ export async function bookSelfBilledInboxEntry(
     }
 
     const number = str(draft.external_number);
-    const docRows = toAppRows<{ id: string; companyId: string; number: string | null; isDeleted?: unknown }>(
+    const docRows = toAppRows<{ id: string; companyId: string; number: string | null; documentType?: string | null; isDeleted?: unknown }>(
         await evolu.loadQuery(allDocumentsQuery),
     );
     // A document this inbox item already produced upserts idempotently; a
-    // DIFFERENT document with the same number is a duplicate the supplier
-    // likely created manually - never book a second copy.
+    // DIFFERENT document of the SAME type with the same number is a duplicate
+    // the supplier likely created manually - never book a second copy. Type
+    // matters: an invoice and a credit note can legitimately share a number.
+    const type = bookedDocumentType(draft);
     const clash = number
-        ? docRows.find((r) => r.companyId === companyId && r.id !== documentId && str(r.number) === number && r.isDeleted !== 1)
+        ? docRows.find((r) =>
+            r.companyId === companyId
+            && r.id !== documentId
+            && str(r.number) === number
+            && str(r.documentType) === type
+            && r.isDeleted !== 1)
         : undefined;
     if (clash) {
         return { ok: false, error: "duplicate_number" };

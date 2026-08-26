@@ -97,6 +97,9 @@ class SelfBilledUblRoundTripTest extends TestCase
         $this->assertSame('2.00', $draft['lines'][0]['quantity']);
         $this->assertSame('100.00', $draft['lines'][0]['unit_price']);
         $this->assertSame('23.00', $draft['lines'][0]['tax_rate']);
+        // LineExtensionAmount is the NET line amount (qty x unit price).
+        $this->assertSame('200.00', $draft['lines'][0]['line_total']);
+        $this->assertSame('50.00', $draft['lines'][1]['line_total']);
         $this->assertSame('Práca', $draft['lines'][1]['name']);
         $this->assertSame('50.00', $draft['lines'][1]['unit_price']);
         $this->assertSame('20260909', $draft['external_number']);
