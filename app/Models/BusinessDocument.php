@@ -25,7 +25,6 @@ class BusinessDocument extends Model
         'store_id',
         'source_document_id',
         'type',
-        'self_billed',
         'status',
         'quote_status',
         'number',
@@ -71,7 +70,6 @@ class BusinessDocument extends Model
     {
         return [
             'type' => BusinessDocumentType::class,
-            'self_billed' => 'boolean',
             'status' => BusinessDocumentStatus::class,
             'quote_status' => BusinessDocumentQuoteStatus::class,
             'issue_date' => 'date',
