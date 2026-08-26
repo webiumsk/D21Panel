@@ -151,6 +151,94 @@ class BusinessDocumentUblTest extends TestCase
     }
 
     #[Test]
+    public function self_billed_invoice_uses_389_the_self_billing_profile_and_swaps_parties(): void
+    {
+        [, $company] = $this->proUserWithCompany();
+
+        $supplier = CompanyContact::create([
+            'company_id' => $company->id,
+            'name' => 'Dodávateľ s.r.o.',
+            'registration_number' => '87654321',
+            'tax_id' => '2123456789',
+            'vat_number' => 'SK2123456789',
+            'country' => 'SK',
+        ]);
+
+        $doc = BusinessDocument::create([
+            'company_id' => $company->id,
+            'company_contact_id' => $supplier->id,
+            'type' => 'invoice',
+            'self_billed' => true,
+            'status' => BusinessDocumentStatus::Issued,
+            'number' => '20260501',
+            'subtotal' => 100,
+            'tax_total' => 23,
+            'total' => 123,
+            'currency' => 'EUR',
+            'issue_date' => now(),
+            'variable_symbol' => '20260501',
+        ]);
+        BusinessDocumentLine::create([
+            'business_document_id' => $doc->id,
+            'sort_order' => 0,
+            'name' => 'Služba',
+            'quantity' => 1,
+            'unit' => 'ks.',
+            'unit_price' => 100,
+            'tax_rate' => 23,
+            'line_total' => 123,
+        ]);
+
+        $xml = app(BusinessDocumentUblService::class)->xml($doc->fresh(['company', 'contact', 'lines']));
+
+        $this->assertStringContainsString('<cbc:InvoiceTypeCode>389</cbc:InvoiceTypeCode>', $xml);
+        $this->assertStringContainsString('urn:fdc:peppol.eu:2017:poacc:selfbilling:3.0', $xml);
+        $this->assertStringContainsString('urn:fdc:peppol.eu:2017:poacc:selfbilling:01:1.0', $xml);
+
+        // Parties are reversed: the counterparty is the SUPPLIER, the issuing
+        // company is the CUSTOMER.
+        $supplierStart = strpos($xml, 'AccountingSupplierParty');
+        $customerStart = strpos($xml, 'AccountingCustomerParty');
+        $supplierBlock = substr($xml, $supplierStart, $customerStart - $supplierStart);
+        $customerBlock = substr($xml, $customerStart);
+        $this->assertStringContainsString('Dodávateľ s.r.o.', $supplierBlock);
+        $this->assertStringNotContainsString('Webium s.r.o.', $supplierBlock);
+        $this->assertStringContainsString('Webium s.r.o.', $customerBlock);
+    }
+
+    #[Test]
+    public function an_ordinary_invoice_keeps_380_billing_profile_and_company_as_supplier(): void
+    {
+        [, $company] = $this->proUserWithCompany();
+        $contact = CompanyContact::create([
+            'company_id' => $company->id,
+            'name' => 'Odberateľ s.r.o.',
+            'country' => 'SK',
+        ]);
+        $doc = BusinessDocument::create([
+            'company_id' => $company->id,
+            'company_contact_id' => $contact->id,
+            'type' => 'invoice',
+            'status' => BusinessDocumentStatus::Issued,
+            'number' => '20260601',
+            'subtotal' => 100, 'tax_total' => 23, 'total' => 123, 'currency' => 'EUR',
+            'issue_date' => now(), 'variable_symbol' => '20260601',
+        ]);
+        BusinessDocumentLine::create([
+            'business_document_id' => $doc->id, 'sort_order' => 0, 'name' => 'Služba',
+            'quantity' => 1, 'unit' => 'ks.', 'unit_price' => 100, 'tax_rate' => 23, 'line_total' => 123,
+        ]);
+
+        $xml = app(BusinessDocumentUblService::class)->xml($doc->fresh(['company', 'contact', 'lines']));
+
+        $this->assertStringContainsString('<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>', $xml);
+        $this->assertStringContainsString('urn:fdc:peppol.eu:2017:poacc:billing:3.0', $xml);
+        $this->assertStringNotContainsString('selfbilling', $xml);
+        $supplierBlock = substr($xml, strpos($xml, 'AccountingSupplierParty'), strpos($xml, 'AccountingCustomerParty') - strpos($xml, 'AccountingSupplierParty'));
+        $this->assertStringContainsString('Webium s.r.o.', $supplierBlock);
+    }
+
+    #[Test]
     public function de_company_exports_the_xrechnung_cius(): void
     {
         [$user] = $this->proUserWithCompany();

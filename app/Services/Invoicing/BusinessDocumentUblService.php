@@ -14,6 +14,7 @@ use App\Support\Invoicing\CompanyAppSettings;
 use App\Support\Invoicing\CompanyVatPolicy;
 use App\Support\Invoicing\DeXRechnungProfile;
 use App\Support\Invoicing\EuStructuredDocumentExport;
+use App\Support\Invoicing\SelfBillingUblProfile;
 use App\Support\Invoicing\SkUblProfile;
 use XMLWriter;
 
@@ -69,10 +70,15 @@ class BusinessDocumentUblService
         $writer->writeAttributeNs('xmlns', 'cac', null, 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
         $writer->writeAttributeNs('xmlns', 'cbc', null, 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
 
+        $selfBilled = $canonical->selfBilled && ! $this->xrechnung;
         $this->element($writer, 'cbc', 'CustomizationID', $this->xrechnung
             ? DeXRechnungProfile::CUSTOMIZATION_ID
-            : 'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0');
-        $this->element($writer, 'cbc', 'ProfileID', 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0');
+            : ($selfBilled
+                ? SelfBillingUblProfile::CUSTOMIZATION_ID
+                : 'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0'));
+        $this->element($writer, 'cbc', 'ProfileID', $selfBilled
+            ? SelfBillingUblProfile::PROFILE_ID
+            : 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0');
         $this->element($writer, 'cbc', 'ID', (string) $document->number);
         $this->element($writer, 'cbc', 'IssueDate', $document->issue_date?->format('Y-m-d') ?? now()->format('Y-m-d'));
         $this->element($writer, 'cbc', 'DueDate', $document->due_date?->format('Y-m-d'));
@@ -83,18 +89,26 @@ class BusinessDocumentUblService
             ? DeXRechnungProfile::buyerReference($document)
             : $document->variable_symbol);
         if ($isCreditNote) {
-            $this->element($writer, 'cbc', 'CreditNoteTypeCode', $this->invoiceTypeCode($document->type));
+            $this->element($writer, 'cbc', 'CreditNoteTypeCode', $this->invoiceTypeCode($document->type, $selfBilled));
         } else {
-            $this->element($writer, 'cbc', 'InvoiceTypeCode', $this->invoiceTypeCode($document->type));
+            $this->element($writer, 'cbc', 'InvoiceTypeCode', $this->invoiceTypeCode($document->type, $selfBilled));
         }
 
         if ($document->note_footer) {
             $this->element($writer, 'cbc', 'Note', $document->note_footer);
         }
 
-        $this->party($writer, 'AccountingSupplierParty', $canonical->company);
-        if ($canonical->contact) {
-            $this->party($writer, 'AccountingCustomerParty', $canonical->contact);
+        if ($selfBilled && $canonical->contact) {
+            // Self-billing (buyer-created): the issuing company is the CUSTOMER
+            // and the counterparty contact is the SUPPLIER, so the UBL parties
+            // are the reverse of an ordinary invoice.
+            $this->party($writer, 'AccountingSupplierParty', $canonical->contact);
+            $this->party($writer, 'AccountingCustomerParty', $canonical->company);
+        } else {
+            $this->party($writer, 'AccountingSupplierParty', $canonical->company);
+            if ($canonical->contact) {
+                $this->party($writer, 'AccountingCustomerParty', $canonical->contact);
+            }
         }
 
         if (! $isCreditNote) {
@@ -140,8 +154,15 @@ class BusinessDocumentUblService
         );
     }
 
-    protected function invoiceTypeCode(BusinessDocumentType $type): string
+    protected function invoiceTypeCode(BusinessDocumentType $type, bool $selfBilled = false): string
     {
+        // A self-billed invoice carries BT-3 code 389; a self-billed credit note
+        // keeps 381 (self-billing is conveyed by the profile, not a distinct
+        // credit-note code).
+        if ($selfBilled && $type !== BusinessDocumentType::CreditNote) {
+            return '389';
+        }
+
         return match ($type) {
             BusinessDocumentType::CreditNote => '381',
             BusinessDocumentType::Proforma => '325',
