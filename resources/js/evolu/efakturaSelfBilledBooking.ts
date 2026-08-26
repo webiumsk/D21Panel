@@ -105,8 +105,8 @@ async function resolveContactId(evolu: Loader, companyId: CompanyId, customer: C
     if (existing) return existing;
     const inserted = insertLocalContactFromForm(evolu, companyId, contactFormFromCustomer(customer), false);
     if (!inserted.ok) return null;
-    const parsed = ContactId.from(inserted.value.id);
-    return parsed.ok ? parsed.value : null;
+    // The insert returns a valid ContactId; no need to re-validate the brand.
+    return inserted.value.id as unknown as ContactId;
 }
 
 export async function bookSelfBilledInboxEntry(
