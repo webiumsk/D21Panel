@@ -1266,6 +1266,8 @@
     "payment_bank": "Bankovní převod (Pay by Square QR)",
     "payment_btc": "Bitcoin / Lightning (BTCPay)",
     "payment_btc_lazy_hint": "V PDF je QR kód s odkazem na platební stránku (ne přímá LN faktura). Zákazník otevře odkaz v prohlížeči a tam pokračuje na BTCPay.",
+    "self_billed": "Samofakturace (vystaveno jménem dodavatele)",
+    "self_billed_hint": "Samofakturu vystavujete vy (odběratel) za dodavatele. E-faktura použije typový kód 389 a prohodí role dodavatel/odběratel.",
     "btc_pay_link": "Odkaz na Bitcoin platbu",
     "btc_pay_open": "Otevřít platbu",
     "total_preview": "Celkem",

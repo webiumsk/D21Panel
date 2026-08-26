@@ -111,6 +111,7 @@ class EphemeralBusinessDocumentBulkRequest extends FormRequest
             'documents.*.document.pdf_locale' => ['sometimes', 'nullable', 'string', 'max:10'],
             'documents.*.document.pdf_bank_qr' => ['sometimes', 'nullable', 'in:auto,paybysquare,epc,swiss,none'],
             'documents.*.document.pdf_show_signature' => ['sometimes', 'boolean'],
+            'documents.*.document.self_billed' => ['sometimes', 'boolean'],
             'documents.*.document.pdf_show_payment_info' => ['sometimes', 'boolean'],
             'documents.*.document.payment_bank_enabled' => ['sometimes', 'boolean'],
             'documents.*.document.discount_percent' => ['sometimes', 'numeric', 'min:0', 'max:100'],

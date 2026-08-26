@@ -276,6 +276,7 @@ export const InvoicingLocalSchema = {
         pdfLocale: OptionalString16,
         pdfBankQr: OptionalString16,
         pdfShowSignature: nullOr(SqliteBoolean),
+        selfBilled: nullOr(SqliteBoolean),
         pdfShowPaymentInfo: nullOr(SqliteBoolean),
         paymentBankEnabled: nullOr(SqliteBoolean),
         paymentBtcEnabled: nullOr(SqliteBoolean),

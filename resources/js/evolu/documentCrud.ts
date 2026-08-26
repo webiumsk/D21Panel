@@ -75,6 +75,8 @@ export type DocumentSavePayload = {
     /** Bank QR standard on the PDF: auto|paybysquare|epc|swiss|none (null = auto). */
     pdf_bank_qr?: string | null;
     pdf_show_signature: boolean;
+    /** Self-billed (buyer-created) invoice: swaps supplier/customer + UBL 389/261. */
+    self_billed?: boolean;
     pdf_show_payment_info: boolean;
     payment_bank_enabled: boolean;
     payment_btc_enabled: boolean;
@@ -181,6 +183,7 @@ function buildDocumentFields(
             pdfLocale: payload.pdf_locale || "sk",
             pdfBankQr: payload.pdf_bank_qr || null,
             pdfShowSignature: booleanToSqliteBoolean(payload.pdf_show_signature),
+            selfBilled: booleanToSqliteBoolean(payload.self_billed ?? false),
             pdfShowPaymentInfo: booleanToSqliteBoolean(paymentFlags.pdfPay),
             paymentBankEnabled: booleanToSqliteBoolean(paymentFlags.bank),
             paymentBtcEnabled: booleanToSqliteBoolean(paymentFlags.btc),

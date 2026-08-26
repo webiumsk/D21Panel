@@ -37,6 +37,7 @@ function doc(partial: Omit<Partial<EvoluDocumentRow>, 'id'> & { id: string }): E
         pdfLocale: null,
         pdfBankQr: null,
         pdfShowSignature: null,
+        selfBilled: null,
         pdfShowPaymentInfo: null,
         paymentBankEnabled: null,
         paymentBtcEnabled: null,

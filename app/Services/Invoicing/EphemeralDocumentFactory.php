@@ -131,6 +131,7 @@ class EphemeralDocumentFactory
             'pdf_locale' => $documentPayload['pdf_locale'] ?? null,
             'pdf_bank_qr' => $documentPayload['pdf_bank_qr'] ?? null,
             'pdf_show_signature' => (bool) ($documentPayload['pdf_show_signature'] ?? true),
+            'self_billed' => (bool) ($documentPayload['self_billed'] ?? false),
             'pdf_show_payment_info' => (bool) ($documentPayload['pdf_show_payment_info'] ?? true),
             'payment_btc_enabled' => (bool) ($documentPayload['payment_btc_enabled'] ?? false),
             'payment_bank_enabled' => (bool) ($documentPayload['payment_bank_enabled'] ?? true),
