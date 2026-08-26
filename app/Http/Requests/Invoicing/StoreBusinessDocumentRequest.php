@@ -47,6 +47,7 @@ class StoreBusinessDocumentRequest extends FormRequest
             'pdf_locale' => ['nullable', 'string', 'max:8'],
             'pdf_bank_qr' => ['nullable', 'in:auto,paybysquare,epc,swiss,none'],
             'pdf_show_signature' => ['sometimes', 'boolean'],
+            'self_billed' => ['sometimes', 'boolean'],
             'pdf_show_payment_info' => ['sometimes', 'boolean'],
             'tags' => ['nullable', 'array'],
             'tags.*' => ['string', 'max:64'],

@@ -1266,6 +1266,8 @@
     "payment_bank": "Bank transfer (Pay by Square QR)",
     "payment_btc": "Bitcoin / Lightning (BTCPay)",
     "payment_btc_lazy_hint": "The PDF QR encodes a payment page link (not a direct Lightning invoice). The customer opens it in a browser, then continues to BTCPay.",
+    "self_billed": "Self-billed (issued on the supplier's behalf)",
+    "self_billed_hint": "A self-billed invoice is created by you (the customer) for the supplier. The e-invoice uses type code 389 and swaps the supplier/customer roles.",
     "btc_pay_link": "Bitcoin payment link",
     "btc_pay_open": "Open payment",
     "total_preview": "Total",
