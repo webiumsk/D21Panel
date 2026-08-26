@@ -429,6 +429,7 @@ export function saveLocalDocument(
                 pdf_bank_qr: fields.value.pdfBankQr ?? null,
                 pdf_show_signature: payload.pdf_show_signature,
                 pdf_show_payment_info: payload.pdf_show_payment_info,
+                self_billed: payload.self_billed ?? false,
                 payment_bank_enabled: payload.payment_bank_enabled,
                 payment_btc_enabled: payload.payment_btc_enabled,
             },

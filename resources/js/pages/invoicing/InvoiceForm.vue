@@ -191,15 +191,17 @@
                 <p v-if="form.payment_btc_enabled" class="text-xs text-gray-500 sm:col-span-2 lg:col-span-4">
                   {{ t('invoicing.payment_btc_lazy_hint') }}
                 </p>
-                <template v-if="documentType === 'invoice' || documentType === 'credit_note'">
-                  <label class="flex items-center gap-2 text-sm text-gray-700 pt-6">
-                    <input v-model="form.self_billed" type="checkbox" :disabled="isLocked" />
-                    {{ t('invoicing.self_billed') }}
-                  </label>
-                  <p v-if="form.self_billed" class="text-xs text-gray-500 sm:col-span-2 lg:col-span-4">
-                    {{ t('invoicing.self_billed_hint') }}
-                  </p>
-                </template>
+              </template>
+              <!-- Self-billing applies to invoices AND credit notes, so it sits
+                   outside the invoice-only payment block above. -->
+              <template v-if="documentType === 'invoice' || documentType === 'credit_note'">
+                <label class="flex items-center gap-2 text-sm text-gray-700 pt-6">
+                  <input v-model="form.self_billed" type="checkbox" :disabled="isLocked" />
+                  {{ t('invoicing.self_billed') }}
+                </label>
+                <p v-if="form.self_billed" class="text-xs text-gray-500 sm:col-span-2 lg:col-span-4">
+                  {{ t('invoicing.self_billed_hint') }}
+                </p>
               </template>
             </div>
           </details>

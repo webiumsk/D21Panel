@@ -896,6 +896,7 @@ export function useInvoiceDocument() {
         pdf_bank_qr: form.pdf_bank_qr === 'auto' ? null : form.pdf_bank_qr,
         pdf_show_signature: form.pdf_show_signature,
         pdf_show_payment_info: form.pdf_show_payment_info,
+        self_billed: form.self_billed,
         payment_bank_enabled: form.payment_bank_enabled,
         payment_btc_enabled: form.payment_btc_enabled,
         discount_percent: form.discount_percent,
