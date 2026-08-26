@@ -14,9 +14,7 @@ use App\Support\Invoicing\CompanyAppSettings;
 use App\Support\Invoicing\CompanyVatPolicy;
 use App\Support\Invoicing\DeXRechnungProfile;
 use App\Support\Invoicing\EuStructuredDocumentExport;
-use App\Support\Invoicing\SelfBillingUblProfile;
 use App\Support\Invoicing\SkUblProfile;
-use Illuminate\Validation\ValidationException;
 use XMLWriter;
 
 /**
@@ -71,15 +69,10 @@ class BusinessDocumentUblService
         $writer->writeAttributeNs('xmlns', 'cac', null, 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
         $writer->writeAttributeNs('xmlns', 'cbc', null, 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
 
-        $selfBilled = $canonical->selfBilled && ! $this->xrechnung;
         $this->element($writer, 'cbc', 'CustomizationID', $this->xrechnung
             ? DeXRechnungProfile::CUSTOMIZATION_ID
-            : ($selfBilled
-                ? SelfBillingUblProfile::CUSTOMIZATION_ID
-                : 'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0'));
-        $this->element($writer, 'cbc', 'ProfileID', $selfBilled
-            ? SelfBillingUblProfile::PROFILE_ID
-            : 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0');
+            : 'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0');
+        $this->element($writer, 'cbc', 'ProfileID', 'urn:fdc:peppol.eu:2017:poacc:billing:01:1.0');
         $this->element($writer, 'cbc', 'ID', (string) $document->number);
         $this->element($writer, 'cbc', 'IssueDate', $document->issue_date?->format('Y-m-d') ?? now()->format('Y-m-d'));
         $this->element($writer, 'cbc', 'DueDate', $document->due_date?->format('Y-m-d'));
@@ -90,42 +83,22 @@ class BusinessDocumentUblService
             ? DeXRechnungProfile::buyerReference($document)
             : $document->variable_symbol);
         if ($isCreditNote) {
-            $this->element($writer, 'cbc', 'CreditNoteTypeCode', $this->invoiceTypeCode($document->type, $selfBilled));
+            $this->element($writer, 'cbc', 'CreditNoteTypeCode', $this->invoiceTypeCode($document->type));
         } else {
-            $this->element($writer, 'cbc', 'InvoiceTypeCode', $this->invoiceTypeCode($document->type, $selfBilled));
+            $this->element($writer, 'cbc', 'InvoiceTypeCode', $this->invoiceTypeCode($document->type));
         }
 
         if ($document->note_footer) {
             $this->element($writer, 'cbc', 'Note', $document->note_footer);
         }
 
-        $supplierContact = $canonical->contact;
-        if ($selfBilled && $supplierContact === null) {
-            // A self-billed invoice with no supplier is malformed: there is no
-            // party to reverse into AccountingSupplierParty.
-            throw ValidationException::withMessages([
-                'contact' => ['A self-billed document requires a supplier contact.'],
-            ]);
-        }
-
-        if ($selfBilled) {
-            // Self-billing (buyer-created): the issuing company is the CUSTOMER
-            // and the counterparty contact is the SUPPLIER, so the UBL parties
-            // are the reverse of an ordinary invoice.
-            $this->party($writer, 'AccountingSupplierParty', $supplierContact);
-            $this->party($writer, 'AccountingCustomerParty', $canonical->company);
-        } else {
-            $this->party($writer, 'AccountingSupplierParty', $canonical->company);
-            if ($supplierContact) {
-                $this->party($writer, 'AccountingCustomerParty', $supplierContact);
-            }
+        $this->party($writer, 'AccountingSupplierParty', $canonical->company);
+        if ($canonical->contact) {
+            $this->party($writer, 'AccountingCustomerParty', $canonical->contact);
         }
 
         if (! $isCreditNote) {
-            // The payee is whoever issues the money claim: the supplier. Under
-            // self-billing that is the contact, so use its account (and omit
-            // PaymentMeans entirely when it has none - never the buyer's).
-            $this->paymentMeans($writer, $document, $selfBilled ? $supplierContact : $canonical->company);
+            $this->paymentMeans($writer, $document, $canonical->company);
         }
 
         $this->taxTotal($writer, $canonical);
@@ -167,14 +140,8 @@ class BusinessDocumentUblService
         );
     }
 
-    protected function invoiceTypeCode(BusinessDocumentType $type, bool $selfBilled = false): string
+    protected function invoiceTypeCode(BusinessDocumentType $type): string
     {
-        // Self-billed documents carry their own UNTDID 1001 codes: 261 for a
-        // self-billed credit note, 389 for a self-billed invoice.
-        if ($selfBilled) {
-            return $type === BusinessDocumentType::CreditNote ? '261' : '389';
-        }
-
         return match ($type) {
             BusinessDocumentType::CreditNote => '381',
             BusinessDocumentType::Proforma => '325',
@@ -275,13 +242,12 @@ class BusinessDocumentUblService
         $writer->endElement();
     }
 
-    protected function paymentMeans(XMLWriter $writer, BusinessDocument $document, Company|CompanyContact $payee): void
+    protected function paymentMeans(XMLWriter $writer, BusinessDocument $document, Company $company): void
     {
-        $iban = preg_replace('/\s+/', '', (string) ($payee->iban ?? ''));
+        $iban = preg_replace('/\s+/', '', (string) ($company->iban ?? ''));
         if ($iban === '') {
             return;
         }
-        $bic = $payee instanceof Company ? $payee->bic : $payee->swift;
 
         $writer->startElementNs('cac', 'PaymentMeans', null);
         // 58 = SEPA credit transfer (XRechnung/BR-DE-23 expectation for IBAN).
@@ -291,9 +257,9 @@ class BusinessDocumentUblService
         }
         $writer->startElementNs('cac', 'PayeeFinancialAccount', null);
         $this->element($writer, 'cbc', 'ID', $iban);
-        if ($bic) {
+        if ($company->bic) {
             $writer->startElementNs('cac', 'FinancialInstitutionBranch', null);
-            $this->element($writer, 'cbc', 'ID', $bic);
+            $this->element($writer, 'cbc', 'ID', $company->bic);
             $writer->endElement();
         }
         $writer->endElement();

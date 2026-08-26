@@ -29,7 +29,6 @@ final class CanonicalInvoice
         public readonly array $lines,
         public readonly array $taxBreakdown,
         public readonly string $currency,
-        public readonly bool $selfBilled = false,
     ) {}
 
     public function vatApplicable(): bool

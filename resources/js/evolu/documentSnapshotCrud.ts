@@ -87,7 +87,6 @@ export type SnapshotDocumentV1 = {
     pdf_locale: string | null;
     pdf_show_signature: boolean;
     pdf_show_payment_info: boolean;
-    self_billed: boolean;
     payment_bank_enabled: boolean;
     payment_btc_enabled: boolean;
 };
@@ -225,7 +224,6 @@ export function buildIssuedSnapshotContentV1(input: {
             pdf_locale: str(input.document.pdf_locale),
             pdf_show_signature: bool(input.document.pdf_show_signature, true),
             pdf_show_payment_info: bool(input.document.pdf_show_payment_info, true),
-            self_billed: bool(input.document.self_billed, false),
             payment_bank_enabled: bool(input.document.payment_bank_enabled, true),
             payment_btc_enabled: bool(input.document.payment_btc_enabled, false),
         },

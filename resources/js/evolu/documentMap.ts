@@ -48,7 +48,6 @@ export type EvoluDocumentRow = {
     pdfLocale: string | null;
     pdfBankQr: string | null;
     pdfShowSignature: 0 | 1 | null;
-    selfBilled?: 0 | 1 | null;
     pdfShowPaymentInfo: 0 | 1 | null;
     paymentBankEnabled: 0 | 1 | null;
     paymentBtcEnabled: 0 | 1 | null;
@@ -182,7 +181,6 @@ export function evoluDocumentToApi(
         pdf_locale: doc.pdfLocale || "sk",
         pdf_bank_qr: doc.pdfBankQr ?? null,
         pdf_show_signature: sqliteBool(doc.pdfShowSignature, true),
-        self_billed: sqliteBool(doc.selfBilled, false),
         pdf_show_payment_info: sqliteBool(doc.pdfShowPaymentInfo, true),
         payment_bank_enabled: sqliteBool(doc.paymentBankEnabled, true),
         payment_btc_enabled: sqliteBool(doc.paymentBtcEnabled, false),
