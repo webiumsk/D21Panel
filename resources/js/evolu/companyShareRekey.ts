@@ -1,4 +1,3 @@
-import { sqliteTrue } from "@evolu/common";
 import type { Evolu, OwnerId } from "@evolu/common/local-first";
 import { allCompanySharesQuery } from "./client";
 import {
@@ -6,6 +5,7 @@ import {
     loadAllMigrationRows,
     MIGRATION_ORDER,
     pendingCopies,
+    purgeRevokedShareResidue,
     rowForSharedUpsert,
     verifyMigrated,
 } from "./companyShareMigration";
@@ -42,7 +42,6 @@ import {
  */
 
 type Loader = Evolu<InvoicingLocalSchema>;
-type Row = { id: string; ownerId?: string | null; isDeleted?: unknown };
 
 const SETTLE_MS = 3_000;
 const VERIFY_ATTEMPTS = 5;
@@ -71,6 +70,64 @@ async function loadShares(evolu: Loader, appOwnerId: string, companyId: string):
     return rows.filter((r) => r.companyId === companyId && r.ownerId === appOwnerId);
 }
 
+async function finishSupersededActiveShares(
+    evolu: Loader,
+    companyId: string,
+    activeShares: ShareRow[],
+): Promise<RekeyResult | null> {
+    if (activeShares.length < 2) {
+        return null;
+    }
+
+    // allCompanySharesQuery is ordered by createdAt, so the newest active row
+    // is the completed cutover target; older active rows are interrupted cleanup.
+    const current = activeShares[activeShares.length - 1];
+    if (current.role !== "owner") {
+        return { ok: false, error: "not_owner" };
+    }
+    const secret = decodeOwnerSecret(current.secretB64);
+    if (!secret) {
+        return { ok: false, error: "share_row_failed", detail: "undecodable active rekey secret" };
+    }
+    const owner = sharedOwnerFromSecret(secret);
+    if (owner.id !== current.sharedOwnerId) {
+        return { ok: false, error: "share_row_failed", detail: "active rekey secret owner mismatch" };
+    }
+
+    registerSharedOwner(evolu, owner);
+    setCompanyShare({
+        companyId,
+        ownerId: owner.id,
+        role: "owner",
+        status: "active",
+        bridgeCompanyId: current.bridgeCompanyId ?? null,
+    });
+
+    const supersededOwners: string[] = [];
+    for (const superseded of activeShares.slice(0, -1)) {
+        const revoked = await mutate((onComplete) =>
+            evolu.update("companyShare", { id: superseded.id as never, status: "revoked" } as never, { onComplete }),
+        );
+        if (!revoked.ok) {
+            return { ok: false, error: "activation_failed", detail: revoked.error };
+        }
+        supersededOwners.push(superseded.sharedOwnerId);
+    }
+
+    const softDeleted = await purgeRevokedShareResidue(evolu, companyId).catch(() => 0);
+    for (const ownerId of supersededOwners) {
+        unregisterSharedOwner(evolu, ownerId as never);
+    }
+    return {
+        ok: true,
+        oldOwnerId: activeShares[0].sharedOwnerId,
+        newOwnerId: owner.id,
+        copied: 0,
+        softDeleted,
+        resumed: true,
+    };
+}
+
 export type RekeyOptions = {
     onProgress?: (progress: RekeyProgress) => void;
     /** Skip pre-flight relay sync wait (tests / already-synced callers). */
@@ -94,7 +151,13 @@ export async function rekeyCompanyShare(evolu: Loader, companyId: string, option
     }
 
     const shares = await loadShares(evolu, appOwnerId, companyId);
-    const active = shares.find((r) => r.status === "active");
+    const activeShares = shares.filter((r) => r.status === "active");
+    const finalized = await finishSupersededActiveShares(evolu, companyId, activeShares);
+    if (finalized) {
+        return finalized;
+    }
+
+    const active = activeShares[0];
     if (!active) {
         return { ok: false, error: "not_shared" };
     }
@@ -152,7 +215,6 @@ export async function rekeyCompanyShare(evolu: Loader, companyId: string, option
     await waitForInvoicingDataSettled(evolu, { minWaitMs: SETTLE_MS, timeoutMs: SETTLE_MS + 3_000 }).catch(() => undefined);
 
     const target = scopedEvolu(evolu, newOwner.id);
-    const source = scopedEvolu(evolu, oldOwnerId as never);
 
     // --- copy: OLD owner -> NEW owner --------------------------------
     let set = collectCompanyRows(await loadAllMigrationRows(evolu), companyId);
@@ -196,29 +258,13 @@ export async function rekeyCompanyShare(evolu: Loader, companyId: string, option
     }
 
     // --- cutover -----------------------------------------------------
-    // Every step below is checked; a failure returns WITHOUT activating,
-    // revoking, or unregistering, leaving the "rekeying" row intact so the
-    // bootstrap resumes. Ordering is deliberate: the old partition is
-    // soft-deleted FIRST, while the new row is still "rekeying" (the resumable
-    // marker) and the old owner is still registered so the deletes propagate to
-    // former members. Only once every delete has succeeded do we activate the
-    // new owner and revoke the old - activating flips the resumable marker, so
-    // it must be the last point of no return.
+    // Activation is the cutover boundary. The old rows stay live until the new
+    // share is active, so an activation failure cannot strand future writes in
+    // a deleted old partition. Once the old share is revoked, residue cleanup is
+    // best-effort and also handled by purgeRevokedShareResidue on later boots.
     report({ phase: "cleanup", done, total });
-    let softDeleted = 0;
-    for (const table of MIGRATION_ORDER) {
-        for (const row of set[table] as Row[]) {
-            if (row.ownerId !== oldOwnerId) continue;
-            const result = await mutate((onComplete) => source.update(table, { id: row.id, isDeleted: sqliteTrue } as never, { onComplete }));
-            if (!result.ok) {
-                return { ok: false, error: "cleanup_failed", detail: { table, id: row.id, error: result.error } };
-            }
-            softDeleted++;
-        }
-    }
     await waitForInvoicingDataSettled(evolu, { minWaitMs: SETTLE_MS, timeoutMs: 20_000 }).catch(() => undefined);
 
-    // Point of no return: activate the new owner (registry + sync move here).
     const activated = await mutate((onComplete) => evolu.update("companyShare", { id: newShareRowId, status: "active" } as never, { onComplete }));
     if (!activated.ok) {
         return { ok: false, error: "activation_failed", detail: activated.error };
@@ -230,6 +276,7 @@ export async function rekeyCompanyShare(evolu: Loader, companyId: string, option
     if (!revoked.ok) {
         return { ok: false, error: "activation_failed", detail: revoked.error };
     }
+    const softDeleted = await purgeRevokedShareResidue(evolu, companyId).catch(() => 0);
     unregisterSharedOwner(evolu, oldOwnerId as never);
 
     report({ phase: "done", done, total });
@@ -241,6 +288,18 @@ export async function resumePendingCompanyShareRekeys(evolu: Loader): Promise<vo
     const appOwnerId = (await evolu.appOwner).id;
     const rows = (await evolu.loadQuery(allCompanySharesQuery)) as unknown as readonly ShareRow[];
     const device = localDeviceId();
+    const activeByCompany = new Map<string, ShareRow[]>();
+    for (const row of rows) {
+        if (row.ownerId !== appOwnerId || row.status !== "active") continue;
+        activeByCompany.set(row.companyId, [...(activeByCompany.get(row.companyId) ?? []), row]);
+    }
+    for (const [companyId, activeShares] of activeByCompany) {
+        if (activeShares.length < 2) continue;
+        const result = await finishSupersededActiveShares(evolu, companyId, activeShares);
+        if (result && !result.ok && import.meta.env.DEV) {
+            console.warn("[company-share] finish interrupted rekey failed", companyId, result.error, result.detail);
+        }
+    }
     const companies = new Set(
         rows
             .filter((r) => r.ownerId === appOwnerId && r.status === "rekeying" && (!r.migratingDeviceId || r.migratingDeviceId === device))

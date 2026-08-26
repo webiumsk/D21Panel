@@ -39,13 +39,17 @@ import type { InvoicingLocalSchema } from '@/evolu/schema';
 
 const APP = 'app-owner';
 type Row = Record<string, unknown> & { id: string; ownerId?: string | null; isDeleted?: unknown };
+type FakeEvoluOptions = {
+    failUpdate?: (table: string, props: Row, options?: { ownerId?: string }) => boolean;
+};
 
 function emptyAll(): Record<MigrationTable, Row[]> {
     return Object.fromEntries(MIGRATION_ORDER.map((t) => [t, []])) as unknown as Record<MigrationTable, Row[]>;
 }
 
-function fakeEvolu(seed: Record<MigrationTable, Row[]>) {
+function fakeEvolu(seed: Record<MigrationTable, Row[]>, options: FakeEvoluOptions = {}) {
     const tables = new Map<string, Map<string, Row>>();
+    const fakeOptions = options;
     const put = (table: string, row: Row) => {
         if (!tables.has(table)) tables.set(table, new Map());
         tables.get(table)!.set(`${row.ownerId}|${row.id}`, row);
@@ -73,6 +77,9 @@ function fakeEvolu(seed: Record<MigrationTable, Row[]>) {
             return { ok: true, value: { id: props.id } };
         }),
         update: vi.fn((table: string, props: Row, options?: { ownerId?: string; onComplete?: () => void }) => {
+            if (fakeOptions.failUpdate?.(table, props, options)) {
+                return { ok: false, error: new Error('update failed') };
+            }
             if (table === 'companyShare') {
                 const row = shares.find((r) => r.id === props.id);
                 if (row) Object.assign(row, props);
@@ -129,6 +136,21 @@ describe('company share rekey', () => {
         expect(companyShareInfo('c1')?.status).toBe('active');
     });
 
+    it('leaves the old partition live when activation fails', async () => {
+        const h = fakeEvolu(emptyAll(), {
+            failUpdate: (table, props) => table === 'companyShare' && props.status === 'active',
+        });
+        seedSharedCompany(h, 'old-owner');
+
+        const result = await rekeyCompanyShare(h.evolu, 'c1', { skipSyncWait: true });
+
+        expect(result).toMatchObject({ ok: false, error: 'activation_failed' });
+        expect(h.tables.get('company')?.get('old-owner|c1')?.isDeleted).not.toBe(1);
+        expect(h.tables.get('contact')?.get('old-owner|k1')?.isDeleted).not.toBe(1);
+        expect(h.shares.some((r) => r.status === 'rekeying')).toBe(true);
+        expect(companyShareInfo('c1')?.ownerId).toBe('old-owner');
+    });
+
     it('refuses a company that is not actively shared', async () => {
         const h = fakeEvolu(emptyAll());
         const result = await rekeyCompanyShare(h.evolu, 'c1', { skipSyncWait: true });
@@ -175,5 +197,25 @@ describe('company share rekey', () => {
         await resumePendingCompanyShareRekeys(h.evolu);
         expect(companyShareInfo('c1')?.ownerId).toBe(newOwner.id);
         expect(h.shares.find((r) => r.sharedOwnerId === 'old-owner')?.status).toBe('revoked');
+    });
+
+    it('resume hook finishes a dual-active cutover without minting another owner', async () => {
+        const h = fakeEvolu(emptyAll());
+        seedSharedCompany(h, 'old-owner');
+        const secret = createCompanyShareSecret();
+        const newOwner = sharedOwnerFromSecret(secret);
+        h.seedShare({ companyId: 'c1', sharedOwnerId: newOwner.id, secretB64: encodeOwnerSecret(secret), role: 'owner', status: 'active', bridgeCompanyId: 'bridge-1', migratingDeviceId: null });
+        h.seedRow('company', { id: 'c1', ownerId: newOwner.id, legalName: 'Acme' });
+        h.seedRow('contact', { id: 'k1', ownerId: newOwner.id, companyId: 'c1', name: 'Bob' });
+
+        await resumePendingCompanyShareRekeys(h.evolu);
+
+        expect(h.shares).toHaveLength(2);
+        expect(h.shares.filter((r) => r.status === 'active')).toHaveLength(1);
+        expect(h.shares.find((r) => r.sharedOwnerId === newOwner.id)?.status).toBe('active');
+        expect(h.shares.find((r) => r.sharedOwnerId === 'old-owner')?.status).toBe('revoked');
+        expect(h.tables.get('company')?.get('old-owner|c1')?.isDeleted).toBe(1);
+        expect(h.tables.get('contact')?.get('old-owner|k1')?.isDeleted).toBe(1);
+        expect(companyShareInfo('c1')?.ownerId).toBe(newOwner.id);
     });
 });

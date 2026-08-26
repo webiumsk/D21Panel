@@ -166,6 +166,43 @@ class CompanyInviteTest extends TestCase
     }
 
     #[Test]
+    public function a_stale_pending_invite_cannot_restore_a_revoked_member(): void
+    {
+        $token1 = $this->actingAs($this->owner)
+            ->postJson("/api/invoicing/companies/{$this->company->id}/invites", $this->sealedBody())
+            ->json('token');
+        $token2 = $this->actingAs($this->owner)
+            ->postJson("/api/invoicing/companies/{$this->company->id}/invites", $this->sealedBody())
+            ->json('token');
+
+        $this->actingAs($this->invitee)
+            ->postJson("/api/invoicing/invites/{$token1}/accept")
+            ->assertOk();
+
+        $member = CompanyMember::where('company_id', $this->company->id)
+            ->where('user_id', $this->invitee->id)
+            ->firstOrFail();
+        $this->actingAs($this->owner)
+            ->deleteJson("/api/invoicing/companies/{$this->company->id}/members/{$member->id}")
+            ->assertOk();
+
+        $this->actingAs($this->invitee)
+            ->postJson("/api/invoicing/invites/{$token2}/accept")
+            ->assertStatus(403)
+            ->assertJson(['message' => 'membership_revoked']);
+        $this->assertFalse($this->company->fresh()->isAccessibleBy($this->invitee->fresh()));
+
+        $this->travel(1)->seconds();
+        $freshToken = $this->actingAs($this->owner)
+            ->postJson("/api/invoicing/companies/{$this->company->id}/invites", $this->sealedBody())
+            ->json('token');
+        $this->actingAs($this->invitee)
+            ->postJson("/api/invoicing/invites/{$freshToken}/accept")
+            ->assertOk();
+        $this->assertTrue($this->company->fresh()->isAccessibleBy($this->invitee->fresh()));
+    }
+
+    #[Test]
     public function a_link_invite_carries_no_server_secret_and_any_user_can_accept(): void
     {
         $token = $this->actingAs($this->owner)
