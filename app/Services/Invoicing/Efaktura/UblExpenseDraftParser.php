@@ -27,12 +27,6 @@ class UblExpenseDraftParser
             ?: '0',
         );
         $paymentId = $this->xpathString($root, '//cbc:BuyerReference');
-        $typeCode = $this->xpathString($root, '//cbc:InvoiceTypeCode')
-            ?: $this->xpathString($root, '//cbc:CreditNoteTypeCode');
-        // 389 = self-billed invoice, 261 = self-billed credit note (UNTDID 1001).
-        // A self-billed document received by the SUPPLIER is their own sale
-        // (revenue), not an expense - the client must not file it as a cost.
-        $selfBilled = in_array($typeCode, ['389', '261'], true);
 
         return [
             'external_number' => $invoiceNumber !== '' ? $invoiceNumber : null,
@@ -43,8 +37,6 @@ class UblExpenseDraftParser
             'due_date' => $dueDate,
             'total' => $total,
             'currency' => $currency,
-            'document_type_code' => $typeCode !== '' ? $typeCode : null,
-            'self_billed' => $selfBilled,
             'internal_note' => 'Importované z Peppol (SAPI-SK).',
         ];
     }
