@@ -27,27 +27,13 @@ Tests: `tests/Feature/BusinessDocumentUblTest.php` (389 + self-billing profile +
 party swap; regression that an ordinary invoice keeps 380 / billing / company as
 supplier).
 
-## D2 - document flag end-to-end (done)
+## D2 - document flag end-to-end (planned)
 
-`self_billed` now flows end-to-end. The counterparty contact already serves as
-the supplier under self-billing (D1 swaps the roles), so no separate supplier
-field is needed - only the boolean.
-
-- Client: `schema.ts` document table (`selfBilled`), `documentCrud.ts`
-  (`DocumentSavePayload.self_billed` + `buildDocumentFields`), `documentMap.ts`
-  (`EvoluDocumentRow.selfBilled` -> API `self_billed`), `ephemeralBridge.ts`
-  (both full-document payload builders), `useInvoiceDocument.ts` (form init /
-  save / load), and a self-billing checkbox in `InvoiceForm.vue` shown for
-  invoices and credit notes.
-- Server: the ephemeral path validates `document.self_billed`
-  (`EphemeralBusinessDocument{Bulk,Pdf}Request`, Efaktura extends Pdf) and
-  `EphemeralDocumentFactory` sets it on the in-memory `BusinessDocument`;
-  server-mode `StoreBusinessDocumentRequest` + `BusinessDocumentController`
-  (create + update) persist it.
-
-Tests: `documentSelfBilled.test.ts` (selfBilled -> self_billed mapping + default
-false). The PHP plumbing mirrors the tested `pdf_show_signature` flow; the UBL
-output itself is covered by D1's `BusinessDocumentUblTest`.
+Thread `self_billed` (and the supplier contact) through the local-first client:
+`schema.ts` document table, `documentCrud.ts` `buildDocumentFields()`,
+`documentMap.ts`, the ephemeral bridge payload -> ephemeral `BusinessDocument`,
+and a UI toggle when creating a document. Only then can a merchant mark a
+document self-billed from the SPA.
 
 ## D3 - supplier-side inbox routing (planned)
 

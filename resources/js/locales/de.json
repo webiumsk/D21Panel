@@ -1266,8 +1266,6 @@
     "payment_bank": "Banküberweisung (Pay by Square QR)",
     "payment_btc": "Bitcoin / Lightning (BTCPay)",
     "payment_btc_lazy_hint": "Der PDF-QR enthält einen Link zur Zahlungsseite (keine direkte Lightning-Rechnung). Der Kunde öffnet ihn im Browser und fährt dann mit BTCPay fort.",
-    "self_billed": "Gutschrift / Self-Billing (im Namen des Lieferanten)",
-    "self_billed_hint": "Eine selbst ausgestellte Rechnung erstellen Sie (der Kunde) für den Lieferanten. Die E-Rechnung nutzt Typcode 389 und vertauscht die Rollen Lieferant/Kunde.",
     "btc_pay_link": "Bitcoin-Zahlungslink",
     "btc_pay_open": "Zahlung öffnen",
     "total_preview": "Gesamt",

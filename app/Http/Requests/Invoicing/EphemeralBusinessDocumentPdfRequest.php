@@ -125,7 +125,6 @@ class EphemeralBusinessDocumentPdfRequest extends FormRequest
             'document.pdf_locale' => ['sometimes', 'nullable', 'string', 'max:10'],
             'document.pdf_bank_qr' => ['sometimes', 'nullable', 'in:auto,paybysquare,epc,swiss,none'],
             'document.pdf_show_signature' => ['sometimes', 'boolean'],
-            'document.self_billed' => ['sometimes', 'boolean'],
             'document.pdf_show_payment_info' => ['sometimes', 'boolean'],
             'document.payment_bank_enabled' => ['sometimes', 'boolean'],
             'document.payment_btc_enabled' => ['sometimes', 'boolean'],

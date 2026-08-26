@@ -207,7 +207,6 @@ export function useInvoiceDocument() {
     pdf_show_payment_info: true,
     payment_bank_enabled: true,
     payment_btc_enabled: false,
-    self_billed: false,
     lines: [] as InvoiceLineForm[],
   });
 
@@ -249,7 +248,6 @@ export function useInvoiceDocument() {
     note_above_lines: form.note_above_lines,
     note_footer: form.note_footer,
     payment_bank_enabled: form.payment_bank_enabled,
-    self_billed: form.self_billed,
     pdf_show_signature: form.pdf_show_signature,
     pdf_show_payment_info: form.pdf_show_payment_info,
     lines: form.lines,
@@ -560,7 +558,6 @@ export function useInvoiceDocument() {
       pdf_show_payment_info: d.pdf_show_payment_info ?? true,
       payment_bank_enabled: d.payment_bank_enabled,
       payment_btc_enabled: d.payment_btc_enabled,
-      self_billed: (d as { self_billed?: boolean }).self_billed ?? false,
       lines: (d.lines || []).map((l: any) => ({
         name: l.name,
         description: l.description || '',
@@ -669,7 +666,6 @@ export function useInvoiceDocument() {
       pdf_show_payment_info: true,
       payment_bank_enabled: true,
       payment_btc_enabled: false,
-      self_billed: false,
       lines: [] as InvoiceLineForm[],
     });
     documentType.value = resolveDocumentTypeFromRoute();
@@ -896,7 +892,6 @@ export function useInvoiceDocument() {
         pdf_bank_qr: form.pdf_bank_qr === 'auto' ? null : form.pdf_bank_qr,
         pdf_show_signature: form.pdf_show_signature,
         pdf_show_payment_info: form.pdf_show_payment_info,
-        self_billed: form.self_billed,
         payment_bank_enabled: form.payment_bank_enabled,
         payment_btc_enabled: form.payment_btc_enabled,
         discount_percent: form.discount_percent,
