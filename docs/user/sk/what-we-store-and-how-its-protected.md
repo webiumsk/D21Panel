@@ -23,11 +23,11 @@ Teda: ukladáme jeden secret na pripojenie peňaženky a ukladáme ho šifrovane
 
 **Kto čo vidí**
 
-- **Vy (obchodník)** — V paneli Satflux môžete pridať, nahradiť alebo odstrániť connection string alebo deskriptor. Pri **úprave alebo nahradení** pripojenia vám formulár môže zobraziť **celú** hodnotu, aby ste ju mohli zmeniť. Keď len prezeráte pripojenie (neupravujete), zvyčajne vidíte **maskovanú** nápovedu (napr. prvých a posledných pár znakov). Ak chcete **znovu zobraziť** uložený secret (napr. na skopírovanie), musíte zadať svoje **heslo** — celý secret bez tohto kroku nezobrazujeme.
+- **Vy (obchodník)** - V paneli Satflux môžete pridať, nahradiť alebo odstrániť connection string alebo deskriptor. Pri **úprave alebo nahradení** pripojenia vám formulár môže zobraziť **celú** hodnotu, aby ste ju mohli zmeniť. Keď len prezeráte pripojenie (neupravujete), zvyčajne vidíte **maskovanú** nápovedu (napr. prvých a posledných pár znakov). Ak chcete **znovu zobraziť** uložený secret (napr. na skopírovanie), musíte zadať svoje **heslo** - celý secret bez tohto kroku nezobrazujeme.
 
-- **Support (ak treba)** — Keď pripojenie peňaženky vyžaduje manuálnu konfiguráciu v BTCPay, support môže dočasne **zobraziť** secret v čistom texte (workflow supportu môže vyžadovať overenie). Tento prístup slúži len na konfiguráciu vášho obchodu. Support secret nepoužíva na nič iné a my ho neposkytujeme tretím stranám.
+- **Support (ak treba)** - Keď pripojenie peňaženky vyžaduje manuálnu konfiguráciu v BTCPay, support môže dočasne **zobraziť** secret v čistom texte (workflow supportu môže vyžadovať overenie). Tento prístup slúži len na konfiguráciu vášho obchodu. Support secret nepoužíva na nič iné a my ho neposkytujeme tretím stranám.
 
-- **Nikto iný** — Connection string ani deskriptor neposielame tretím stranám. Do logov ho v čistom texte nezapisujeme.
+- **Nikto iný** - Connection string ani deskriptor neposielame tretím stranám. Do logov ho v čistom texte nezapisujeme.
 
 ---
 

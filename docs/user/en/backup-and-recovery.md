@@ -21,7 +21,7 @@ Satflux shows a **backup reminder** until you confirm you have saved the phrase 
 
 ## Restore on another device
 
-On a new device, choose **Restore with recovery phrase** and type your 24 words. Your account and invoicing data sync back. Add a [passkey](/documentation/passkeys) on the new device for convenience.
+On a new device, choose **Restore with recovery phrase** and type your 24 words. Your account and invoicing data sync back. Give the sync a moment to finish - the invoicing/company list may be briefly empty, so wait until it fills before creating a new company (otherwise you could create a duplicate). Add a [passkey](/documentation/passkeys) on the new device for convenience.
 
 ## Local-first data
 

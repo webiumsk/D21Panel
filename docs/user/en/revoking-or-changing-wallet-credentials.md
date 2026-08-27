@@ -27,7 +27,7 @@ So: revoke or rotate in Blink, then reconnect the store with a new credential in
 
 1. **In Satflux:** Open the store → **Wallet connection**. **Replace** the old descriptor with the new one in the form and save.
 
-1. **In BTCPay:** As with Blink, there is no “disconnect” — you **replace** the Lightning/wallet configuration with the new descriptor. Support may need to apply it in BTCPay if your setup requires a manual step.
+1. **In BTCPay:** As with Blink, there is no “disconnect” - you **replace** the Lightning/wallet configuration with the new descriptor. Support may need to apply it in BTCPay if your setup requires a manual step.
 
 So: revoke or change in the wallet app (new key or new descriptor), then reconnect by submitting the new credential in Satflux.
 
@@ -35,7 +35,7 @@ So: revoke or change in the wallet app (new key or new descriptor), then reconne
 
 **Summary**
 
-- We do **not** offer “disconnect” in Satflux or in BTCPay — only **change/replace** the connection.
+- We do **not** offer “disconnect” in Satflux or in BTCPay - only **change/replace** the connection.
 
 - To stop using a credential: revoke or change it in **Blink** or **Aqua**, then in Satflux submit a **new** connection string or descriptor so the store uses the new credential.
 

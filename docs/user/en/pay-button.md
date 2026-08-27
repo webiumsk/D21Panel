@@ -22,4 +22,4 @@ Paste the snippet into your page's HTML where you want the button to appear. Whe
 ## Notes
 
 - The snippet is self-contained - no account or plugin required on your site.
-- For a full shop, consider the [WooCommerce integration](/documentation/creating-your-first-store) instead of individual buttons.
+- For a full shop, a WooCommerce integration is a better fit than individual buttons.

@@ -17,7 +17,7 @@ meta_description: Najjednoduchší, plne nekustodiálny spôsob pripojenia peňa
 4. V aplikácii **Aqua** naskenujte QR. Aqua nastaví Bitcoin, Lightning (cez Boltz) a voliteľne Liquid na vašom BTCPay obchode.
 5. Satflux zistí, keď párovanie prebehne, a pripojenie dokončí.
 
-To je všetko - žiaden descriptor na kopírovanie. Satflux pri SamRock pripojení neukladá žiaden privátny descriptor; kľúče drží BTCPay.
+To je všetko - žiaden descriptor na kopírovanie. Satflux pri SamRock pripojení neukladá žiaden privátny descriptor; kľúče ostávajú v Aqua; BTCPay používa len watch-only descriptor.
 
 ## Poznámky
 

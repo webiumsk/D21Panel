@@ -23,7 +23,7 @@ Vstavaný **sprievodca peňaženkami** v aplikácii vypisuje každú podporovan�
 
 ## Čo Satflux ukladá
 
-Pri pripojení Satflux uchováva len to, čo je potrebné na nastavenie BTCPay, a každé tajomstvo je **šifrované**. Pri neskoršom zobrazení vidíte **maskovanú** hodnotu a jej odhalenie vyžaduje opätovné overenie. Pri SamRock/Aqua sa v Satfluxe neukladá žiadny privátny descriptor - kľúče drží BTCPay. Viď [Čo ukladáme a ako je to chránené](/documentation/what-we-store-and-how-its-protected).
+Pri pripojení Satflux uchováva len to, čo je potrebné na nastavenie BTCPay, a každé tajomstvo je **šifrované**. Pri neskoršom zobrazení vidíte **maskovanú** hodnotu a jej odhalenie vyžaduje opätovné overenie. Pri SamRock/Aqua sa v Satfluxe neukladá žiadny privátny descriptor - kľúče ostávajú v Aqua; BTCPay používa len watch-only descriptor. Viď [Čo ukladáme a ako je to chránené](/documentation/what-we-store-and-how-its-protected).
 
 ## Po pripojení
 

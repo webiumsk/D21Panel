@@ -28,4 +28,4 @@ Satflux connects **your own** wallet to your store - it never holds your funds. 
 - **Want to accept ecash?** See [Cashu (CashuMelt)](/documentation/accept-cashu-ecash) - note it is beta.
 - **Run your own Alby Hub?** Use [NWC](/documentation/connect-with-nwc).
 
-You can change your wallet later - see [Revoking or changing wallet credentials](/documentation/revoking-or-changing-wallet-credentials). Whatever you choose, your keys and coins stay yours: see [We cannot access or move your funds](/documentation/we-cannot-access-or-move-your-funds).
+You can change your wallet later - see [Revoking or changing wallet credentials](/documentation/revoking-or-changing-wallet-credentials). Whatever you choose, Satflux never takes custody of your wallet - see [We cannot access or move your funds](/documentation/we-cannot-access-or-move-your-funds). (Cashu is different in kind: it is mint-backed ecash that is melted to your Lightning address.)

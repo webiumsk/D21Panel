@@ -12,7 +12,7 @@ Slovensko zavádza pre podniky štruktúrovanú **e-fakturáciu**, postupne v na
 ## Kto čo potrebuje
 
 - **Platitelia DPH** zvyčajne potrebujú e-faktúry aj vystavovať, aj prijímať.
-- **Neplatitelia** potrebujú hlavne vedieť ich **prijímať**.
+- **Neplatitelia** zvyčajne potrebujú hlavne **prijímať**, ale presné povinnosti závisia od pravidiel DPH a vašej situácie - overte si ich.
 
 Satflux zobrazuje na firme **kontrolný zoznam pripravenosti** podľa vašej situácie, takže vidíte len kroky, ktoré sa vás týkajú.
 

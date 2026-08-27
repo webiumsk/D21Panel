@@ -7,7 +7,7 @@ meta_description: Hostujte opakovateľné adresy meno@váš-obchod, ktoré vám 
 
 # Lightning adresy obchodu
 
-**Lightning adresa obchodu** je opakovateľná adresa hostovaná na doméne vášho obchodu - `meno@doména-obchodu` - ktorú vám môže cez Lightning zaplatiť ktokoľvek bez novej faktúry zakaždým. Dajte ju na web, sociálne siete alebo tip jar.
+**Lightning adresa obchodu** je opakovateľná adresa hostovaná na doméne vášho obchodu - `meno@doména-obchodu` - ktorú vám môže cez Lightning zaplatiť ktokoľvek bez toho, aby ste zakaždým museli vytvárať a zdieľať novú faktúru. Dajte ju na web, sociálne siete alebo tip jar.
 
 > Toto je iné ako [pripojenie peňaženky cez jej Lightning adresu](/documentation/connect-with-any-lightning-address). Tu **hostujete vlastné** adresy na príjem na svojom obchode; tam smerujete backend obchodu na externú peňaženku.
 

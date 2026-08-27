@@ -13,7 +13,7 @@ Najjednoduchší spôsob pripojenia peňaženky je vložiť jednu **Lightning ad
 
 - **Blink** (`vy@blink.sv`) - nekustodiálne, len na príjem. Odporúčané na rýchly štart.
 - **Blitz** (`…@blitzwalletapp.com`), **Flash** (`…@flashapp.me`), **Coinos** (`…@coinos.io`) - pripoja sa natívne.
-- **Akákoľvek peňaženka s podporou LUD-21** overenia platieb - Satflux adresu pri pripojení skontroluje (rýchly „probe") a ak peňaženka LUD-21 podporuje, pripojí ju ako štandardnú Lightning adresu.
+- **Akákoľvek peňaženka s podporou LUD-21** overenia platieb - Satflux adresu pri pripojení skontroluje (rýchly „probe“) a ak peňaženka LUD-21 podporuje, pripojí ju ako štandardnú Lightning adresu.
 
 ## Ostatné adresy - Cashu (beta)
 

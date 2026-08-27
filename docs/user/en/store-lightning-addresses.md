@@ -7,7 +7,7 @@ meta_description: Host reusable you@your-store Lightning addresses that anyone c
 
 # Store Lightning addresses
 
-A **store Lightning address** is a reusable address hosted on your own store's domain - `username@your-store-domain` - that anyone can pay over Lightning without a fresh invoice each time. Put it on your website, socials, or a tip jar.
+A **store Lightning address** is a reusable address hosted on your own store's domain - `username@your-store-domain` - that anyone can pay over Lightning without you having to create and share a new invoice each time. Put it on your website, socials, or a tip jar.
 
 > This is different from [connecting a wallet by its Lightning address](/documentation/connect-with-any-lightning-address). Here you are **hosting your own** receive addresses on your store; there you point the store's backend at an external wallet.
 

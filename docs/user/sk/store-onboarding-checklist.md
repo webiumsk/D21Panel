@@ -13,9 +13,9 @@ Po vytvorení obchodu vám **checklist nastavenia peňaženky** (wallet onboardi
 
 Kroky sú:
 
-1. **Zadať údaje peňaženky** — V **Pripojení peňaženky** (obchod → LN Wallet Connection) pridajte Blink connection string alebo Aqua výstupný deskriptor. Všetka konfigurácia sa robí v paneli Satflux; nemusíte sami povoľovať pluginy ani nastavovať BTCPay.
-2. **Vytvoriť Point of Sale (PoS)** — Vytvorte PoS aplikáciu pre obchod. Môžete ju použiť na vytváranie faktúr a prijímanie platieb na mieste alebo online.
-3. **Otestovať platbu** — Vytvorte testovaciu faktúru (napr. z PoS), zaplaťte ju **z inej peňaženky** než tej, ktorá prijíma (napr. z iného telefónu alebo aplikácie), a overte, že prostriedky dorazia do vašej prijímajúcej peňaženky.
+1. **Zadať údaje peňaženky** - V **Pripojení peňaženky** (obchod → LN Wallet Connection) pridajte Blink connection string alebo Aqua výstupný deskriptor. Všetka konfigurácia sa robí v paneli Satflux; nemusíte sami povoľovať pluginy ani nastavovať BTCPay.
+2. **Vytvoriť Point of Sale (PoS)** - Vytvorte PoS aplikáciu pre obchod. Môžete ju použiť na vytváranie faktúr a prijímanie platieb na mieste alebo online.
+3. **Otestovať platbu** - Vytvorte testovaciu faktúru (napr. z PoS), zaplaťte ju **z inej peňaženky** než tej, ktorá prijíma (napr. z iného telefónu alebo aplikácie), a overte, že prostriedky dorazia do vašej prijímajúcej peňaženky.
 
 Pri testovaní musíte platiť **z inej** peňaženky než z tej pripojenej k obchodu; inak netestujete skutočný tok. Keď platba dorazí do vašej peňaženky, krok môžete označiť za dokončený.
 
@@ -23,9 +23,9 @@ Pri testovaní musíte platiť **z inej** peňaženky než z tej pripojenej k ob
 
 **Kde to nájdete v aplikácii**
 
-- **Po vytvorení obchodu** — Ste presmerovaní na stránku **Ďalšie kroky**. Použite odkaz **„View Onboarding Checklist“** na otvorenie checklistu pre daný obchod.
+- **Po vytvorení obchodu** - Ste presmerovaní na stránku **Ďalšie kroky**. Použite odkaz **„View Onboarding Checklist“** na otvorenie checklistu pre daný obchod.
 
-- **Z obchodu** — Otvorte obchod a prejdite na stránku **Wallet onboarding** / **Checklist**. URL: /stores/{id-obchodu}/checklist.
+- **Z obchodu** - Otvorte obchod a prejdite na stránku **Wallet onboarding** / **Checklist**. URL: /stores/{id-obchodu}/checklist.
 
 Stránka checklistu má nadpis **„Wallet onboarding“**. Každý krok môžete označiť za dokončený; stav sa ukladá. Všetky kroky sú potrebné na úplné nastavenie.
 

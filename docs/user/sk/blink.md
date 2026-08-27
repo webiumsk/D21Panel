@@ -31,4 +31,4 @@ API kľúč získate v **Blink dashboarde → API Keys** (vytvorte kľúč s pr�
 - Máte už nastavený API kľúč? Stále funguje.
 - Chcete držať vlastné kľúče s QR nastavením? Zvážte **Aqua** cez [SamRock](/documentation/connect-aqua-with-samrock).
 
-Čo presne znamená „len na príjem", viď [Nemôžeme pristupovať k vaším prostriedkom ani ich presúvať](/documentation/we-cannot-access-or-move-your-funds).
+Čo presne znamená „len na príjem“, viď [Nemôžeme pristupovať k vaším prostriedkom ani ich presúvať](/documentation/we-cannot-access-or-move-your-funds).

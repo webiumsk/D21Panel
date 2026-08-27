@@ -26,8 +26,8 @@ Satflux ich rozlíši automaticky podľa tvaru descriptora.
 
 ## Riešenie problémov
 
-- **„Obsahuje privátny kľúč"** - exportovali ste zlý reťazec. Exportujte **watch-only** descriptor, nikdy nie seed ani `xprv`/`zprv`.
-- **„Už sa používa"** - descriptor môže byť pripojený len k jednému obchodu. Najprv ho inde odpojte.
+- **„Obsahuje privátny kľúč“** - exportovali ste zlý reťazec. Exportujte **watch-only** descriptor, nikdy nie seed ani `xprv`/`zprv`.
+- **„Už sa používa“** - descriptor môže byť pripojený len k jednému obchodu. Najprv ho inde odpojte.
 - **Zlý formát** - Aqua descriptory sú `elsh(wpkh(...))`, Bull sú `elwpkh(...)`. Skontrolujte, že ste skopírovali celý reťazec bez prerušenia.
 - **Lightning zatiaľ nefunguje** - descriptorové pripojenia zapínajú Lightning cez Boltz; skontrolujte indikátor pripravenosti Boltz na obchode. Chvíľu môže trvať, kým bude pripravený.
 

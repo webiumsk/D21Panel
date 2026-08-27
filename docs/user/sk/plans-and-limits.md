@@ -7,7 +7,7 @@ meta_description: Čo zahŕňajú plány Free, Pro a Enterprise v Satfluxe.
 
 # Plány a limity
 
-Satflux ponúka plán **Free** a platené plány **Pro** a **Enterprise**. Vyššie plány zvyšujú limity a odomykajú funkcie ako firemná fakturácia.
+Satflux ponúka plán **Free** a platené plány **Pro** a **Enterprise**. Vyššie plány zvyšujú limity a odomykajú funkcie, ako je firemná fakturácia.
 
 ## V skratke
 

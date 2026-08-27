@@ -17,7 +17,7 @@ Vo firme otvorte **Účtovnícky export** a zvoľte obdobie. Satflux zostaví ba
 - Zaznamenané náklady
 - Štruktúrované dáta, ktoré softvér účtovníka vie importovať (napríklad ISDOC a Pohoda XML, kde je to relevantné)
 
-Keďže balík vždy nesie štruktúrovaný súbor plus ľudsky čitateľné PDF, účtovník vie naimportovať, čo jeho nástroj podporuje, a zvyšok prečítať.
+Balík obsahuje štruktúrovaný súbor pre formát, ktorý zvolíte, a ľudsky čitateľné PDF, keď ich zahrniete, takže účtovník vie naimportovať, čo jeho nástroj podporuje, a zvyšok prečítať.
 
 ## Priame zdieľanie
 

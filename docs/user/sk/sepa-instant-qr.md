@@ -18,5 +18,5 @@ meta_description: Prijímajte eurové bankové prevody cez SEPA Instant QR kód,
 ## Poznámky
 
 - Dostupné pre všetky účty vrátane hostí.
-- Platby prídu na **váš bankový účet** - je to eurová koľaj, ktorú ovládate vy, oddelená od Bitcoinu.
+- Platby prídu na **váš bankový účet** - je to eurový platobný kanál, ktorú ovládate vy, oddelená od Bitcoinu.
 - Dobre sa dopĺňa s [fakturáciou](/documentation/getting-started-with-invoicing) a [párovaním bankových platieb](/documentation/bank-payment-matching), ktoré vedia spárovať prichádzajúce bankové platby s vašimi faktúrami.

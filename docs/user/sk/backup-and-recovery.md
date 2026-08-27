@@ -21,7 +21,7 @@ Satflux zobrazuje **pripomienku zálohy**, kým nepotvrdíte, že ste frázu ulo
 
 ## Obnova na inom zariadení
 
-Na novom zariadení zvoľte **Obnoviť pomocou frázy** a zadajte 24 slov. Účet aj fakturačné dáta sa zosynchronizujú späť. Pre pohodlie si na novom zariadení pridajte [passkey](/documentation/passkeys).
+Na novom zariadení zvoľte **Obnoviť pomocou frázy** a zadajte 24 slov. Účet aj fakturačné dáta sa zosynchronizujú späť. Nechajte synchronizáciu dobehnúť - zoznam firiem/fakturácie môže byť chvíľu prázdny, takže pred vytvorením novej firmy počkajte, kým sa naplní (inak by ste mohli vytvoriť duplicitu). Pre pohodlie si na novom zariadení pridajte [passkey](/documentation/passkeys).
 
 ## Local-first dáta
 

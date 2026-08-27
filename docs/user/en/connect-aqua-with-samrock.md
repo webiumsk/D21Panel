@@ -17,7 +17,7 @@ meta_description: The easiest, fully non-custodial way to connect the Aqua walle
 4. In the **Aqua** app, scan the QR. Aqua configures Bitcoin, Lightning (via Boltz), and optionally Liquid on your BTCPay store.
 5. Satflux detects when the pairing succeeds and finishes the connection.
 
-That's it - no descriptor to copy. Satflux stores no private descriptor for a SamRock connection; BTCPay holds the keys.
+That's it - no descriptor to copy. Satflux stores no private descriptor for a SamRock connection; your keys stay in Aqua; BTCPay only uses the watch-only descriptor.
 
 ## Notes
 

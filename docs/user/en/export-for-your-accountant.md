@@ -17,7 +17,7 @@ From your company, open **Accountant export** and choose the period. Satflux ass
 - Recorded expenses
 - Structured data your accountant's software can import (for example ISDOC, and Pohoda XML where applicable)
 
-Because the package always carries a structured file plus the human-readable PDFs, your accountant can import what their tool supports and read the rest.
+The package includes a structured file for the format you select, plus the human-readable PDFs when you choose to include them, so your accountant can import what their tool supports and read the rest.
 
 ## Sharing directly
 

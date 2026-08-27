@@ -19,7 +19,7 @@ Otvorte **Pripojenie peňaženky** obchodu a sekciu **Cashu**. Potvrďte beta up
 - **Lightning adresa** - kam sa premelené prostriedky vyplácajú. **Povinné.**
 - **Ponúkať Cashu pri platbe** - zapnite.
 - **Jednotka faktúry** - `sat` alebo `usd`.
-- Voliteľne: **dôveryhodné minty** a **stropy rezervy poplatku** (max v sats a/alebo ako % zo sumy), ktoré ohraničujú, koľko Lightning routing poplatku môže melt minúť.
+- Voliteľne: **dôveryhodné minty** a **stropy rezervy poplatku** (max v sats a/alebo ako % zo sumy), ktoré ohraničujú, koľko poplatku za smerovanie (routing) Lightning platby môže melt minúť.
 
 Uloženie Cashu ako metódy obchodu odstráni Lightning možnosť pri platbe, takže BTCPay ponúkne len Cashu. Úprava existujúceho Cashu obchodu si znova vyžiada heslo (pokiaľ sa neprihlasujete frázou alebo passkeyom).
 

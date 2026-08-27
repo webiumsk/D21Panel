@@ -23,7 +23,7 @@ The built-in **wallet guide** in the app lists every supported wallet with step-
 
 ## What Satflux stores
 
-For a connection, Satflux keeps only what is needed to configure BTCPay, and any secret is **encrypted at rest**. When you view a connection later you see a **masked** value, and revealing it requires re-authentication. For SamRock/Aqua no private descriptor is stored in Satflux at all - BTCPay holds the keys. See [What we store and how it's protected](/documentation/what-we-store-and-how-its-protected).
+For a connection, Satflux keeps only what is needed to configure BTCPay, and any secret is **encrypted at rest**. When you view a connection later you see a **masked** value, and revealing it requires re-authentication. For SamRock/Aqua no private descriptor is stored in Satflux at all - your keys stay in Aqua; BTCPay only uses the watch-only descriptor. See [What we store and how it's protected](/documentation/what-we-store-and-how-its-protected).
 
 ## After you connect
 

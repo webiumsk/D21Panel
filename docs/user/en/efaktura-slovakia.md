@@ -12,7 +12,7 @@ Slovakia is introducing structured **e-invoicing** for businesses, phased in ove
 ## Who needs what
 
 - **VAT payers** typically need to both issue and receive e-invoices.
-- **Non-payers** mainly need to be able to **receive** them.
+- **Non-payers** usually need mainly to **receive** them, but your exact duties depend on the VAT rules and your situation - check them.
 
 Satflux shows a **readiness checklist** on your company based on your situation, so you only see the steps that apply to you.
 

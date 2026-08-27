@@ -20,5 +20,5 @@ Po pripojení si zákazníci môžu pri platbe okrem Bitcoin možností zvoliť 
 ## Poznámky
 
 - Stripe vyžaduje plán **Pro** (viď [Plány a limity](/documentation/plans-and-limits)).
-- Platby kartou sa vysporiadajú na váš Stripe účet, nie do Bitcoin peňaženky - je to samostatná koľaj, ktorú ovládate vy.
+- Platby kartou sa vysporiadajú na váš Stripe účet, nie do Bitcoin peňaženky - je to samostatný platobný kanál, ktorú ovládate vy.
 - Jednotlivé platobné metódy viete zapnúť alebo vypnúť v platobných nastaveniach obchodu.

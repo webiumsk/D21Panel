@@ -28,4 +28,4 @@ Satflux pripája k obchodu **vašu vlastnú** peňaženku - nikdy nedrží vaše
 - **Chcete prijímať ecash?** Viď [Cashu (CashuMelt)](/documentation/accept-cashu-ecash) - je to beta.
 - **Máte vlastný Alby Hub?** Použite [NWC](/documentation/connect-with-nwc).
 
-Peňaženku môžete neskôr zmeniť - viď [Zrušenie alebo zmena údajov peňaženky](/documentation/revoking-or-changing-wallet-credentials). Nech si zvolíte čokoľvek, kľúče aj mince ostávajú vaše: viď [Nemôžeme pristupovať k vaším prostriedkom ani ich presúvať](/documentation/we-cannot-access-or-move-your-funds).
+Peňaženku môžete neskôr zmeniť - viď [Zrušenie alebo zmena údajov peňaženky](/documentation/revoking-or-changing-wallet-credentials). Nech si zvolíte čokoľvek, Satflux nikdy nepreberá kustódiu vašej peňaženky - viď [Nemôžeme pristupovať k vaším prostriedkom ani ich presúvať](/documentation/we-cannot-access-or-move-your-funds). (Cashu je svojou podstatou iné: je to ecash krytý mintom, ktorý sa premelí na vašu Lightning adresu.)
