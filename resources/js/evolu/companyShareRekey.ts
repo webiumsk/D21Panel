@@ -85,6 +85,26 @@ async function refreshSourceRows(
     return { ok: true, copied };
 }
 
+async function copyMissingSourceRows(
+    target: Loader,
+    set: ReturnType<typeof collectCompanyRows>,
+    sourceOwnerId: string,
+    targetOwnerId: string,
+): Promise<{ ok: true; copied: number } | { ok: false; detail: { table: string; id: string; error?: unknown } }> {
+    const pending = pendingCopies(set, sourceOwnerId, targetOwnerId);
+    let copied = 0;
+    for (const table of MIGRATION_ORDER) {
+        for (const row of pending[table]) {
+            const result = await mutate((onComplete) => target.upsert(table, rowForSharedUpsert(row) as never, { onComplete }));
+            if (!result.ok) {
+                return { ok: false, detail: { table, id: row.id, error: result.error } };
+            }
+            copied++;
+        }
+    }
+    return { ok: true, copied };
+}
+
 async function mirrorSourceRows(
     target: Loader,
     set: ReturnType<typeof collectCompanyRows>,
@@ -177,10 +197,11 @@ async function finishSupersededActiveShares(
     await waitForInvoicingDataSettled(evolu, { minWaitMs: SETTLE_MS, timeoutMs: 20_000 }).catch(() => undefined);
     let copied = 0;
     for (const superseded of activeShares.slice(0, -1)) {
-        const refreshed = await refreshSourceRows(
+        const refreshed = await copyMissingSourceRows(
             target,
             collectCompanyRows(await loadAllMigrationRows(evolu), companyId),
             superseded.sharedOwnerId,
+            owner.id,
         );
         if (!refreshed.ok) {
             return { ok: false, error: "copy_failed", detail: refreshed.detail };
