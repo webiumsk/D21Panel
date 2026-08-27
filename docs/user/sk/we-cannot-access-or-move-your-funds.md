@@ -27,10 +27,16 @@ Pri pripojení Aqua nám zadáte **watch-only výstupný deskriptor**. Obsahuje 
 
 Takže nikdy nemáme oprávnenie míňať. Všetky prijaté prostriedky zostávajú v peňaženke, ktorú kontrolujete v Aqua.
 
+**Bull Bitcoin: watch-only deskriptor, žiadne súkromné kľúče**
+
+Bull Bitcoin sa pripája rovnako ako Aqua - cez **watch-only výstupný deskriptor**, ktorý obsahuje len verejné kľúče. Vieme odvodzovať adresy a prijímať platby; nikdy nevieme míňať, podpisovať ani presúvať prostriedky.
+
 **Zhrnutie**
 
 - **Blink** — Iba read + receive; žiadny send. Prostriedky zostávajú vo vašej Blink peňaženke.
 
-- **Aqua** — Watch-only deskriptor; žiadne súkromné kľúče. Prostriedky zostávajú vo vašej Aqua peňaženke.
+- **Aqua / Bull Bitcoin** — Watch-only deskriptor; žiadne súkromné kľúče. Prostriedky zostávajú vo vašej peňaženke.
+
+- **NWC / vlastný uzol** — Pripojenie k vlastnej peňaženke vydávate vy a určujete, čo smie robiť.
 
 Nikdy nemáme oprávnenie míňať. Vaše prostriedky zostávajú vo vašej peňaženke.

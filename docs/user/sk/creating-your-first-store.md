@@ -1,7 +1,7 @@
 ---
 title: "Vytvorenie prvého obchodu"
 category: getting-started
-order: 2
+order: 3
 meta_description: "Nový obchod v Satfluxe vytvoríte v troch krokoch: základné údaje, typ peňaženky a potvrdenie. Obchod sa potom vytvorí v BTCPay Serveri a zobrazí sa krátky checklist, aby ste mohli dokončiť nastavenie peňaženky a otestovať platbu."
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Revoking or changing wallet credentials"
-category: security
-order: 3
+category: wallet-connection
+order: 7
 meta_description: "How to disconnect or update Blink API key / Aqua descriptor. That you can revoke in the wallet app and reconnect with a new credential."
 ---
 

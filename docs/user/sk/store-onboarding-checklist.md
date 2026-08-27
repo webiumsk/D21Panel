@@ -1,7 +1,7 @@
 ---
 title: "Checklist nastavenia obchodu"
-category: after-setup
-order: 1
+category: getting-started
+order: 5
 meta_description: "What the checklist is (connect wallet, enable Lightning, test invoice, etc.). Blink vs Aqua checklist differences. Where to find it in the UI (resources/js/pages/stores/Checklist.vue, app/Services/StoreChecklistService.php)."
 ---
 

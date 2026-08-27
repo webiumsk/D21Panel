@@ -27,10 +27,16 @@ When you connect Aqua, you give us a **watch-only output descriptor**. It contai
 
 So we never have spend authority. All received funds stay in the wallet you control in Aqua.
 
+**Bull Bitcoin: watch-only descriptor, no private keys**
+
+Bull Bitcoin connects the same way as Aqua - with a **watch-only output descriptor** that contains only public keys. We can derive addresses and receive payments; we can never spend, sign, or move funds.
+
 **Summary**
 
 - **Blink** — Read + receive only; no send. Funds stay in your Blink wallet.
 
-- **Aqua** — Watch-only descriptor; no private keys. Funds stay in your Aqua wallet.
+- **Aqua / Bull Bitcoin** — Watch-only descriptor; no private keys. Funds stay in your wallet.
+
+- **NWC / your own node** — You issue a connection to your own wallet and control what it may do.
 
 We never have spend authority. Your funds stay in your wallet.

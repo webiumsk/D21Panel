@@ -1,7 +1,7 @@
 ---
 title: "Creating your first store"
 category: getting-started
-order: 2
+order: 3
 meta_description: "End-to-end: create store (name, currency, timezone, price source) → choose wallet type (Blink or Aqua) → confirm. Link to “Choosing your wallet” and “Wallet connection” for details."
 ---
 
