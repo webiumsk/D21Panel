@@ -1,5 +1,9 @@
-import { flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// The modal teleports to <body> and this project does not auto-unmount
+// wrappers; unmount each after its test so nothing lingers between tests.
+enableAutoUnmount(afterEach);
 
 const mocks = vi.hoisted(() => ({
     addAccountPasskeyFromSession: vi.fn(),
@@ -106,6 +110,9 @@ describe("PasskeyEnrollOfferModal", () => {
         );
         const wrapper = mount(PasskeyEnrollOfferModal, {
             props: { open: true, context },
+            // The modal teleports to <body>; stub teleport so its content stays
+            // inside the wrapper for querying.
+            global: { stubs: { teleport: true } },
         });
         await flushPromises();
         return wrapper;
@@ -192,7 +199,9 @@ describe("PasskeyEnrollOfferModal", () => {
         await flushPromises();
 
         expect(wrapper.text()).toContain("auth.passkey_browser_no_prf");
-        expect(create.attributes("disabled")).toBeDefined();
+        // Re-query: under the teleport stub the button node is re-created on the
+        // prfBlocked re-render, so the pre-click reference goes stale.
+        expect(button(wrapper, "auth.passkey_offer_create").attributes("disabled")).toBeDefined();
     });
 
     it("snoozes only when skipped in the restore context", async () => {

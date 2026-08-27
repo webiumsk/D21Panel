@@ -1,6 +1,10 @@
-import { flushPromises, mount } from "@vue/test-utils";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import { DeviceUnlockError } from "../services/deviceUnlock/envelope";
+
+// The nested passkey offer teleports to <body> and this project does not
+// auto-unmount wrappers; unmount each after its test so nothing lingers.
+enableAutoUnmount(afterEach);
 
 const mocks = vi.hoisted(() => ({
     loginWithAccountPasskey: vi.fn(),
@@ -68,7 +72,12 @@ function passkeyButton(wrapper: ReturnType<typeof mount>) {
 
 async function mountModal() {
     const { default: GuestRestoreModal } = await import("../components/auth/GuestRestoreModal.vue");
-    const wrapper = mount(GuestRestoreModal, { props: { open: true } });
+    // The nested passkey offer teleports to <body>; stub teleport so its
+    // content stays inside the wrapper for querying.
+    const wrapper = mount(GuestRestoreModal, {
+      props: { open: true },
+      global: { stubs: { teleport: true } },
+    });
     await flushPromises();
     return wrapper;
 }

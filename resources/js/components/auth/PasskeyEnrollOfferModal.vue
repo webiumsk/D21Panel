@@ -1,7 +1,8 @@
 <template>
+  <Teleport to="body">
   <div
     v-if="open"
-    class="fixed z-[60] inset-0 overflow-y-auto"
+    class="fixed z-[100] inset-0 overflow-y-auto"
   >
     <div class="fixed inset-0 bg-gray-900/90 backdrop-blur-sm" />
     <div class="flex min-h-full items-center justify-center p-4">
@@ -57,6 +58,7 @@
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
