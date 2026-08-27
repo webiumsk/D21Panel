@@ -236,6 +236,7 @@ import { mergeDuplicateCompaniesLocal } from '@/evolu/companyMergeLocal';
 import { useAuthStore } from '../../store/auth';
 import { useFlashStore } from '@/store/flash';
 import { useInvoicingOnboardingStore } from '../../store/invoicingOnboarding';
+import { shouldAutoOfferInvoicingWizard } from '../../utils/invoicingWizardGate';
 import UpgradeModal from '../../components/stores/UpgradeModal.vue';
 import InvoicingSetupWizardModal from '../../components/invoicing/InvoicingSetupWizardModal.vue';
 
@@ -274,6 +275,10 @@ const showWizard = ref(false);
 const showUpgrade = ref(false);
 const showRelaySyncModal = ref(false);
 const migrationStatus = ref<ServerMigrationStatus | null>(null);
+// Whether the initial migration-status probe has settled. The wizard waits on
+// this in local-first mode so it never pre-empts a server-migration prompt
+// that is still loading.
+const migrationStatusLoaded = ref(false);
 const migrationImporting = ref(false);
 const attachmentImporting = ref(false);
 const mergeRunning = ref(false);
@@ -364,6 +369,8 @@ async function loadMigrationStatus(): Promise<void> {
     }
   } catch {
     migrationStatus.value = null;
+  } finally {
+    migrationStatusLoaded.value = true;
   }
 }
 
@@ -602,14 +609,18 @@ function closeWizard(): void {
 // with no companies and nothing more urgent (server migration / relay sync)
 // is competing for attention. Marking it seen up front keeps it a one-time
 // nudge; the empty state keeps a manual "Start setup" entry point.
-const shouldAutoOfferWizard = computed(
-  () =>
-    canUse.value &&
-    !loading.value &&
-    !loadError.value &&
-    companyList.value.length === 0 &&
-    !showServerMigration.value &&
-    !isRelaySyncing.value,
+// In local-first mode the decision waits for the migration-status probe so an
+// about-to-appear server-migration prompt is never pre-empted.
+const shouldAutoOfferWizard = computed(() =>
+  shouldAutoOfferInvoicingWizard({
+    canUse: canUse.value,
+    loading: loading.value,
+    loadError: loadError.value,
+    companyCount: companyList.value.length,
+    migrationGateReady: !localFirst || migrationStatusLoaded.value,
+    showServerMigration: showServerMigration.value,
+    isRelaySyncing: isRelaySyncing.value,
+  }),
 );
 
 watch(

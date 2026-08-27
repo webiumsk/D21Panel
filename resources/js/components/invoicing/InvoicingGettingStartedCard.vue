@@ -83,7 +83,9 @@ const profileComplete = computed(() => {
 const brandingComplete = computed(() => str(effectiveCompany.value?.logo_url) !== '');
 
 const profileTo = computed(() => ({ name: 'invoicing-company', params: { companyId: props.companyId } }));
-const brandingTo = computed(() => ({ name: 'invoicing-company-app', params: { companyId: props.companyId } }));
+// The logo lives on the company profile form (CompanySettingsForm, "branding"
+// tab), which is the profile route - not the app-settings route.
+const brandingTo = computed(() => ({ name: 'invoicing-company', params: { companyId: props.companyId } }));
 const contactTo = computed(() => ({ name: 'invoicing-contact-new', params: { companyId: props.companyId } }));
 const documentTo = computed(() => ({ name: 'invoicing-invoice-new', params: { companyId: props.companyId } }));
 
