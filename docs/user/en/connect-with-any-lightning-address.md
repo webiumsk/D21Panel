@@ -17,7 +17,7 @@ The simplest way to connect a wallet is to paste a single **Lightning address** 
 
 ## Other addresses - Cashu (beta)
 
-If the address is not one of the above and does not support LUD-21, Satflux offers to connect it through **Cashu (beta)** using a default mint. You will see a short beta notice and a consent checkbox to confirm. See [Accept Cashu ecash](/documentation/accept-cashu-ecash) for how that works and its limits.
+If the address is not one of the above and does not support LUD-21, Satflux can still use it by **settling to that address through a Cashu mint (beta)**. You will see a short beta notice and a consent checkbox to confirm. See [Cashu Lightning settlement](/documentation/cashu-lightning-settlement) for how that works and its limits.
 
 ## Good to know
 

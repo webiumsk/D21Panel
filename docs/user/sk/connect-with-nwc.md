@@ -27,5 +27,5 @@ nostr+walletconnect://…?relay=…&secret=…
 ## Poznámky
 
 - Server musí mať k dispozícii **BTCPay Nostr plugin**, aby NWC pripojenia fungovali.
-- NWC pairing stringy z **Cashu ecash peňaženiek** (napr. Minibits) sa tu neprijímajú - tie idú cez [Cashu](/documentation/accept-cashu-ecash).
+- NWC pairing stringy z **Cashu ecash peňaženiek** (napr. Minibits) sa tu neprijímajú. Na použitie takej peňaženky nastavte [Cashu → Lightning](/documentation/cashu-lightning-settlement) - zadajte jej mint URL a vašu Lightning adresu.
 - Väčšina obchodníkov NWC nepotrebuje. Ak chcete len rýchlo prijímať Lightning, použite [akúkoľvek Lightning adresu](/documentation/connect-with-any-lightning-address) alebo [Aqua cez SamRock](/documentation/connect-aqua-with-samrock).
