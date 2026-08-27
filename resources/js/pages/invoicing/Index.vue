@@ -137,15 +137,24 @@
       <p v-if="localFirst && !showServerMigration" class="text-sm text-gray-500 mt-3 max-w-md mx-auto">
         {{ isRelaySyncing ? t('invoicing.relay_sync_empty_hint') : t('invoicing.no_companies_restore_hint') }}
       </p>
-      <button
-        v-if="canCreateCompany && !showServerMigration"
-        type="button"
-        class="invoicing-btn-primary mt-4"
-        :disabled="isRelaySyncing"
-        @click="onAddCompany"
-      >
-        {{ t('invoicing.create_first_company') }}
-      </button>
+      <div v-if="canCreateCompany && !showServerMigration" class="flex flex-wrap items-center justify-center gap-3 mt-4">
+        <button
+          type="button"
+          class="invoicing-btn-primary"
+          :disabled="isRelaySyncing"
+          @click="openWizard"
+        >
+          {{ t('invoicingOnboarding.start_setup') }}
+        </button>
+        <button
+          type="button"
+          class="invoicing-link"
+          :disabled="isRelaySyncing"
+          @click="onAddCompany"
+        >
+          {{ t('invoicing.create_first_company') }}
+        </button>
+      </div>
     </div>
 
     <ul v-else class="space-y-3">
@@ -165,6 +174,8 @@
     </ul>
 
     <UpgradeModal :show="showUpgrade" @close="showUpgrade = false" />
+
+    <InvoicingSetupWizardModal v-if="showWizard" @close="closeWizard" />
 
     <InvoicingRelaySyncModal
       :open="showRelaySyncModal"
@@ -224,7 +235,9 @@ import { findDuplicateCompanyGroups, normalizeCompanyIdentityKey } from '@/evolu
 import { mergeDuplicateCompaniesLocal } from '@/evolu/companyMergeLocal';
 import { useAuthStore } from '../../store/auth';
 import { useFlashStore } from '@/store/flash';
+import { useInvoicingOnboardingStore } from '../../store/invoicingOnboarding';
 import UpgradeModal from '../../components/stores/UpgradeModal.vue';
+import InvoicingSetupWizardModal from '../../components/invoicing/InvoicingSetupWizardModal.vue';
 
 withDefaults(
   defineProps<{
@@ -256,6 +269,8 @@ const {
   refresh,
 } = useInvoicingCompanies();
 
+const onboarding = useInvoicingOnboardingStore();
+const showWizard = ref(false);
 const showUpgrade = ref(false);
 const showRelaySyncModal = ref(false);
 const migrationStatus = ref<ServerMigrationStatus | null>(null);
@@ -573,4 +588,38 @@ function retryCompaniesLoad(): void {
 function reloadPage(): void {
   window.location.reload();
 }
+
+function openWizard(): void {
+  showWizard.value = true;
+}
+
+function closeWizard(): void {
+  showWizard.value = false;
+  onboarding.markWizardSeen();
+}
+
+// Offer the first-run wizard exactly once, when a Pro user opens Invoicing
+// with no companies and nothing more urgent (server migration / relay sync)
+// is competing for attention. Marking it seen up front keeps it a one-time
+// nudge; the empty state keeps a manual "Start setup" entry point.
+const shouldAutoOfferWizard = computed(
+  () =>
+    canUse.value &&
+    !loading.value &&
+    !loadError.value &&
+    companyList.value.length === 0 &&
+    !showServerMigration.value &&
+    !isRelaySyncing.value,
+);
+
+watch(
+  shouldAutoOfferWizard,
+  (offer) => {
+    if (offer && !onboarding.wizardSeen && !showWizard.value) {
+      showWizard.value = true;
+      onboarding.markWizardSeen();
+    }
+  },
+  { immediate: true },
+);
 </script>
