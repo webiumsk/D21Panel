@@ -1,19 +1,75 @@
-# User documentation categories (docs-as-code) - synced from production content.
+# User documentation categories (docs-as-code).
+# Each article's front-matter `category:` references a slug below.
+# `name`/`description` are per-locale maps; missing locales fall back to `en`.
 categories:
   - slug: getting-started
     order: 1
     name:
-      en: "Getting started"
-      sk: "Začíname"
+      en: Getting started
+      sk: Začíname
+    description:
+      en: Create your account, make your first store, and choose a wallet.
+      sk: Vytvorte si účet, prvý obchod a zvoľte peňaženku.
+
   - slug: wallet-connection
     order: 2
     name:
-      en: "Wallet connection"
-  - slug: security
+      en: Wallet connection
+      sk: Pripojenie peňaženky
+    description:
+      en: Connect your own wallet - Lightning address, Aqua, Bull Bitcoin, and more.
+      sk: Pripojte vlastnú peňaženku - Lightning adresa, Aqua, Bull Bitcoin a ďalšie.
+
+  - slug: lightning-addresses
     order: 3
     name:
-      en: "Security & your funds"
-  - slug: after-setup
+      en: Lightning addresses
+      sk: Lightning adresy
+    description:
+      en: Host reusable you@your-store addresses anyone can pay.
+      sk: Hostujte opakovateľné adresy meno@váš-obchod, ktoré vám každý zaplatí.
+
+  - slug: payments
     order: 4
     name:
-      en: "After setup"
+      en: Payments
+      sk: Platby
+    description:
+      en: Point of Sale, Pay Buttons, Cashu, cards, and bank payments.
+      sk: Pokladňa, Pay Buttony, Cashu, karty a bankové platby.
+
+  - slug: invoicing
+    order: 5
+    name:
+      en: Invoicing
+      sk: Fakturácia
+    description:
+      en: Issue invoices, manage companies, bank matching and e-invoicing.
+      sk: Vystavujte faktúry, spravujte firmy, párovanie platieb a e-fakturáciu.
+
+  - slug: accounting-exports
+    order: 6
+    name:
+      en: Accounting & exports
+      sk: Účtovníctvo a exporty
+    description:
+      en: Hand data to your accountant and export records.
+      sk: Odovzdajte dáta účtovníkovi a exportujte záznamy.
+
+  - slug: security
+    order: 7
+    name:
+      en: Security & your funds
+      sk: Bezpečnosť a vaše prostriedky
+    description:
+      en: Non-custodial guarantees, what we store, passkeys and backup.
+      sk: Nekustodiálne záruky, čo ukladáme, passkeye a záloha.
+
+  - slug: reference
+    order: 8
+    name:
+      en: Reference
+      sk: Referencia
+    description:
+      en: Plans, limits, and other reference material.
+      sk: Plány, limity a ďalšie referenčné materiály.

@@ -1,40 +1,32 @@
 ---
-title: "Wallet connection overview"
+title: Wallet connection overview
 category: wallet-connection
 order: 1
-meta_description: "Where to find Wallet Connection in the app. What we store (encrypted). That we only use credentials for receiving and watching; we never spend."
+meta_description: The three ways to connect a wallet to your store - Lightning address, SamRock QR, and Advanced paste - and what Satflux stores.
 ---
 
-Wallet Connection is where you add or update the Lightning wallet (Blink or Aqua) that your store uses to receive payments. The credentials you provide are stored encrypted and are used only for receiving and watching; the platform never spends your funds.
+# Wallet connection overview
 
-**Where to find it**
+Before your store can take payments it needs a wallet. Open **Wallet connection** on the store. Satflux never holds your funds - you connect **your own** wallet and all payments go straight to it.
 
-- **From a store:** Open the store (e.g. from **Stores** in the main menu), then in the **store sidebar** click **LN Wallet Connection** (or **Wallet connection**). The URL is /stores/{store-id}/wallet-connection.
+You will find **Wallet connection** in the store, and the same setup runs during store creation.
 
-- **From the store dashboard:** If the wallet is not configured, the store overview shows a notice and a link to **Wallet connection**.
+## Three ways to connect
 
-- **From the setup wizard:** After creating a store, the “Next steps” / checklist includes a link to **Wallet connection** to finish wallet setup.
+Satflux offers three tabs. Most people use the first.
 
-Support and admin users also have a **Wallet Connections** area (e.g. under Support) to process connection requests that need manual configuration in BTCPay.
+1. **Lightning address** (default, easiest) - paste one Lightning address like `you@wallet.com` and Satflux figures out the rest. See [Connect with any Lightning address](/documentation/connect-with-any-lightning-address).
+2. **SamRock (QR)** - the easiest way to connect **Aqua**: generate a one-time QR code and scan it in the Aqua app, which configures BTCPay for you. See [Connect Aqua with SamRock](/documentation/connect-aqua-with-samrock).
+3. **Advanced (connection strings)** - one smart-paste box that auto-detects what you paste: a Blink connection string, an Aqua or **Bull Bitcoin** watch-only descriptor, an NWC pairing string, or any Lightning address. Satflux recognizes the format and sets the right type.
 
-**What we store**
+The built-in **wallet guide** in the app lists every supported wallet with step-by-step instructions.
 
-We store only what is needed to connect your store to your wallet in BTCPay:
+## What Satflux stores
 
-- **Type** — Whether the connection is Blink or Aqua (descriptor-based).
+For a connection, Satflux keeps only what is needed to configure BTCPay, and any secret is **encrypted at rest**. When you view a connection later you see a **masked** value, and revealing it requires re-authentication. For SamRock/Aqua no private descriptor is stored in Satflux at all - your keys stay in Aqua; BTCPay only uses the watch-only descriptor. See [What we store and how it's protected](/documentation/what-we-store-and-how-its-protected).
 
-- **Your credential** — For Blink: the connection string (server URL, API key, wallet ID). For Aqua: the output descriptor (watch-only; no private keys). This value is stored **encrypted** in our database. It is decrypted only when our system or support configures BTCPay (or when support temporarily reveals it to paste into BTCPay). The UI never shows the full secret; you can only replace it or see a masked hint.
+## After you connect
 
-We do not store private keys. With Aqua, the descriptor you give is watch-only. With Blink, the connection string allows the server to create addresses and receive on your behalf; it does not grant spend capability to us or to BTCPay.
+Satflux tries to configure BTCPay automatically and marks the connection **connected**. If something needs attention it is flagged so support can help. Once the wallet is ready, the store unlocks and you can add Points of Sale, Pay Buttons, and Lightning addresses.
 
-**Receive and watch only — we never spend**
-
-Your wallet credentials are used **only** so that BTCPay Server can:
-
-- **Receive** — Create addresses and Lightning invoices and receive payments into the wallet you control.
-
-- **Watch** — (For Aqua/descriptor) Derive and watch addresses so the server can match incoming payments.
-
-Neither Satflux nor BTCPay is ever given the ability to **spend** from your wallet. We do not hold private keys; we do not send transactions. You keep full control over when and where your funds move.
-
-For step-by-step setup, see Creating your first store and Choosing your wallet: Blink vs Aqua.
+To change or disconnect later, see [Revoking or changing wallet credentials](/documentation/revoking-or-changing-wallet-credentials).

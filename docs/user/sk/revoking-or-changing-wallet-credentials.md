@@ -1,7 +1,7 @@
 ---
 title: "Odvolanie alebo zmena údajov peňaženky"
-category: security
-order: 3
+category: wallet-connection
+order: 7
 meta_description: "How to disconnect or update Blink API key / Aqua descriptor. That you can revoke in the wallet app and reconnect with a new credential."
 ---
 
@@ -17,7 +17,7 @@ meta_description: "How to disconnect or update Blink API key / Aqua descriptor. 
 
 1. **V Satfluxe:** Otvorte obchod → **Pripojenie peňaženky** (LN Wallet Connection). Vo formulári **nahraďte** starý connection string novým: type=blink;server=...;api-key=NOVÝ_KĽÚČ;wallet-id=.... Uložte.
 
-1. **V BTCPay:** Pripojenie je to, ktoré je pre obchod aktuálne nakonfigurované. „Odpojiť“ neponúkame — **zmeníte** ho tak, že v Satfluxe odošlete nový connection string. Ak vaša konfigurácia používa manuálny krok, support môže musieť nový reťazec aplikovať v BTCPay. Potom obchod používa nový kľúč.
+1. **V BTCPay:** Pripojenie je to, ktoré je pre obchod aktuálne nakonfigurované. „Odpojiť“ neponúkame - **zmeníte** ho tak, že v Satfluxe odošlete nový connection string. Ak vaša konfigurácia používa manuálny krok, support môže musieť nový reťazec aplikovať v BTCPay. Potom obchod používa nový kľúč.
 
 Teda: v Blink odvoláte alebo obmeníte kľúč, potom v Satfluxe (a podľa potreby v BTCPay) znova pripojíte obchod s novým údajom.
 
@@ -29,7 +29,7 @@ Teda: v Blink odvoláte alebo obmeníte kľúč, potom v Satfluxe (a podľa potr
 
 1. **V Satfluxe:** Otvorte obchod → **Pripojenie peňaženky**. Vo formulári **nahraďte** starý deskriptor novým a uložte.
 
-1. **V BTCPay:** Rovnako ako pri Blink neexistuje „odpojiť“ — konfiguráciu Lightning/peňaženky **nahradíte** novým deskriptorom. Ak to vyžaduje vaša konfigurácia, support môže musieť zmenu v BTCPay aplikovať.
+1. **V BTCPay:** Rovnako ako pri Blink neexistuje „odpojiť“ - konfiguráciu Lightning/peňaženky **nahradíte** novým deskriptorom. Ak to vyžaduje vaša konfigurácia, support môže musieť zmenu v BTCPay aplikovať.
 
 Teda: v aplikácii peňaženky odvoláte alebo zmeníte údaj (nový kľúč alebo nový deskriptor), potom v Satfluxe odošlete nový údaj a tým obchod znova pripojíte.
 
@@ -37,7 +37,7 @@ Teda: v aplikácii peňaženky odvoláte alebo zmeníte údaj (nový kľúč ale
 
 **Zhrnutie**
 
-- V Satfluxe ani v BTCPay **neponúkame** „odpojiť“ — len **zmeniť/nahradiť** pripojenie.
+- V Satfluxe ani v BTCPay **neponúkame** „odpojiť“ - len **zmeniť/nahradiť** pripojenie.
 
 - Ak chcete prestať používať údaj: odvolajte alebo zmeňte ho v **Blink** alebo **Aqua**, potom v Satfluxe zadajte **nový** connection string alebo deskriptor, aby obchod používal nový údaj.
 

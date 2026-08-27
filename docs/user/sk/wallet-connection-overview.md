@@ -1,40 +1,32 @@
 ---
-title: "Prehľad Pripojenia peňaženky"
+title: Prehľad pripojenia peňaženky
 category: wallet-connection
 order: 1
-meta_description: "Zadané údaje sa ukladajú šifrované a používajú sa len na prijímanie a sledovanie; platforma nikdy nemíňa vaše prostriedky."
+meta_description: Tri spôsoby pripojenia peňaženky - Lightning adresa, SamRock QR a Advanced - a čo Satflux ukladá.
 ---
 
-Pripojenie peňaženky (Wallet connection) je miesto, kde pridáte alebo zmeníte Lightning peňaženku (Blink alebo Aqua), ktorú váš obchod používa na prijímanie platieb. Zadané údaje sa ukladajú šifrované a používajú sa len na prijímanie a sledovanie; platforma nikdy nemíňa vaše prostriedky.
+# Prehľad pripojenia peňaženky
 
-**Kde to nájdete**
+Skôr než obchod začne prijímať platby, potrebuje peňaženku. V obchode otvorte **Pripojenie peňaženky**. Satflux nikdy nedrží vaše prostriedky - pripájate **vlastnú** peňaženku a všetky platby idú priamo do nej.
 
-- **Z obchodu:** Otvorte obchod (napr. z **Obchody** v hlavnej ponuke), v **bočnom paneli obchodu** kliknite na **LN Wallet Connection** (alebo **Pripojenie peňaženky**). Adresa je /stores/{id-obchodu}/wallet-connection.
+**Pripojenie peňaženky** nájdete v obchode a rovnaké nastavenie beží aj pri vytváraní obchodu.
 
-- **Z dashboardu obchodu:** Ak nie je peňaženka nakonfigurovaná, prehľad obchodu zobrazí upozornenie a odkaz na **Pripojenie peňaženky**.
+## Tri spôsoby pripojenia
 
-- **Zo sprievodcu nastavením:** Po vytvorení obchodu sú v rámci „Ďalších krokov“ / checklistu odkaz na **Pripojenie peňaženky** na dokončenie nastavenia peňaženky.
+Satflux ponúka tri taby. Väčšina ľudí použije prvý.
 
-Používatelia supportu a administrátori majú tiež oblasť **Wallet Connections** (napr. v rámci Support), kde spracúvajú žiadosti o pripojenie, ktoré vyžadujú manuálnu konfiguráciu v BTCPay.
+1. **Lightning adresa** (predvolené, najjednoduchšie) - vložte jednu Lightning adresu ako `vy@penazenka.com` a Satflux zvyšok vyrieši sám. Viď [Pripojenie akoukoľvek Lightning adresou](/documentation/connect-with-any-lightning-address).
+2. **SamRock (QR)** - najjednoduchší spôsob pripojenia **Aqua**: vygenerujte jednorazový QR kód a naskenujte ho v aplikácii Aqua, ktorá nastaví BTCPay za vás. Viď [Pripojenie Aqua cez SamRock](/documentation/connect-aqua-with-samrock).
+3. **Advanced (connection strings)** - jedno smart-paste pole, ktoré automaticky rozpozná, čo vložíte: Blink connection string, watch-only descriptor Aqua alebo **Bull Bitcoin**, NWC pairing string alebo akúkoľvek Lightning adresu.
 
-**Čo ukladáme**
+Vstavaný **sprievodca peňaženkami** v aplikácii vypisuje každú podporovanú peňaženku s krokovými pokynmi.
 
-Ukladáme len to, čo je potrebné na prepojenie vášho obchodu s vašou peňaženkou v BTCPay:
+## Čo Satflux ukladá
 
-- **Typ** — Či ide o Blink alebo Aqua (deskriptor).
+Pri pripojení Satflux uchováva len to, čo je potrebné na nastavenie BTCPay, a každé tajomstvo je **šifrované**. Pri neskoršom zobrazení vidíte **maskovanú** hodnotu a jej odhalenie vyžaduje opätovné overenie. Pri SamRock/Aqua sa v Satfluxe neukladá žiadny privátny descriptor - kľúče ostávajú v Aqua; BTCPay používa len watch-only descriptor. Viď [Čo ukladáme a ako je to chránené](/documentation/what-we-store-and-how-its-protected).
 
-- **Vaše prihlasovacie údaje** — Pri Blink: connection string (URL servera, API kľúč, ID peňaženky). Pri Aqua: výstupový deskriptor (watch-only; bez súkromných kľúčov). Táto hodnota sa v databáze ukladá **šifrovaná**. Dešifruje sa len keď náš systém alebo support konfiguruje BTCPay (alebo keď support dočasne zobrazí údaj na vloženie do BTCPay). V UI sa celý secret nikdy nezobrazuje; môžete ho len nahradiť alebo vidieť maskovanú nápovedu.
+## Po pripojení
 
-Súkromné kľúče neukladáme. Pri Aqua je deskriptor watch-only. Pri Blink connection string umožňuje serveru vytvárať adresy a prijímať vo vašom mene; nedáva nám ani BTCPay možnosť míňať.
+Satflux sa pokúsi nastaviť BTCPay automaticky a označí pripojenie ako **connected**. Ak niečo vyžaduje pozornosť, je to označené, aby mohla pomôcť podpora. Keď je peňaženka pripravená, obchod sa odomkne a môžete pridávať pokladne, Pay Buttony a Lightning adresy.
 
-**Len prijímanie a sledovanie — nikdy nemíňame**
-
-Údaje k peňaženke sa používajú **iba** na to, aby BTCPay Server mohol:
-
-- **Prijímať** — Vytvárať adresy a Lightning faktúry a prijímať platby do peňaženky, ktorú kontrolujete vy.
-
-- **Sledovať** — (Pri Aqua/deskriptore) Odvodzovať a sledovať adresy, aby server mohol spárovať prichádzajúce platby.
-
-Satflux ani BTCPay nikdy nedostanú možnosť **míňať** z vašej peňaženky. Nedržíme súkromné kľúče; neodosielame transakcie. Kedy a kam sa prostriedky presunú, kontrolujete vy.
-
-Postup nastavenia je v článkoch Vytvorenie prvého obchodu a Výber peňaženky: Blink vs Aqua.
+Na neskoršiu zmenu alebo odpojenie viď [Zrušenie alebo zmena údajov peňaženky](/documentation/revoking-or-changing-wallet-credentials).

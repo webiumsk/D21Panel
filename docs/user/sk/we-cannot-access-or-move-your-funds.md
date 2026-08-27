@@ -9,7 +9,7 @@ Vaše prostriedky zostávajú vo vašej peňaženke. Satflux ani BTCPay nikdy ne
 
 **Blink: iba read a receive, žiadny send (write)**
 
-Pri pripojení Blink používate API kľúč s oprávneniami **iba read a receive**. Nepoužívame — a vy by ste nemali udeľovať — **send** ani **withdraw (write)**.
+Pri pripojení Blink používate API kľúč s oprávneniami **iba read a receive**. Nepoužívame - a vy by ste nemali udeľovať - **send** ani **withdraw (write)**.
 
 - **Môžeme**: vytvárať adresy a Lightning faktúry a prijímať platby do vašej Blink peňaženky.
 
@@ -23,14 +23,20 @@ Pri pripojení Aqua nám zadáte **watch-only výstupný deskriptor**. Obsahuje 
 
 - **Môžeme**: odvodzovať adresy a prijímať platby do peňaženky, ktorú kontrolujete v Aqua.
 
-- **Nemôžeme**: míňať, podpisovať transakcie ani presúvať prostriedky — súkromné kľúče nikdy nevidíme ani neukladáme.
+- **Nemôžeme**: míňať, podpisovať transakcie ani presúvať prostriedky - súkromné kľúče nikdy nevidíme ani neukladáme.
 
 Takže nikdy nemáme oprávnenie míňať. Všetky prijaté prostriedky zostávajú v peňaženke, ktorú kontrolujete v Aqua.
 
+**Bull Bitcoin: watch-only deskriptor, žiadne súkromné kľúče**
+
+Bull Bitcoin sa pripája rovnako ako Aqua - cez **watch-only výstupný deskriptor**, ktorý obsahuje len verejné kľúče. Vieme odvodzovať adresy a prijímať platby; nikdy nevieme míňať, podpisovať ani presúvať prostriedky.
+
 **Zhrnutie**
 
-- **Blink** — Iba read + receive; žiadny send. Prostriedky zostávajú vo vašej Blink peňaženke.
+- **Blink** - Iba read + receive; žiadny send. Prostriedky zostávajú vo vašej Blink peňaženke.
 
-- **Aqua** — Watch-only deskriptor; žiadne súkromné kľúče. Prostriedky zostávajú vo vašej Aqua peňaženke.
+- **Aqua / Bull Bitcoin** - Watch-only deskriptor; žiadne súkromné kľúče. Prostriedky zostávajú vo vašej peňaženke.
+
+- **NWC / vlastný uzol** - Pripojenie k vlastnej peňaženke vytvárate vy a volíte jeho oprávnenia; udeľte len to, čo je potrebné na príjem.
 
 Nikdy nemáme oprávnenie míňať. Vaše prostriedky zostávajú vo vašej peňaženke.

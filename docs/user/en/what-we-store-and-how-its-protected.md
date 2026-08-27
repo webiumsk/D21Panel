@@ -23,11 +23,11 @@ So: we store one secret per wallet connection, and it is stored encrypted.
 
 **Who can see what**
 
-- **You (the merchant)** — You can add, replace, or remove your connection string or descriptor in the Satflux panel. When you **edit or replace** the connection, the form may show the full value so you can change it. When you are only viewing the connection (not editing), you typically see a **masked** hint (e.g. first and last few characters). To **reveal** the stored secret again (e.g. to copy it), you must enter your **password**; we do not show the full secret without that step.
+- **You (the merchant)** - You can add, replace, or remove your connection string or descriptor in the Satflux panel. When you **edit or replace** the connection, the form may show the full value so you can change it. When you are only viewing the connection (not editing), you typically see a **masked** hint (e.g. first and last few characters). To **reveal** the stored secret again (e.g. to copy it), you must enter your **password**; we do not show the full secret without that step.
 
-- **Support (if needed)** — When a wallet connection needs manual configuration in BTCPay, support staff can temporarily **reveal** the plaintext secret (support workflows may require authentication). That access is for configuring your store only. Support does not use the secret for anything else, and we do not share it with third parties.
+- **Support (if needed)** - When a wallet connection needs manual configuration in BTCPay, support staff can temporarily **reveal** the plaintext secret (support workflows may require authentication). That access is for configuring your store only. Support does not use the secret for anything else, and we do not share it with third parties.
 
-- **No one else** — We do not send your connection string or descriptor to third parties. We do not log it in plaintext.
+- **No one else** - We do not send your connection string or descriptor to third parties. We do not log it in plaintext.
 
 ---
 
