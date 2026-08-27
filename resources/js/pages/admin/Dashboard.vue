@@ -405,58 +405,6 @@
           </div>
         </div>
 
-        <!-- Documentation Card -->
-        <div
-          class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg relative overflow-hidden group hover:border-blue-500/50 transition-all cursor-pointer"
-          @click="$router.push('/admin/documentation')"
-        >
-          <div
-            class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"
-          >
-            <svg
-              class="w-24 h-24 text-blue-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-          </div>
-          <div class="relative z-10">
-            <p class="text-gray-400 text-sm font-medium mb-1">
-              {{ t("admin.dashboard.documentation") }}
-            </p>
-            <h3 class="text-3xl font-bold text-white">
-              {{ loading ? "..." : docCount }}
-            </h3>
-            <div class="mt-4">
-              <span
-                class="text-sm font-medium text-blue-400 hover:text-blue-300 flex items-center"
-              >
-                {{ t("admin.dashboard.manage_documentation") }}
-                <svg
-                  class="w-4 h-4 ml-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M17 8l4 4m0 0l-4 4m4-4H3"
-                  ></path>
-                </svg>
-              </span>
-            </div>
-          </div>
-        </div>
-
         <!-- FAQ Card -->
         <div
           class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg relative overflow-hidden group hover:border-green-500/50 transition-all cursor-pointer"
@@ -555,98 +503,6 @@
             {{ t("admin.dashboard.user_management_desc") }}
           </p>
           <span class="text-sm text-indigo-400 font-medium">{{
-            t("admin.dashboard.view_section")
-          }}</span>
-        </div>
-
-        <!-- Documentation Articles -->
-        <div
-          class="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-blue-500/50 transition-all group cursor-pointer"
-          @click="$router.push('/admin/documentation')"
-        >
-          <div class="flex items-start justify-between mb-4">
-            <div class="p-3 bg-blue-500/10 rounded-lg">
-              <svg
-                class="w-6 h-6 text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-            <svg
-              class="w-5 h-5 text-gray-400 group-hover:text-blue-400 transition-colors"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </div>
-          <h3 class="text-lg font-semibold text-white mb-2">
-            {{ t("admin.dashboard.documentation_articles") }}
-          </h3>
-          <p class="text-gray-400 text-sm mb-4">
-            {{ t("admin.dashboard.documentation_articles_desc") }}
-          </p>
-          <span class="text-sm text-blue-400 font-medium">{{
-            t("admin.dashboard.view_section")
-          }}</span>
-        </div>
-
-        <!-- Documentation Categories -->
-        <div
-          class="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-blue-500/50 transition-all group cursor-pointer"
-          @click="$router.push('/admin/documentation/categories')"
-        >
-          <div class="flex items-start justify-between mb-4">
-            <div class="p-3 bg-blue-500/10 rounded-lg">
-              <svg
-                class="w-6 h-6 text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-                />
-              </svg>
-            </div>
-            <svg
-              class="w-5 h-5 text-gray-400 group-hover:text-blue-400 transition-colors"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </div>
-          <h3 class="text-lg font-semibold text-white mb-2">
-            {{ t("admin.dashboard.documentation_categories") }}
-          </h3>
-          <p class="text-gray-400 text-sm mb-4">
-            {{ t("admin.dashboard.documentation_categories_desc") }}
-          </p>
-          <span class="text-sm text-blue-400 font-medium">{{
             t("admin.dashboard.view_section")
           }}</span>
         </div>
@@ -846,7 +702,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useAuthStore } from "../../store/auth";
-import { adminDocumentationApi, adminFaqApi } from "../../services/api";
+import { adminFaqApi } from "../../services/api";
 import api from "../../services/api";
 import BarChart from "../../components/charts/BarChart.vue";
 
@@ -855,7 +711,6 @@ const authStore = useAuthStore();
 
 const loading = ref(false);
 const userCount = ref(0);
-const docCount = ref(0);
 const faqCount = ref(0);
 
 const platformStats = ref({
@@ -1028,15 +883,6 @@ const loadStats = async () => {
       } catch (e) {
         // Ignore - user may not have admin access
       }
-    }
-
-    // Load documentation count
-    try {
-      const docResponse = await adminDocumentationApi.articles.index();
-      docCount.value =
-        docResponse.data.meta?.total || docResponse.data.data?.length || 0;
-    } catch (error) {
-      console.error("Failed to load documentation count:", error);
     }
 
     // Load FAQ count

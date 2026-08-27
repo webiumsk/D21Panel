@@ -1,0 +1,19 @@
+# User documentation categories (docs-as-code) - synced from production content.
+categories:
+  - slug: getting-started
+    order: 1
+    name:
+      en: "Getting started"
+      sk: "Začíname"
+  - slug: wallet-connection
+    order: 2
+    name:
+      en: "Wallet connection"
+  - slug: security
+    order: 3
+    name:
+      en: "Security & your funds"
+  - slug: after-setup
+    order: 4
+    name:
+      en: "After setup"

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DocumentationArticle;
+use App\Services\Documentation\UserDocsRepository;
 use Illuminate\Http\Response;
 
 class SitemapController extends Controller
@@ -10,7 +10,7 @@ class SitemapController extends Controller
     /**
      * Generate XML sitemap for SEO.
      */
-    public function index(): Response
+    public function index(UserDocsRepository $docs): Response
     {
         $baseUrl = rtrim(config('app.url'), '/');
 
@@ -23,17 +23,12 @@ class SitemapController extends Controller
             ['loc' => $baseUrl.'/register', 'priority' => '0.8', 'changefreq' => 'monthly'],
         ];
 
-        $articleUrls = DocumentationArticle::query()
-            ->published()
-            ->orderBy('updated_at', 'desc')
-            ->get()
-            ->map(fn ($article) => [
-                'loc' => $baseUrl.'/documentation/'.$article->slug,
-                'priority' => '0.7',
-                'changefreq' => 'monthly',
-                'lastmod' => $article->updated_at?->toAtomString(),
-            ])
-            ->all();
+        $articleUrls = array_map(fn ($article) => [
+            'loc' => $baseUrl.'/documentation/'.$article['slug'],
+            'priority' => '0.7',
+            'changefreq' => 'monthly',
+            'lastmod' => $article['updated_at'] ?? null,
+        ], $docs->articles(UserDocsRepository::FALLBACK_LOCALE));
 
         $urls = array_merge($staticUrls, $articleUrls);
 

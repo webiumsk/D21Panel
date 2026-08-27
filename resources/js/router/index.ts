@@ -405,30 +405,6 @@ const router = createRouter({
             meta: { public: true, titleKey: 'seo.faq_title', descriptionKey: 'seo.faq_description' },
         },
         {
-            path: '/admin/documentation',
-            name: 'admin-documentation',
-            component: () => import('../pages/admin/documentation/Articles.vue'),
-            meta: { requiresAuth: true, requiresSupportOrAdmin: true },
-        },
-        {
-            path: '/admin/documentation/articles/create',
-            name: 'admin-documentation-articles-create',
-            component: () => import('../pages/admin/documentation/ArticleForm.vue'),
-            meta: { requiresAuth: true, requiresSupportOrAdmin: true },
-        },
-        {
-            path: '/admin/documentation/articles/:id/edit',
-            name: 'admin-documentation-articles-edit',
-            component: () => import('../pages/admin/documentation/ArticleForm.vue'),
-            meta: { requiresAuth: true, requiresSupportOrAdmin: true },
-        },
-        {
-            path: '/admin/documentation/categories',
-            name: 'admin-documentation-categories',
-            component: () => import('../pages/admin/documentation/Categories.vue'),
-            meta: { requiresAuth: true, requiresSupportOrAdmin: true },
-        },
-        {
             path: '/admin/faq',
             name: 'admin-faq',
             component: () => import('../pages/admin/faq/Items.vue'),

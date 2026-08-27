@@ -112,18 +112,6 @@ parameters:
 			message: '#^Offset ''en'' on string on left side of \?\? does not exist\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
-			path: app/Http/Controllers/Admin/DocumentationArticleController.php
-
-		-
-			message: '#^Offset ''en'' on string on left side of \?\? does not exist\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Http/Controllers/Admin/DocumentationCategoryController.php
-
-		-
-			message: '#^Offset ''en'' on string on left side of \?\? does not exist\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
 			path: app/Http/Controllers/Admin/FaqCategoryController.php
 
 		-
@@ -239,36 +227,6 @@ parameters:
 			identifier: booleanAnd.rightAlwaysTrue
 			count: 1
 			path: app/Http/Controllers/DashboardController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/DocumentationController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Http/Controllers/DocumentationController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$slug\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Controllers/DocumentationController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:getLocalizedNameAttribute\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: app/Http/Controllers/DocumentationController.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\DocumentationArticle\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: app/Http/Controllers/DocumentationController.php
 
 		-
 			message: '#^Called ''env'' outside of the config directory which returns null when the config is cached, use ''config''\.$#'
@@ -1049,12 +1007,6 @@ parameters:
 			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
-			path: app/Http/Requests/DocumentationArticleRequest.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
 			path: app/Http/Requests/FaqItemRequest.php
 
 		-
@@ -1422,66 +1374,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: app/Models/CompanyStockItem.php
-
-		-
-			message: '#^Call to function is_array\(\) with string will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 4
-			path: app/Models/DocumentationArticle.php
-
-		-
-			message: '#^Call to function is_array\(\) with string\|null will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 2
-			path: app/Models/DocumentationArticle.php
-
-		-
-			message: '#^Offset ''en'' on \*NEVER\* in isset\(\) always exists and is not nullable\.$#'
-			identifier: isset.offset
-			count: 3
-			path: app/Models/DocumentationArticle.php
-
-		-
-			message: '#^Offset string on \*NEVER\* in isset\(\) always exists and is not nullable\.$#'
-			identifier: isset.offset
-			count: 3
-			path: app/Models/DocumentationArticle.php
-
-		-
-			message: '#^Result of && is always false\.$#'
-			identifier: booleanAnd.alwaysFalse
-			count: 6
-			path: app/Models/DocumentationArticle.php
-
-		-
-			message: '#^Call to function is_array\(\) with string will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 2
-			path: app/Models/DocumentationCategory.php
-
-		-
-			message: '#^Call to function is_array\(\) with string\|null will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 2
-			path: app/Models/DocumentationCategory.php
-
-		-
-			message: '#^Offset ''en'' on \*NEVER\* in isset\(\) always exists and is not nullable\.$#'
-			identifier: isset.offset
-			count: 2
-			path: app/Models/DocumentationCategory.php
-
-		-
-			message: '#^Offset string on \*NEVER\* in isset\(\) always exists and is not nullable\.$#'
-			identifier: isset.offset
-			count: 2
-			path: app/Models/DocumentationCategory.php
-
-		-
-			message: '#^Result of && is always false\.$#'
-			identifier: booleanAnd.alwaysFalse
-			count: 4
-			path: app/Models/DocumentationCategory.php
 
 		-
 			message: '#^Cannot access property \$value on string\.$#'

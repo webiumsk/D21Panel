@@ -1,8 +1,6 @@
 <?php
 
 use App\Http\Controllers\AccountController;
-use App\Http\Controllers\Admin\DocumentationArticleController;
-use App\Http\Controllers\Admin\DocumentationCategoryController;
 use App\Http\Controllers\Admin\DocumentationImageController;
 use App\Http\Controllers\Admin\EfakturaCpdsProviderController;
 use App\Http\Controllers\Admin\FaqCategoryController;
@@ -1104,28 +1102,11 @@ Route::middleware(['throttle:30,1'])->prefix('public/ticket-checkin')->group(fun
     Route::post('/{store}/events/{eventId}/tickets/{ticketNumber}/check-in', [TicketController::class, 'publicCheckIn']);
 });
 
-// Admin Documentation (requires support or admin role)
+// Documentation is authored as repo Markdown (docs/user), so there is no
+// article/category CMS. The image upload endpoint stays: it is the shared
+// upload target for the admin rich-text editor (raffles, crowdfunds, tickets).
 Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, EnsureSupportOrAdminRole::class])->prefix('admin/documentation')->group(function () {
-    // Articles
-    Route::get('/articles', [DocumentationArticleController::class, 'index']);
-    Route::post('/articles', [DocumentationArticleController::class, 'store'])
-        ->middleware(AuditLog::class.':documentation_article.created');
-    Route::get('/articles/{article}', [DocumentationArticleController::class, 'show']);
-    Route::put('/articles/{article}', [DocumentationArticleController::class, 'update'])
-        ->middleware(AuditLog::class.':documentation_article.updated');
-    Route::delete('/articles/{article}', [DocumentationArticleController::class, 'destroy'])
-        ->middleware(AuditLog::class.':documentation_article.deleted');
     Route::post('/upload-image', [DocumentationImageController::class, 'upload']);
-
-    // Categories
-    Route::get('/categories', [DocumentationCategoryController::class, 'index']);
-    Route::post('/categories', [DocumentationCategoryController::class, 'store'])
-        ->middleware(AuditLog::class.':documentation_category.created');
-    Route::get('/categories/{category}', [DocumentationCategoryController::class, 'show']);
-    Route::put('/categories/{category}', [DocumentationCategoryController::class, 'update'])
-        ->middleware(AuditLog::class.':documentation_category.updated');
-    Route::delete('/categories/{category}', [DocumentationCategoryController::class, 'destroy'])
-        ->middleware(AuditLog::class.':documentation_category.deleted');
 });
 
 // Admin FAQ (requires support or admin role)
