@@ -1,48 +1,19 @@
-# User documentation categories (docs-as-code).
-# Each article's front-matter `category:` references a slug below.
-# `name`/`description` are per-locale maps; missing locales fall back to `en`.
+# User documentation categories (docs-as-code) - synced from production content.
 categories:
   - slug: getting-started
     order: 1
     name:
-      en: Getting started
-      sk: Začíname
-    description:
-      en: Create your account and take the first steps in Satflux.
-      sk: Vytvorte si účet a spravte prvé kroky v Satfluxe.
-
-  - slug: stores-wallets
+      en: "Getting started"
+      sk: "Začíname"
+  - slug: wallet-connection
     order: 2
     name:
-      en: Stores & wallets
-      sk: Obchody a peňaženky
-    description:
-      en: Connect a BTCPay store, Lightning, and accept payments.
-      sk: Pripojte BTCPay obchod, Lightning a prijímajte platby.
-
-  - slug: invoicing
+      en: "Wallet connection"
+  - slug: security
     order: 3
     name:
-      en: Invoicing
-      sk: Fakturácia
-    description:
-      en: Issue invoices, manage companies, bank matching and e-invoicing.
-      sk: Vystavujte faktúry, spravujte firmy, párovanie platieb a e-fakturáciu.
-
-  - slug: accounting-exports
+      en: "Security & your funds"
+  - slug: after-setup
     order: 4
     name:
-      en: Accounting & exports
-      sk: Účtovníctvo a exporty
-    description:
-      en: Hand data to your accountant and export records.
-      sk: Odovzdajte dáta účtovníkovi a exportujte záznamy.
-
-  - slug: account-security
-    order: 5
-    name:
-      en: Account & security
-      sk: Účet a bezpečnosť
-    description:
-      en: Passkeys, backup and recovery, plans and limits.
-      sk: Passkeye, záloha a obnova, plány a limity.
+      en: "After setup"

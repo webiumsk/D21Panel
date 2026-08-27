@@ -1,27 +1,26 @@
 ---
-title: What is Satflux
+title: "What is Satflux"
 category: getting-started
 order: 1
-meta_description: Satflux is a control panel for your BTCPay Server stores, Lightning, and invoicing.
+meta_description: "Accept Bitcoin & Lightning without limits. Non-custodial BTCPay control panel with multi-store, PoS, and Lightning (Blink/Aqua)"
 ---
 
-# What is Satflux
+Short overview: non-custodial BTCPay control panel, multi-store, Lightning (Blink/Aqua). Who it’s for.
 
-Satflux is a control panel for accepting Bitcoin and Lightning payments and running the paperwork around them. It connects to [BTCPay Server](https://btcpayserver.org) and adds a simple interface on top, so you can manage everything from one place:
+Satflux (satflux.io) is a **non-custodial control panel** for **BTCPay Server**. It gives merchants a single place to manage one or more Bitcoin and Lightning stores without ever giving up custody of their funds. All payments go to the merchant’s own wallet; Satflux only provides the dashboard, settings, and tools around BTCPay.
 
-- **Stores and wallets** - connect a store, plug in a wallet, and start accepting on-chain and Lightning payments.
-- **Point of Sale, Pay Buttons and Lightning addresses** - take payments in person, on your website, or by a simple `you@your-domain` address.
-- **Invoicing** - issue proper invoices, track who has paid, match bank payments, and (in Slovakia) send e-invoices.
-- **Exports** - hand a clean package to your accountant.
+**In short**
 
-## Two ways to sign in
+- **Non-custodial BTCPay control panel** – You keep your keys and your coins; Satflux helps you operate your stores.
+- **Multi-store** – Run several stores (e-shops, physical shops, services) from one account and switch between them in one interface.
+- **Lightning (Blink / Aqua)** – You choose how to receive Lightning: **Blink** for a fast, simple setup, or **Aqua** with the Boltz plugin for a fully non-custodial setup (your keys, Liquid + Lightning). Setup is guided with step-by-step checklists.
+- **Who it’s for** – Shops, merchants, services, and e-shops that want to accept Bitcoin and Lightning with their own wallet and without a custodian.
+- **Benefits for merchants** – One dashboard for stores and reporting; Point of Sale (PoS) apps for in-person or mobile use; invoice creation and tracking; CSV and (on higher plans) XLSX exports for accounting; optional Lightning Addresses (e.g. `you@satflux.org`) for tips or simple pay links; REST API and webhooks for integrations; no lock-in—you can move or self-host BTCPay later.
 
-Satflux accounts are backed by a **24-word recovery phrase**. You can add a **passkey** after signing in, so next time you unlock with your device instead of typing 24 words.
+**Non-custodial in practice**
 
-Your recovery phrase is the only key to your account, your BTCPay store, and your local invoicing data. **We never see it and cannot reset it** - back it up somewhere safe.
+Satflux does not hold or control your funds. You connect **your own** Lightning wallet (Blink or Aqua). BTCPay Server generates invoices and receives payments; the money goes to the wallet you control. Satflux’s subscription and feature limits only affect management features (e.g. number of stores, exports, Lightning Addresses), not your ability to receive payments with your existing setup.
 
-## Next steps
+**Summary**
 
-1. [Create your Satflux account](/documentation/create-account)
-2. [Connect your first wallet](/documentation/connect-your-first-wallet)
-3. [Get started with invoicing](/documentation/getting-started-with-invoicing)
+Satflux is the control panel and operations layer on top of BTCPay: multi-store, Lightning (Blink or Aqua), and tools for merchants who want a simple, non-custodial way to accept Bitcoin and Lightning.

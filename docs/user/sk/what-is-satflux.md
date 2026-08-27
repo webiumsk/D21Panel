@@ -1,27 +1,28 @@
 ---
-title: Čo je Satflux
+title: "Čo je Satflux"
 category: getting-started
 order: 1
-meta_description: Satflux je ovládací panel pre vaše BTCPay Server obchody, Lightning a fakturáciu.
+meta_description: "Prijímajte Bitcoin a Lightning bez limitov. Nekustodiálny ovládací panel BTCPay s multi-store, PoS a Lightning (Blink/Aqua)"
 ---
 
-# Čo je Satflux
+Satflux ([satflux.io](http://satflux.io)) je **nekustodiálny ovládací panel** pre **BTCPay Server**. Obchodníkom dáva jedno miesto na správu jedného alebo viacerých Bitcoin a Lightning obchodov bez toho, aby sa vzdali kontroly nad svojimi prostriedkami. Všetky platby idú do peňaženky obchodníka; Satflux poskytuje len dashboard, nastavenia a nástroje okolo BTCPay.
 
-Satflux je ovládací panel na prijímanie platieb v Bitcoine a cez Lightning a na papierovačky okolo nich. Pripája sa na [BTCPay Server](https://btcpayserver.org) a pridáva nad neho jednoduché rozhranie, takže všetko spravujete z jedného miesta:
+**V skratke**
 
-- **Obchody a peňaženky** - pripojte obchod, zapojte peňaženku a začnite prijímať on-chain aj Lightning platby.
-- **Pokladňa (PoS), Pay Button a Lightning adresy** - prijímajte platby osobne, na webe alebo jednoduchou adresou `vy@vasa-domena`.
-- **Fakturácia** - vystavujte riadne faktúry, sledujte kto zaplatil, párujte bankové platby a (na Slovensku) posielajte e-faktúry.
-- **Exporty** - odovzdajte účtovníkovi čistý balík.
+- **Nekustodiálny ovládací panel pre BTCPay** – Svoje kľúče a mince si držíte vy; Satflux vám pomáha prevádzkovať obchody.
 
-## Dva spôsoby prihlásenia
+- **Multi-store** – Z jedného účtu môžete viesť viac obchodov (e-shopy, kamenné obchody, služby) a prepínať medzi nimi v jednom rozhraní.
 
-Účty v Satfluxe sú zálohované **24-slovnou obnovovacou frázou**. Po prihlásení si môžete pridať **passkey**, takže nabudúce odomknete zariadením namiesto prepisovania 24 slov.
+- **Lightning (Blink / Aqua)** – Sami si zvolíte, ako chcete prijímať Lightning: **Blink** pre rýchle a jednoduché nastavenie, alebo **Aqua** s pluginom Boltz pre plne nekustodiálne riešenie (vaše kľúče, Liquid + Lightning). Nastavenie je usmernené krokovými checklistami.
 
-Vaša obnovovacia fráza je jediný kľúč k účtu, BTCPay obchodu aj lokálnym fakturačným dátam. **Nikdy ju nevidíme a nevieme ju obnoviť** - zálohujte si ju na bezpečné miesto.
+- **Pre koho je** – Pre obchody, obchodníkov, služby a e-shopy, ktorí chcú prijímať Bitcoin a Lightning vlastnou peňaženkou a bez kustóda.
 
-## Ďalšie kroky
+- **Výhody pre obchodníkov** – Jeden dashboard pre obchody a reporty; Point of Sale (PoS) aplikácie pre platby na mieste alebo z mobilu; tvorba a sledovanie faktúr; exporty do CSV a (na vyšších plánoch) XLSX pre účtovníctvo; voliteľné Lightning adresy (napr. [meno@satflux.org](mailto:meno@satflux.org)) pre dary alebo jednoduché platobné odkazy; REST API a webhooky pre integrácie; žiadna závislosť – BTCPay môžete neskôr presunúť alebo hostiť sami.
 
-1. [Vytvorte si účet v Satfluxe](/documentation/create-account)
-2. [Pripojte prvú peňaženku](/documentation/connect-your-first-wallet)
-3. [Začnite s fakturáciou](/documentation/getting-started-with-invoicing)
+**Nekustodiálnosť v praxi**
+
+Satflux nedrží ani nekontroluje vaše prostriedky. Pripájate **vlastnú** Lightning peňaženku (Blink alebo Aqua). BTCPay Server generuje faktúry a prijíma platby; peniaze idú do peňaženky, ktorú kontrolujete vy. Limity predplatného a funkcií v Satfluxe sa týkajú len funkcií správy (počet obchodov, exporty, Lightning adresy), nie schopnosti prijímať platby s existujúcim nastavením.
+
+**Zhrnutie**
+
+Satflux je ovládací panel a vrstva prevádzky nad BTCPay: multi-store, Lightning (Blink alebo Aqua) a nástroje pre obchodníkov, ktorí chcú jednoduchý, nekustodiálny spôsob prijímania Bitcoinu a Lightningu.

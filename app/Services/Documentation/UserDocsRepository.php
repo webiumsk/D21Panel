@@ -214,11 +214,35 @@ class UserDocsRepository
             'category' => $category,
             'order' => (int) ($frontMatter['order'] ?? 0),
         ];
-        if (! empty($frontMatter['updated'])) {
-            $article['updated_at'] = (string) $frontMatter['updated'];
+        $updated = $this->normalizeDate($frontMatter['updated'] ?? null);
+        if ($updated !== null) {
+            $article['updated_at'] = $updated;
         }
 
         return $article;
+    }
+
+    /**
+     * Front-matter `updated` to an ISO Y-m-d string. Symfony's YAML parser turns
+     * a bare date into a Unix timestamp int, so coerce ints/DateTime/strings to
+     * a real date and drop anything unparseable (SitemapController needs a valid
+     * lastmod).
+     */
+    private function normalizeDate(mixed $value): ?string
+    {
+        if (is_int($value) || (is_string($value) && ctype_digit($value))) {
+            return date('Y-m-d', (int) $value);
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+        if (is_string($value) && trim($value) !== '') {
+            $ts = strtotime($value);
+
+            return $ts !== false ? date('Y-m-d', $ts) : null;
+        }
+
+        return null;
     }
 
     private function localized(mixed $map, string $locale): ?string

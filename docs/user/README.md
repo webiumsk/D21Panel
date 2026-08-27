@@ -6,7 +6,7 @@ as the feature they describe, get reviewed, and are versioned with the code.
 
 ## Layout
 
-```
+```text
 docs/user/
   categories.yaml          # category metadata (slug, order, localized name/description)
   <locale>/<slug>.md       # one article per file, per locale

@@ -36,6 +36,7 @@ class DocumentationControllerTest extends TestCase
         category: getting-started
         order: 1
         meta_description: Start here.
+        updated: 2026-08-27
         ---
 
         # Introduction
@@ -114,6 +115,9 @@ class DocumentationControllerTest extends TestCase
         $this->assertStringContainsString('<table>', $content);
         $this->assertSame('Introduction', $response->json('data.title'));
         $this->assertSame('getting-started', $response->json('data.category.id'));
+        // Front-matter `updated` (a bare date YAML parses to a Unix timestamp)
+        // is normalized back to an ISO Y-m-d string, not a raw number.
+        $this->assertSame('2026-08-27', $response->json('data.updated_at'));
     }
 
     public function test_localized_content_is_served_when_present(): void
