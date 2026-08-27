@@ -20,7 +20,7 @@ Open the store's **Wallet connection** and the **Cashu** section. Confirm the be
 - **Mint URL** - the Cashu mint used for the conversion (must be `https://`). A default mint is suggested.
 - **Lightning Address** - where the settled sats are paid out. **Required.**
 - **Invoice unit** - `sat` or `usd` (how amounts are interpreted).
-- **Offer Cashu at checkout** - keep it on so the store uses this settlement path.
+- **Settle payments via Cashu → Lightning** - keep it on so the store uses this settlement path.
 - Optional: **trusted mints**, and **fee-reserve caps** (a max in sats and/or as a % of the amount) that bound how much Lightning routing fee the payout may spend.
 
 Editing an existing Cashu store re-asks for your password (unless you sign in by recovery phrase or passkey).

@@ -27,5 +27,5 @@ nostr+walletconnect://…?relay=…&secret=…
 ## Notes
 
 - The server must have the **BTCPay Nostr plugin** available for NWC connections to work.
-- NWC pairing strings from **Cashu ecash wallets** (e.g. Minibits) are not accepted here - those route through [Cashu](/documentation/cashu-lightning-settlement) instead.
+- NWC pairing strings from **Cashu ecash wallets** (e.g. Minibits) are not accepted here. To use such a wallet, set up [Cashu → Lightning](/documentation/cashu-lightning-settlement) instead - provide its mint URL and your Lightning address.
 - Most merchants do not need NWC. If you just want to receive Lightning quickly, use [any Lightning address](/documentation/connect-with-any-lightning-address) or [Aqua via SamRock](/documentation/connect-aqua-with-samrock).

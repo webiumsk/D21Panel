@@ -20,7 +20,7 @@ Otvorte **Pripojenie peňaženky** obchodu a sekciu **Cashu**. Potvrďte beta up
 - **Mint URL** - Cashu mint použitý na konverziu (musí byť `https://`). Predvolený mint je navrhnutý.
 - **Lightning adresa** - kam sa vyrovnané sats vyplácajú. **Povinné.**
 - **Jednotka faktúry** - `sat` alebo `usd` (ako sa interpretujú sumy).
-- **Ponúkať Cashu pri platbe** - nechajte zapnuté, aby obchod používal túto vyrovnávaciu cestu.
+- **Vyrovnávať platby cez Cashu → Lightning** - nechajte zapnuté, aby obchod používal túto vyrovnávaciu cestu.
 - Voliteľne: **dôveryhodné minty** a **stropy rezervy poplatku** (max v sats a/alebo ako % zo sumy), ktoré ohraničujú, koľko poplatku za smerovanie (routing) Lightning platby môže výplata minúť.
 
 Úprava existujúceho Cashu obchodu si znova vyžiada heslo (pokiaľ sa neprihlasujete frázou alebo passkeyom).
@@ -32,9 +32,9 @@ Otvorte **Pripojenie peňaženky** obchodu a sekciu **Cashu**. Potvrďte beta up
 
 ## Sledovanie vyrovnaní
 
-Stránka **Cashu settlements** vypisuje každé vyrovnanie a jeho stav - `SETTLED`, `PENDING`, `FAILED` alebo `MELT_COMPLETE` (skonvertované, záznam BTCPay dobieha). Zaseknuté riadky viete **skúsiť znova**. Bežné dôvody zlyhania sú zobrazené zrozumiteľne (napr. routing poplatok prekročil váš strop, alebo mint nepotvrdil Lightning výplatu).
+Stránka **Cashu vyrovnania** vypisuje každé vyrovnanie a jeho stav - `SETTLED`, `PENDING`, `FAILED` alebo `MELT_COMPLETE` (skonvertované, záznam BTCPay dobieha). Zaseknuté riadky viete **skúsiť znova**. Bežné dôvody zlyhania sú zobrazené zrozumiteľne (napr. routing poplatok prekročil váš strop, alebo mint nepotvrdil Lightning výplatu).
 
 ## Dobré vedieť
 
-- BTCPay obchodu potrebuje plugin **CashuMelt** (aktuálnu verziu). Ak vidíte chybu pluginu, aktualizujte ho.
+- BTCPay obchod potrebuje plugin **CashuMelt** (aktuálnu verziu). Ak vidíte chybu pluginu, aktualizujte ho.
 - Prostriedky sa vyrovnajú na vašu Lightning adresu, ale počas konverzie prechádzajú **cez mint** - krátky bod dôvery - preto používajte len mint, ktorému dôverujete.
