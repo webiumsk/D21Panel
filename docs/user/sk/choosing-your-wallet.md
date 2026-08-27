@@ -17,7 +17,7 @@ Satflux pripája k obchodu **vašu vlastnú** peňaženku - nikdy nedrží vaše
 | **Akákoľvek Lightning adresa** | Podľa peňaženky | Vložíte `vy@penazenka.com` | Blitz, Flash, Coinos alebo akúkoľvek LUD-21 peňaženku |
 | **Aqua** (cez SamRock) | Držíte kľúče vy | Naskenujete QR v Aqua | Najjednoduchšie plne samo-kustodiálne nastavenie |
 | **Bull Bitcoin** | Držíte kľúče vy | Vložíte watch-only descriptor | Samo-kustódia s Bull Bitcoin |
-| **Cashu** (beta) | Ecash krytý mintom | Mint URL + Lightning adresa | Prijímanie ecash platieb |
+| **Cashu** (beta) | Lightning (vyrovnané cez mint) | Mint URL + Lightning adresa | Vyrovnanie Lightningu cez mint |
 | **NWC** (napr. Alby Hub) | Vlastný uzol/hub | Vložíte pairing string | Pokročilí samohostitelia |
 
 ## Ako sa rozhodnúť
@@ -25,7 +25,7 @@ Satflux pripája k obchodu **vašu vlastnú** peňaženku - nikdy nedrží vaše
 - **Chcete rýchly štart?** Vložte svoju **Blink** `@blink.sv` adresu alebo [akúkoľvek Lightning adresu](/documentation/connect-with-any-lightning-address) z peňaženky, ktorú už používate.
 - **Chcete jednoducho držať vlastné kľúče?** Pripojte **Aqua** cez [SamRock](/documentation/connect-aqua-with-samrock) - naskenujete QR a hotovo.
 - **Používate Bull Bitcoin?** Vložte jeho [watch-only descriptor](/documentation/aqua-and-bull-descriptor).
-- **Chcete prijímať ecash?** Viď [Cashu (CashuMelt)](/documentation/accept-cashu-ecash) - je to beta.
+- **Chcete vyrovnávať Lightning cez Cashu mint?** Viď [Cashu Lightning vyrovnanie](/documentation/cashu-lightning-settlement) - je to beta.
 - **Máte vlastný Alby Hub?** Použite [NWC](/documentation/connect-with-nwc).
 
-Peňaženku môžete neskôr zmeniť - viď [Zrušenie alebo zmena údajov peňaženky](/documentation/revoking-or-changing-wallet-credentials). Nech si zvolíte čokoľvek, Satflux nikdy nepreberá kustódiu vašej peňaženky - viď [Nemôžeme pristupovať k vaším prostriedkom ani ich presúvať](/documentation/we-cannot-access-or-move-your-funds). (Cashu je svojou podstatou iné: je to ecash krytý mintom, ktorý sa premelí na vašu Lightning adresu.)
+Peňaženku môžete neskôr zmeniť - viď [Zrušenie alebo zmena údajov peňaženky](/documentation/revoking-or-changing-wallet-credentials). Nech si zvolíte čokoľvek, Satflux nikdy nepreberá kustódiu vašej peňaženky - viď [Nemôžeme pristupovať k vaším prostriedkom ani ich presúvať](/documentation/we-cannot-access-or-move-your-funds). (Cashu nie je zákaznícka platobná metóda - je to prevodník na vyrovnanie, ktorý smeruje Lightning cez mint na vašu Lightning adresu.)

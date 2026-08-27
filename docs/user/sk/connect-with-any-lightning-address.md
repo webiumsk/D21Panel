@@ -17,7 +17,7 @@ Najjednoduchší spôsob pripojenia peňaženky je vložiť jednu **Lightning ad
 
 ## Ostatné adresy - Cashu (beta)
 
-Ak adresa nepatrí medzi vyššie uvedené a nepodporuje LUD-21, Satflux ponúkne pripojenie cez **Cashu (beta)** s predvoleným mintom. Uvidíte krátke beta upozornenie a potvrdzovacie zaškrtávacie pole. Ako to funguje a aké sú limity, viď [Prijímanie Cashu ecash](/documentation/accept-cashu-ecash).
+Ak adresa nepatrí medzi vyššie uvedené a nepodporuje LUD-21, Satflux ju vie použiť tak, že na ňu **vyrovnáva cez Cashu mint (beta)**. Uvidíte krátke beta upozornenie a potvrdzovacie zaškrtávacie pole. Ako to funguje a aké sú limity, viď [Cashu Lightning vyrovnanie](/documentation/cashu-lightning-settlement).
 
 ## Dobré vedieť
 
