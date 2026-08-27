@@ -1109,34 +1109,6 @@ export const faqApi = {
         api.post(`/faq/${slug}/helpful`),
 };
 
-// Admin Documentation API
-export const adminDocumentationApi = {
-    articles: {
-        index: (params?: { category_id?: string; is_published?: boolean; search?: string }) => 
-            api.get('/admin/documentation/articles', { params }),
-        show: (id: string) => 
-            api.get(`/admin/documentation/articles/${id}`),
-        create: (data: Record<string, unknown>) => 
-            api.post('/admin/documentation/articles', data),
-        update: (id: string, data: Record<string, unknown>) => 
-            api.put(`/admin/documentation/articles/${id}`, data),
-        delete: (id: string) => 
-            api.delete(`/admin/documentation/articles/${id}`),
-    },
-    categories: {
-        index: () => 
-            api.get('/admin/documentation/categories'),
-        show: (id: string) => 
-            api.get(`/admin/documentation/categories/${id}`),
-        create: (data: Record<string, unknown>) => 
-            api.post('/admin/documentation/categories', data),
-        update: (id: string, data: Record<string, unknown>) => 
-            api.put(`/admin/documentation/categories/${id}`, data),
-        delete: (id: string) => 
-            api.delete(`/admin/documentation/categories/${id}`),
-    },
-};
-
 // Admin FAQ API
 export const adminFaqApi = {
     items: {

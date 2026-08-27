@@ -85,6 +85,10 @@ Browser (Vue SPA)
 
 Events/tickets use **Satflux Tickets** - a standalone fork of Satoshi Tickets by TChukwuleta with its own identity (`BTCPayServer.Plugins.SatfluxTickets`, monorepo `~/apps/bitcoin/BTCPayServerPlugins`, branch `main`). Details: [docs/SATFLUX_TICKETS.md](docs/SATFLUX_TICKETS.md); runbook `Plugins/BTCPayServer.Plugins.SatfluxTickets/FORK_MAINTENANCE.md`. API paths are canonically `satflux-tickets` (legacy `satoshi-tickets` aliases stay functional).
 
+## User Documentation (docs-as-code)
+
+The public docs at `/documentation` are authored as **repo Markdown** under `docs/user/`, not a database CMS. Files are `docs/user/<locale>/<slug>.md` (locales `en,sk,es,de,cs`; `en` is the canonical set and per-article fallback) with YAML front-matter (`title`, `category`, `order`, optional `meta_description`/`updated`); category metadata is in `docs/user/categories.yaml`. Rendering is server-side via `app/Services/Documentation/UserDocsRepository.php` (`league/commonmark`, GitHub-flavored, `html_input=escape`) and served by `DocumentationController` with the same JSON shape the frontend already consumes (frontend also DOMPurify-sanitizes). Update docs in the same PR as the feature they describe. See `docs/user/README.md`. (The `/admin/documentation/upload-image` endpoint stays - it is the shared image upload for the admin rich-text editor used by raffles/crowdfunds/tickets.)
+
 ## Key Conventions
 
 - **Typography:** use ASCII hyphen `-` with spaces (`word - word`), not em dash `—`, in UI copy, docs, and comments (see `.cursor/rules/typography-dash.mdc`).

@@ -114,26 +114,6 @@
                 </svg>
                 {{ t("documentation.back_to_documentation") }}
               </router-link>
-              <router-link
-                v-if="article.id && canEditArticle"
-                :to="`/admin/documentation/articles/${article.id}/edit`"
-                class="inline-flex items-center text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
-                <svg
-                  class="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-                {{ t("common.edit") }}
-              </router-link>
             </div>
 
             <!-- Category Badge -->
@@ -193,11 +173,10 @@
 
 <script setup lang="ts">
 import { asApiError } from "../../utils/apiError";
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import DOMPurify from "dompurify";
-import { useAuthStore } from "../../store/auth";
 import { updatePageMeta } from "../../composables/usePageMeta";
 import { documentationApi } from "../../services/api";
 import PublicHeader from "../../components/layout/PublicHeader.vue";
@@ -205,13 +184,6 @@ import AppFooter from "../../components/layout/AppFooter.vue";
 
 const route = useRoute();
 const { t, locale } = useI18n();
-const authStore = useAuthStore();
-
-const canEditArticle = computed(() => {
-  const role = authStore.user?.role;
-  return role === "admin" || role === "support";
-});
-
 interface DocArticle {
   id: string;
   slug: string;
