@@ -66,7 +66,7 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.61.1",
     "@types/dompurify": "^3.2.0",
     "@types/node": "^22.0.0",
     "@vitejs/plugin-vue": "^5.0.0",
