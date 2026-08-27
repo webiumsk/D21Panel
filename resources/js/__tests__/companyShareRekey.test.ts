@@ -34,10 +34,12 @@ import { MIGRATION_ORDER, type MigrationTable } from '@/evolu/companyShareMigrat
 import { rekeyCompanyShare, resumePendingCompanyShareRekeys } from '@/evolu/companyShareRekey';
 import { clearCompanyShares, companyShareInfo, setCompanyShare } from '@/evolu/companyShareRegistry';
 import { clearRowOwnerIndex } from '@/evolu/ownerScope';
+import { waitForInvoicingDataSettled } from '@/evolu/relaySyncWait';
 import { createCompanyShareSecret, encodeOwnerSecret, sharedOwnerFromSecret } from '@/evolu/sharedOwner';
 import type { InvoicingLocalSchema } from '@/evolu/schema';
 
 const APP = 'app-owner';
+const waitForInvoicingDataSettledMock = vi.mocked(waitForInvoicingDataSettled);
 type Row = Record<string, unknown> & { id: string; ownerId?: string | null; isDeleted?: unknown };
 type FakeEvoluOptions = {
     failUpdate?: (table: string, props: Row, options?: { ownerId?: string }) => boolean;
@@ -99,6 +101,8 @@ function fakeEvolu(seed: Record<MigrationTable, Row[]>, options: FakeEvoluOption
 afterEach(() => {
     clearCompanyShares();
     clearRowOwnerIndex();
+    waitForInvoicingDataSettledMock.mockReset();
+    waitForInvoicingDataSettledMock.mockResolvedValue(undefined);
 });
 
 /** Seed an active shared company (owner O1) with a company row + one contact. */
@@ -149,6 +153,31 @@ describe('company share rekey', () => {
         expect(h.tables.get('contact')?.get('old-owner|k1')?.isDeleted).not.toBe(1);
         expect(h.shares.some((r) => r.status === 'rekeying')).toBe(true);
         expect(companyShareInfo('c1')?.ownerId).toBe('old-owner');
+    });
+
+    it('refreshes rows written during the final settle before retiring the old partition', async () => {
+        const h = fakeEvolu(emptyAll());
+        seedSharedCompany(h, 'old-owner');
+        h.seedRow('contact', { id: 'k2', ownerId: 'old-owner', companyId: 'c1', name: 'Carol' });
+        let settleCalls = 0;
+        waitForInvoicingDataSettledMock.mockImplementation(async () => {
+            settleCalls++;
+            if (settleCalls === 2) {
+                h.seedRow('contact', { id: 'k1', ownerId: 'old-owner', companyId: 'c1', name: 'Alice' });
+                h.seedRow('contact', { id: 'k2', ownerId: 'old-owner', companyId: 'c1', name: 'Carol', isDeleted: 1 });
+                h.seedRow('document', { id: 'd1', ownerId: 'old-owner', companyId: 'c1', documentType: 'invoice', status: 'draft', title: 'Late invoice' });
+            }
+        });
+
+        const result = await rekeyCompanyShare(h.evolu, 'c1', { skipSyncWait: true });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(h.tables.get('contact')?.get(`${result.newOwnerId}|k1`)?.name).toBe('Alice');
+        expect(h.tables.get('contact')?.get(`${result.newOwnerId}|k2`)?.isDeleted).toBe(1);
+        expect(h.tables.get('document')?.get(`${result.newOwnerId}|d1`)?.title).toBe('Late invoice');
+        expect(h.tables.get('contact')?.get('old-owner|k1')?.isDeleted).toBe(1);
+        expect(h.tables.get('document')?.get('old-owner|d1')?.isDeleted).toBe(1);
     });
 
     it('refuses a company that is not actively shared', async () => {
@@ -207,6 +236,7 @@ describe('company share rekey', () => {
         h.seedShare({ companyId: 'c1', sharedOwnerId: newOwner.id, secretB64: encodeOwnerSecret(secret), role: 'owner', status: 'active', bridgeCompanyId: 'bridge-1', migratingDeviceId: null });
         h.seedRow('company', { id: 'c1', ownerId: newOwner.id, legalName: 'Acme' });
         h.seedRow('contact', { id: 'k1', ownerId: newOwner.id, companyId: 'c1', name: 'Bob' });
+        h.seedRow('document', { id: 'd1', ownerId: 'old-owner', companyId: 'c1', documentType: 'invoice', status: 'draft', title: 'Old partition invoice' });
 
         await resumePendingCompanyShareRekeys(h.evolu);
 
@@ -214,8 +244,10 @@ describe('company share rekey', () => {
         expect(h.shares.filter((r) => r.status === 'active')).toHaveLength(1);
         expect(h.shares.find((r) => r.sharedOwnerId === newOwner.id)?.status).toBe('active');
         expect(h.shares.find((r) => r.sharedOwnerId === 'old-owner')?.status).toBe('revoked');
+        expect(h.tables.get('document')?.get(`${newOwner.id}|d1`)?.title).toBe('Old partition invoice');
         expect(h.tables.get('company')?.get('old-owner|c1')?.isDeleted).toBe(1);
         expect(h.tables.get('contact')?.get('old-owner|k1')?.isDeleted).toBe(1);
+        expect(h.tables.get('document')?.get('old-owner|d1')?.isDeleted).toBe(1);
         expect(companyShareInfo('c1')?.ownerId).toBe(newOwner.id);
     });
 });

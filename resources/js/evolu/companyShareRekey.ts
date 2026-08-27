@@ -1,3 +1,4 @@
+import { sqliteTrue } from "@evolu/common";
 import type { Evolu, OwnerId } from "@evolu/common/local-first";
 import { allCompanySharesQuery } from "./client";
 import {
@@ -65,6 +66,95 @@ function mutate(run: (onComplete: () => void) => { ok: boolean; error?: unknown 
     });
 }
 
+async function refreshSourceRows(
+    target: Loader,
+    set: ReturnType<typeof collectCompanyRows>,
+    sourceOwnerId: string,
+): Promise<{ ok: true; copied: number } | { ok: false; detail: { table: string; id: string; error?: unknown } }> {
+    let copied = 0;
+    for (const table of MIGRATION_ORDER) {
+        for (const row of set[table]) {
+            if (row.ownerId !== sourceOwnerId) continue;
+            const result = await mutate((onComplete) => target.upsert(table, rowForSharedUpsert(row) as never, { onComplete }));
+            if (!result.ok) {
+                return { ok: false, detail: { table, id: row.id, error: result.error } };
+            }
+            copied++;
+        }
+    }
+    return { ok: true, copied };
+}
+
+async function copyMissingSourceRows(
+    target: Loader,
+    set: ReturnType<typeof collectCompanyRows>,
+    sourceOwnerId: string,
+    targetOwnerId: string,
+): Promise<{ ok: true; copied: number } | { ok: false; detail: { table: string; id: string; error?: unknown } }> {
+    const pending = pendingCopies(set, sourceOwnerId, targetOwnerId);
+    let copied = 0;
+    for (const table of MIGRATION_ORDER) {
+        for (const row of pending[table]) {
+            const result = await mutate((onComplete) => target.upsert(table, rowForSharedUpsert(row) as never, { onComplete }));
+            if (!result.ok) {
+                return { ok: false, detail: { table, id: row.id, error: result.error } };
+            }
+            copied++;
+        }
+    }
+    return { ok: true, copied };
+}
+
+async function mirrorSourceRows(
+    target: Loader,
+    set: ReturnType<typeof collectCompanyRows>,
+    sourceOwnerId: string,
+    targetOwnerId: string,
+): Promise<{ ok: true; copied: number; deleted: number } | { ok: false; detail: { table: string; id: string; error?: unknown } }> {
+    const refreshed = await refreshSourceRows(target, set, sourceOwnerId);
+    if (!refreshed.ok) {
+        return refreshed;
+    }
+
+    let deleted = 0;
+    for (const table of MIGRATION_ORDER) {
+        const sourceIds = new Set(set[table].filter((row) => row.ownerId === sourceOwnerId).map((row) => row.id));
+        for (const row of set[table]) {
+            if (row.ownerId !== targetOwnerId || sourceIds.has(row.id)) continue;
+            const result = await mutate((onComplete) =>
+                target.update(table, { id: row.id, isDeleted: sqliteTrue } as never, { onComplete }),
+            );
+            if (!result.ok) {
+                return { ok: false, detail: { table, id: row.id, error: result.error } };
+            }
+            deleted++;
+        }
+    }
+
+    return { ok: true, copied: refreshed.copied, deleted };
+}
+
+async function verifyOwnerRows(
+    evolu: Loader,
+    companyId: string,
+    sourceOwnerId: string,
+    targetOwnerId: string,
+): Promise<{ ok: true } | { ok: false; missing: Record<string, string[]> }> {
+    let missing: Record<string, string[]> = {};
+    for (let attempt = 0; attempt < VERIFY_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+            await new Promise((resolve) => setTimeout(resolve, VERIFY_RETRY_MS));
+        }
+        const set = collectCompanyRows(await loadAllMigrationRows(evolu), companyId);
+        const verification = verifyMigrated(set, sourceOwnerId, targetOwnerId);
+        if (verification.ok) {
+            return { ok: true };
+        }
+        missing = verification.missing;
+    }
+    return { ok: false, missing };
+}
+
 async function loadShares(evolu: Loader, appOwnerId: string, companyId: string): Promise<ShareRow[]> {
     const rows = (await evolu.loadQuery(allCompanySharesQuery)) as unknown as readonly ShareRow[];
     return rows.filter((r) => r.companyId === companyId && r.ownerId === appOwnerId);
@@ -103,6 +193,26 @@ async function finishSupersededActiveShares(
         bridgeCompanyId: current.bridgeCompanyId ?? null,
     });
 
+    const target = scopedEvolu(evolu, owner.id);
+    await waitForInvoicingDataSettled(evolu, { minWaitMs: SETTLE_MS, timeoutMs: 20_000 }).catch(() => undefined);
+    let copied = 0;
+    for (const superseded of activeShares.slice(0, -1)) {
+        const refreshed = await copyMissingSourceRows(
+            target,
+            collectCompanyRows(await loadAllMigrationRows(evolu), companyId),
+            superseded.sharedOwnerId,
+            owner.id,
+        );
+        if (!refreshed.ok) {
+            return { ok: false, error: "copy_failed", detail: refreshed.detail };
+        }
+        copied += refreshed.copied;
+        const verified = await verifyOwnerRows(evolu, companyId, superseded.sharedOwnerId, owner.id);
+        if (!verified.ok) {
+            return { ok: false, error: "verify_failed", detail: verified.missing };
+        }
+    }
+
     const supersededOwners: string[] = [];
     for (const superseded of activeShares.slice(0, -1)) {
         const revoked = await mutate((onComplete) =>
@@ -122,7 +232,7 @@ async function finishSupersededActiveShares(
         ok: true,
         oldOwnerId: activeShares[0].sharedOwnerId,
         newOwnerId: owner.id,
-        copied: 0,
+        copied,
         softDeleted,
         resumed: true,
     };
@@ -264,6 +374,19 @@ export async function rekeyCompanyShare(evolu: Loader, companyId: string, option
     // best-effort and also handled by purgeRevokedShareResidue on later boots.
     report({ phase: "cleanup", done, total });
     await waitForInvoicingDataSettled(evolu, { minWaitMs: SETTLE_MS, timeoutMs: 20_000 }).catch(() => undefined);
+    const refreshed = await mirrorSourceRows(
+        target,
+        collectCompanyRows(await loadAllMigrationRows(evolu), companyId),
+        oldOwnerId,
+        newOwner.id,
+    );
+    if (!refreshed.ok) {
+        return { ok: false, error: "copy_failed", detail: refreshed.detail };
+    }
+    const refreshedVerification = await verifyOwnerRows(evolu, companyId, oldOwnerId, newOwner.id);
+    if (!refreshedVerification.ok) {
+        return { ok: false, error: "verify_failed", detail: refreshedVerification.missing };
+    }
 
     const activated = await mutate((onComplete) => evolu.update("companyShare", { id: newShareRowId, status: "active" } as never, { onComplete }));
     if (!activated.ok) {
