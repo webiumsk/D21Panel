@@ -8,6 +8,7 @@ use App\Models\WebhookEvent;
 use App\Services\BtcPay\SubscriptionService;
 use App\Services\Invoicing\BusinessDocumentPaymentWebhookService;
 use App\Services\Invoicing\BusinessExpenseIsdocPackService;
+use App\Services\Invoicing\CompanySlotService;
 use App\Services\Invoicing\SubscriptionBillingInvoiceService;
 use App\Services\StoreEmailRuleDispatcher;
 use App\Services\SubscriptionCreditLedgerService;
@@ -181,6 +182,25 @@ class ProcessBtcPayWebhook implements ShouldQueue
                         'invoice_id' => $invoiceId,
                         'user_id' => $metadata['userId'] ?? null,
                         'credits' => $metadata['packCredits'] ?? null,
+                    ]);
+                }
+
+                return;
+            }
+
+            if (($metadata['purpose'] ?? null) === 'company_slot_pack' && $invoiceId) {
+                $fulfilled = app(CompanySlotService::class)
+                    ->fulfillPaidInvoice(
+                        $invoiceId,
+                        isset($metadata['userId']) ? (string) $metadata['userId'] : null,
+                        isset($metadata['purchaseId']) ? (string) $metadata['purchaseId'] : null,
+                    );
+
+                if ($fulfilled) {
+                    Log::info('Company slot pack purchase fulfilled', [
+                        'invoice_id' => $invoiceId,
+                        'user_id' => $metadata['userId'] ?? null,
+                        'slots' => $metadata['packSlots'] ?? null,
                     ]);
                 }
 

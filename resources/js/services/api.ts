@@ -630,6 +630,13 @@ export const invoicingApi = {
             await api.delete(`/invoicing/companies/${companyId}/members/${memberId}`);
         },
     },
+    /** User-level extra company slot purchases (one-off, Pro only). */
+    companySlots: {
+        async purchase<T = unknown>(slots: number): Promise<T> {
+            const { data } = await api.post<ApiEnvelope<T>>('/invoicing/company-slots/purchase', { slots });
+            return data.data;
+        },
+    },
     /** Invite acceptance - reachable by any authenticated user (the invitee). */
     invites: {
         async preview(token: string): Promise<CompanyInvitePreview> {

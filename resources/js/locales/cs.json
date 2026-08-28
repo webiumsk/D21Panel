@@ -48,7 +48,7 @@
       "invoicing_expenses": "Náklady, přílohy a hromadný ISDOC import",
       "invoicing_bank_payments": "Párování bankovních plateb s fakturami",
       "invoicing_contacts_import": "Import kontaktů z Excelu",
-      "companies_2": "2 firemní profily",
+      "companies_2": "2 firemní profily (další sloty lze dokoupit)",
       "companies_unlimited": "Neomezené firemní profily"
     }
   },
@@ -81,6 +81,17 @@
     "pro_required_detail": "V PRO získáte SK/CZ faktury, ověření DIČ ve VIES, ISDOC a Peppol UBL export, párování plateb a propojení s vlastním digitálním poštovním doručovatelem (SAPI-SK).",
     "vat_number_hint": "Formát např. CZ12345678. Ověřte jedním kliknutím ve VIES (registr plátců DPH EU).",
     "company_limit_reached": "Dosáhli jste limitu {max} firem ve vašem plánu. Pro více firem nás kontaktujte (Enterprise).",
+    "company_slots_cta": "Dokoupit sloty na firmy",
+    "company_slots_title": "Další firemní sloty",
+    "company_slots_body": "Počet firem v ceně plánu: {included}. Dokoupené sloty: {extra}. Slot patří k účtu, ne ke konkrétní firmě - smazáním firmy se slot opět uvolní.",
+    "company_slots_unit": "slot | slotů",
+    "company_slots_waiting": "Čekáme na platbu - nové sloty se zde zobrazí automaticky po jejím potvrzení.",
+    "company_slots_pay_btcpay": "Jednorázová platba v bitcoinu přes BTCPay checkout.",
+    "company_slots_fine_print": "Sloty jsou jednorázový nákup a nikdy nevyprší, využít je však lze jen s aktivním plánem Pro.",
+    "company_slots_unavailable": "Nákup slotů momentálně není dostupný. Kontaktujte nás, prosím.",
+    "company_slots_success": "Platba přijata - limit firem byl navýšen.",
+    "company_slots_paid_flash": "Děkujeme! Hned po potvrzení platby se limit firem navýší.",
+    "company_limit_issue_error": "Tato firma je nad limitem firem vašeho plánu, proto zatím nemůže vystavovat doklady. Dokupte slot na firmu nebo odstraňte jinou firmu.",
     "upgrade_cta": "Zobrazit plány PRO",
     "no_companies": "Zatím nemáte firemní profil.",
     "no_companies_restore_hint": "Pokud máte ještě data na serveru, použijte Import ze serveru výše. Jinak se přihlaste stejnou obnovovací frází na zařízení, kde už Evolu firmy má.",
@@ -1901,7 +1912,7 @@
       "invoicing_expenses": "Evidujte výdaje s přílohami a extrakcí polí ISDOC z dodavatelských PDF.",
       "invoicing_bank_payments": "Importujte bankovní platby a párujte je s otevřenými fakturami.",
       "invoicing_contacts_import": "Importujte kontakty z CSV a používejte je napříč firmami.",
-      "companies_2": "Na Pro spravujte až dva firemní profily, každý s vlastním brandingem a číselnými řadami."
+      "companies_2": "Na Pro spravujte až dva firemní profily, každý s vlastním brandingem a číselnými řadami - další firmy dokoupíte jako sloty."
     }
   },
   "stores": {

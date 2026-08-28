@@ -12,11 +12,17 @@ export interface PricingPro {
   sats_per_month_display: number;
 }
 
+export interface CompanySlotPack {
+  slots: number;
+  sats: number;
+}
+
 export interface PricingData {
   trial_days: number;
   grace_days: number;
   free: PricingFree;
   pro: PricingPro;
+  company_slot_packs: CompanySlotPack[];
 }
 
 export function proEffectiveMonthlySats(pro: PricingPro): number {
@@ -32,6 +38,7 @@ const fallback: PricingData = {
   grace_days: 30,
   free: { sats_per_year: 0 },
   pro: { sats_per_year: 210_000, sats_per_month_display: 21_000 },
+  company_slot_packs: [],
 };
 
 const cached = ref<PricingData | null>(null);
@@ -58,6 +65,7 @@ export function usePricing() {
           grace_days?: number;
           free: PricingFree;
           pro: PricingPro;
+          company_slot_packs?: CompanySlotPack[];
         }>('/pricing');
         cached.value = {
           trial_days: data.trial_days ?? 30,
@@ -67,6 +75,7 @@ export function usePricing() {
             sats_per_year: data.pro?.sats_per_year ?? 210_000,
             sats_per_month_display: data.pro?.sats_per_month_display ?? 21_000,
           },
+          company_slot_packs: Array.isArray(data.company_slot_packs) ? data.company_slot_packs : [],
         };
         return cached.value!;
       } catch {

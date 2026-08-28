@@ -461,6 +461,13 @@
         </section>
 
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+        <router-link
+          v-if="companyLimitBlocked"
+          :to="{ name: 'invoicing', query: { buy_company_slot: '1' } }"
+          class="inline-block text-sm text-indigo-700 hover:text-indigo-900 hover:underline font-medium"
+        >
+          {{ t('invoicing.company_slots_cta') }}
+        </router-link>
 
         <div v-if="!isLocked" class="flex flex-wrap gap-3 pt-2">
         <button type="submit" class="invoicing-btn-primary px-6 py-3" :disabled="saving">
@@ -534,6 +541,7 @@ const {
   documentId,
   saving,
   error,
+  companyLimitBlocked,
   documentStatus,
   displayDocumentNumber,
   company,

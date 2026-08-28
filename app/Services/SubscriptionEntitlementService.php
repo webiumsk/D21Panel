@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use App\Services\Invoicing\CompanySlotService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -340,8 +341,23 @@ class SubscriptionEntitlementService
 
     /**
      * Max invoicing companies for the user (null = unlimited). 0 = module not available.
+     * Finite limits include purchased extra company slots on top of the plan's base.
      */
     public function maxCompaniesForUser(User $user): ?int
+    {
+        $base = $this->includedCompaniesForUser($user);
+
+        if ($base === null || $base <= 0) {
+            return $base;
+        }
+
+        return $base + app(CompanySlotService::class)->paidSlotCount($user);
+    }
+
+    /**
+     * The plan's included company count before purchased slots (null = unlimited).
+     */
+    public function includedCompaniesForUser(User $user): ?int
     {
         if ($user->hasUnlimitedAccess()) {
             return null;

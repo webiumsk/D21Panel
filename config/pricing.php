@@ -28,4 +28,19 @@ return [
         // No fixed price - contact sales
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Extra invoicing company slots (one-off purchases, Pro only)
+    |--------------------------------------------------------------------------
+    | Slots raise the company limit on top of the plan's included count.
+    | PLACEHOLDER prices: packs with sats <= 0 are not purchasable and are
+    | hidden from the API - set real prices before launch.
+    */
+
+    'company_slot_packs' => [
+        ['slots' => 1, 'sats' => 0],
+        ['slots' => 5, 'sats' => 0],
+        ['slots' => 10, 'sats' => 0],
+    ],
+
 ];
