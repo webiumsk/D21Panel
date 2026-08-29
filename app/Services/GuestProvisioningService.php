@@ -88,9 +88,14 @@ class GuestProvisioningService
         $webhookData = null;
 
         try {
+            // Kept (encrypted) on the local user: current BTCPay requires it
+            // as currentPassword when changing the account email via
+            // PUT /api/v1/users/me (guest -> real email sync).
+            $btcpayPassword = Str::random(32);
+
             $btcpayUser = $this->userService->createUser([
                 'email' => $guestEmail,
-                'password' => Str::random(32),
+                'password' => $btcpayPassword,
                 'isAdministrator' => false,
                 'sendInvitationEmail' => false,
             ]);
@@ -163,6 +168,7 @@ class GuestProvisioningService
             [$user, $store] = DB::transaction(function () use (
                 $guestEmail,
                 $guestPassword,
+                $btcpayPassword,
                 $recoveryPkHex,
                 $btcpayUserId,
                 $btcpayStoreId,
@@ -184,6 +190,10 @@ class GuestProvisioningService
                 }
 
                 $userData['btcpay_api_key'] = $createdPerUserApiKey;
+
+                if (Schema::hasColumn('users', 'btcpay_password')) {
+                    $userData['btcpay_password'] = $btcpayPassword;
+                }
 
                 if ($recoveryPkHex && Schema::hasColumn('users', 'guest_recovery_public_key')) {
                     if (User::where('guest_recovery_public_key', $recoveryPkHex)->exists()) {

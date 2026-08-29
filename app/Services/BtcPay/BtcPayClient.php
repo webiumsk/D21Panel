@@ -41,6 +41,10 @@ class BtcPayClient
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
             ])
+            // An API client must never follow redirects: a 307/308 would
+            // re-send the Authorization header and request body (which can
+            // carry credentials, e.g. currentPassword) to the redirect target.
+            ->withOptions(['allow_redirects' => false])
             ->timeout(30);
     }
 
@@ -170,6 +174,7 @@ class BtcPayClient
                     'Authorization' => "Bearer {$this->apiKey}",
                     'Accept' => 'application/json',
                 ])
+                ->withOptions(['allow_redirects' => false])
                 ->timeout(30)
                 ->attach('file', $fileContents, $safeFilename)
                 ->post($endpoint),
@@ -363,6 +368,7 @@ class BtcPayClient
                     'Authorization' => "Bearer {$this->apiKey}",
                     'Accept' => $accept,
                 ])
+                ->withOptions(['allow_redirects' => false])
                 ->timeout(30)
                 ->get($endpoint),
             function (Response $response) use ($endpoint, $accept): string {
