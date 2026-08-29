@@ -89,24 +89,33 @@ class CompanySlotService
             'status' => CompanySlotPurchase::STATUS_PENDING,
         ]);
 
-        $invoice = $this->invoiceService->createInvoice($storeId, [
-            'amount' => (string) $pack['sats'],
-            'currency' => 'SATS',
-            'metadata' => [
-                'purpose' => 'company_slot_pack',
-                'packSlots' => (string) $pack['slots'],
-                'userId' => (string) $user->id,
-                'purchaseId' => $purchase->id,
-            ],
-            'checkout' => [
-                'redirectURL' => rtrim(config('app.url'), '/').'/invoicing?company_slots=paid',
-                'expirationMinutes' => 60,
-            ],
-        ]);
+        try {
+            $invoice = $this->invoiceService->createInvoice($storeId, [
+                'amount' => (string) $pack['sats'],
+                'currency' => 'SATS',
+                'metadata' => [
+                    'purpose' => 'company_slot_pack',
+                    'packSlots' => (string) $pack['slots'],
+                    'userId' => (string) $user->id,
+                    'purchaseId' => $purchase->id,
+                ],
+                'checkout' => [
+                    'redirectURL' => rtrim(config('app.url'), '/').'/invoicing?company_slots=paid',
+                    'expirationMinutes' => 60,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            // No invoice exists, so the pending row can never be fulfilled - drop it.
+            $purchase->delete();
+
+            throw $e;
+        }
 
         $invoiceId = $invoice['id'] ?? null;
         $checkoutLink = $invoice['checkoutLink'] ?? null;
         if (! $invoiceId || ! $checkoutLink) {
+            $purchase->delete();
+
             throw ValidationException::withMessages([
                 'billing' => ['Could not create payment invoice.'],
             ]);

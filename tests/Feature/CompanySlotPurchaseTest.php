@@ -132,6 +132,22 @@ class CompanySlotPurchaseTest extends TestCase
     }
 
     #[Test]
+    public function failed_invoice_creation_removes_the_pending_purchase(): void
+    {
+        // Invoice response without id/checkoutLink - the pending row can never
+        // be fulfilled and must not linger.
+        Http::fake([
+            'https://btcpay.test/api/v1/stores/sub-store-1/invoices' => Http::response([], 201),
+        ]);
+
+        $this->actingAs($this->proUser)
+            ->postJson('/api/invoicing/company-slots/purchase', ['slots' => 1])
+            ->assertUnprocessable();
+
+        $this->assertDatabaseCount('company_slot_purchases', 0);
+    }
+
+    #[Test]
     public function free_user_cannot_purchase_slots(): void
     {
         $freeUser = $this->makeUserOnPlan([

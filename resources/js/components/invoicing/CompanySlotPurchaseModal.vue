@@ -40,6 +40,7 @@
             <span class="block text-sm font-medium text-indigo-700 mt-1">{{ formatSats(pack.sats) }}</span>
           </button>
         </div>
+        <p v-if="purchaseError" class="text-sm text-red-600">{{ purchaseError }}</p>
         <p v-if="waitingForPayment" class="text-xs text-gray-600">
           {{ t('invoicing.company_slots_waiting') }}
         </p>
@@ -66,6 +67,7 @@ import { useI18n } from 'vue-i18n';
 import { invoicingApi } from '@/services/api';
 import { usePricing } from '@/composables/usePricing';
 import { useAuthStore } from '@/store/auth';
+import { asApiError } from '@/utils/apiError';
 
 const props = defineProps<{
   open: boolean;
@@ -81,6 +83,7 @@ const { pricing, formatSats, load } = usePricing();
 const authStore = useAuthStore();
 
 const purchasing = ref(false);
+const purchaseError = ref('');
 const waitingForPayment = ref(false);
 const purchased = ref(false);
 let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -95,6 +98,7 @@ watch(
   (open) => {
     if (open) {
       purchased.value = false;
+      purchaseError.value = '';
       waitingForPayment.value = false;
       void load();
     } else {
@@ -105,13 +109,43 @@ watch(
 
 async function purchase(slots: number): Promise<void> {
   purchasing.value = true;
+  purchaseError.value = '';
+  // Open the tab synchronously within the user activation so popup blockers
+  // allow it (noopener would return null, so the opener is cleared manually);
+  // the checkout URL is assigned once the API call resolves.
+  const checkoutWindow = window.open('', '_blank');
+  if (checkoutWindow) checkoutWindow.opener = null;
   try {
     const result = await invoicingApi.companySlots.purchase<{ checkoutLink?: string }>(slots);
     if (result?.checkoutLink) {
       baselineMax = authStore.user?.plan?.max_companies ?? null;
-      window.open(result.checkoutLink, '_blank', 'noopener');
+      if (checkoutWindow) {
+        checkoutWindow.location.href = result.checkoutLink;
+      } else {
+        window.open(result.checkoutLink, '_blank', 'noopener');
+      }
       startPolling();
+    } else {
+      checkoutWindow?.close();
     }
+  } catch (rawError) {
+    checkoutWindow?.close();
+    const e = asApiError(rawError);
+    let message = '';
+    const fieldErrors = e.response?.data?.errors;
+    if (fieldErrors && typeof fieldErrors === 'object') {
+      for (const messages of Object.values(fieldErrors)) {
+        if (Array.isArray(messages) && messages[0]) {
+          message = String(messages[0]);
+          break;
+        }
+        if (typeof messages === 'string' && messages) {
+          message = messages;
+          break;
+        }
+      }
+    }
+    purchaseError.value = message || e.response?.data?.message || t('common.error');
   } finally {
     purchasing.value = false;
   }
