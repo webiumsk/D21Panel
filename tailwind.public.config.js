@@ -11,6 +11,10 @@ export default {
         './resources/js/pages/BillingSuccess.vue',
         './resources/js/pages/Support.vue',
         './resources/js/pages/auth/**/*.vue',
+        // Modals/panels the auth pages render (passkey enroll offer, guest
+        // backup/restore). Without this their unique classes (e.g. z-[100])
+        // are missing from the public bundle and the modals stack wrong.
+        './resources/js/components/auth/**/*.vue',
         './resources/js/pages/legal/**/*.vue',
         './resources/js/pages/documentation/**/*.vue',
         './resources/js/pages/faq/**/*.vue',
