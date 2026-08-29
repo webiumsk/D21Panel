@@ -416,7 +416,11 @@ class SubscriptionController extends Controller
                     $subscriptionId,
                 );
             } else {
-                $this->subscriptionService->activateSubscription($user, $planRole, $subscriptionId);
+                // extendExisting: false - reconciliation must be idempotent. A
+                // concurrent second reconcile (two tabs) or a race with the
+                // webhook serializes on the user lock and must not extend the
+                // already-activated subscription by an extra unpaid year.
+                $this->subscriptionService->activateSubscription($user, $planRole, $subscriptionId, extendExisting: false);
             }
 
             $user->role = $planRole;

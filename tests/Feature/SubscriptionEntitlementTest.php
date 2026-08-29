@@ -384,6 +384,31 @@ class SubscriptionEntitlementTest extends TestCase
     }
 
     #[Test]
+    public function reconcile_style_activation_does_not_extend_existing_paid_subscription(): void
+    {
+        $user = User::factory()->create(['role' => 'pro']);
+        $expiresAt = now()->addMonths(7)->startOfSecond();
+
+        Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $this->proPlan->id,
+            'status' => 'active',
+            'billing_phase' => Subscription::BILLING_PAID,
+            'starts_at' => now()->subMonths(5),
+            'expires_at' => $expiresAt,
+            'grace_ends_at' => $expiresAt->copy()->addDays(30),
+        ]);
+
+        // A concurrent reconcile that lost the race must not grant an extra
+        // unpaid year - the existing paid period stays untouched.
+        $subscription = app(SubscriptionEntitlementService::class)
+            ->activateSubscription($user, 'pro', 'btcpay-sub-backfill', extendExisting: false);
+
+        $this->assertSame($expiresAt->timestamp, $subscription->expires_at->timestamp);
+        $this->assertSame('btcpay-sub-backfill', $subscription->btcpay_subscription_id);
+    }
+
+    #[Test]
     public function paid_activation_clears_the_guest_flag(): void
     {
         $user = User::factory()->create(['is_guest' => true, 'role' => 'free']);

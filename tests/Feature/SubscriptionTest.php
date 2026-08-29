@@ -466,6 +466,14 @@ class SubscriptionTest extends TestCase
         $this->assertTrue($fresh->hasActiveProEntitlement());
         $this->assertNotNull($fresh->currentSubscription());
         $this->assertTrue($fresh->currentSubscription()->isTrial());
+
+        // Idempotency: a second details fetch must not change the granted period.
+        $expiresAt = $fresh->currentSubscription()->expires_at;
+        $this->actingAs($user)->getJson('/api/subscriptions/details')->assertStatus(200);
+        $this->assertSame(
+            $expiresAt->timestamp,
+            $user->fresh()->currentSubscription()->expires_at->timestamp,
+        );
     }
 
     protected function seedSubscriptionPlans(): void
