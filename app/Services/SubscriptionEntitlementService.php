@@ -54,14 +54,23 @@ class SubscriptionEntitlementService
     /**
      * Activate or extend a paid subscription after BTCPay payment settles.
      */
-    public function activateSubscription(User $user, string $planName, ?string $btcpaySubscriptionId = null): Subscription
+    /**
+     * @param  bool  $extendExisting  Payment-driven callers (webhook, checkout
+     *                                success, admin sync) extend an existing paid
+     *                                subscription by a year. Reconciliation-style
+     *                                callers pass false so a concurrent second
+     *                                activation can never grant an extra unpaid
+     *                                year - the existing row is returned as-is
+     *                                (trial->paid conversion still applies).
+     */
+    public function activateSubscription(User $user, string $planName, ?string $btcpaySubscriptionId = null, bool $extendExisting = true): Subscription
     {
         $plan = SubscriptionPlan::where('code', $planName)->orWhere('name', $planName)->first();
         if (! $plan) {
             throw new \Exception("Subscription plan '{$planName}' not found.");
         }
 
-        return DB::transaction(function () use ($user, $plan, $planName, $btcpaySubscriptionId) {
+        return DB::transaction(function () use ($user, $plan, $planName, $btcpaySubscriptionId, $extendExisting) {
             $lockedUser = User::where('id', $user->id)->lockForUpdate()->first();
             if (! $lockedUser) {
                 throw new \Exception('User not found.');
@@ -95,7 +104,7 @@ class SubscriptionEntitlementService
             if ($existingSubscription) {
                 if ($existingSubscription->isTrial()) {
                     $existingSubscription->convertToPaidYear();
-                } else {
+                } elseif ($extendExisting) {
                     $existingSubscription->extendOneYear();
                 }
 

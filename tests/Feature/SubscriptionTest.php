@@ -422,6 +422,60 @@ class SubscriptionTest extends TestCase
             ->assertJsonPath('creditHistory.0.balance', 4000);
     }
 
+    #[Test]
+    public function details_reconciles_local_subscription_from_btcpay_subscriber(): void
+    {
+        $this->seedSubscriptionPlans();
+
+        $user = User::factory()->create([
+            'email' => 'trial@example.com',
+            'role' => 'free',
+        ]);
+
+        config([
+            'services.btcpay.subscription_store_id' => 'test_subscription_btcpay_store',
+            'services.btcpay.subscription_offering_id' => 'offering_test',
+            'services.btcpay.subscription_plans' => ['pro' => 'plan_pro_test'],
+        ]);
+
+        Http::fake(function ($request) {
+            $url = (string) $request->url();
+            if (str_contains($url, '/subscribers/trial%40example.com') && $request->method() === 'GET' && ! str_contains($url, '/credits/')) {
+                return Http::response([
+                    'id' => 'subscriber_reconcile_1',
+                    'plan' => ['id' => 'plan_pro_test', 'price' => '210000'],
+                    'phase' => 'Trial',
+                    'trialEnd' => now()->addDays(30)->timestamp,
+                    'periodEnd' => now()->addDays(30)->timestamp,
+                    'isActive' => true,
+                ]);
+            }
+            if (str_contains($url, '/credits/')) {
+                return Http::response([]);
+            }
+
+            return Http::response([], 404);
+        });
+
+        // The webhook/success redirect never landed: BTCPay says trial-Pro,
+        // the local DB says Free. One billing-panel fetch must heal it.
+        $this->actingAs($user)->getJson('/api/subscriptions/details')->assertStatus(200);
+
+        $fresh = $user->fresh();
+        $this->assertSame('pro', $fresh->role);
+        $this->assertTrue($fresh->hasActiveProEntitlement());
+        $this->assertNotNull($fresh->currentSubscription());
+        $this->assertTrue($fresh->currentSubscription()->isTrial());
+
+        // Idempotency: a second details fetch must not change the granted period.
+        $expiresAt = $fresh->currentSubscription()->expires_at;
+        $this->actingAs($user)->getJson('/api/subscriptions/details')->assertStatus(200);
+        $this->assertSame(
+            $expiresAt->timestamp,
+            $user->fresh()->currentSubscription()->expires_at->timestamp,
+        );
+    }
+
     protected function seedSubscriptionPlans(): void
     {
         SubscriptionPlan::create([
