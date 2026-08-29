@@ -86,8 +86,11 @@ const errorMessage = ref("");
 const failureDetail = ref("");
 let countdownInterval: ReturnType<typeof setInterval> | null = null;
 let pollInterval: ReturnType<typeof setInterval> | null = null;
+/** Bumped by stopTimers so a response from an already-cancelled poll is discarded. */
+let pollGeneration = 0;
 
 function stopTimers() {
+  pollGeneration += 1;
   if (countdownInterval != null) {
     clearInterval(countdownInterval);
     countdownInterval = null;
@@ -99,8 +102,12 @@ function stopTimers() {
 }
 
 async function pollOnce() {
+  const generation = pollGeneration;
   try {
     const data = await walletApi.connection.get(props.storeId);
+    if (generation !== pollGeneration) {
+      return;
+    }
     const status = data?.status ?? "";
     if (status === "connected") {
       stopTimers();
