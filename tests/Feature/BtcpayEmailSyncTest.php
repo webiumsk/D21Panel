@@ -112,6 +112,20 @@ class BtcpayEmailSyncTest extends TestCase
     }
 
     #[Test]
+    public function sync_refuses_to_send_credentials_over_plain_http(): void
+    {
+        config(['services.btcpay.base_url' => 'http://btcpay.test']);
+        $user = $this->makeUser();
+        $user->forceFill(['btcpay_password' => 'stored-btcpay-pass'])->save();
+
+        Http::fake();
+
+        app(BtcpayEmailSyncService::class)->syncUserEmail($user);
+
+        Http::assertNothingSent();
+    }
+
+    #[Test]
     public function taken_email_is_logged_and_not_retried(): void
     {
         $user = $this->makeUser();

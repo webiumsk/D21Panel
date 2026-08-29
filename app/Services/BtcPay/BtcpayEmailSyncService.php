@@ -32,6 +32,18 @@ class BtcpayEmailSyncService
             return;
         }
 
+        // This flow sends account credentials (currentPassword + merchant API
+        // key). Refuse to put them on the wire over plain HTTP - fail safely,
+        // the sync is best-effort.
+        if (! str_starts_with(strtolower((string) config('services.btcpay.base_url')), 'https://')) {
+            Log::warning('BTCPay email sync skipped - BTCPay base URL is not HTTPS', [
+                'code' => 'btcpay_insecure_transport',
+                'user_id' => $user->id,
+            ]);
+
+            return;
+        }
+
         if (empty($user->btcpay_api_key)) {
             if (! empty($user->btcpay_user_id)) {
                 // Legacy accounts without a merchant key: best-effort only -
