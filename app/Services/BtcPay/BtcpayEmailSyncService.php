@@ -52,7 +52,21 @@ class BtcpayEmailSyncService
                 $this->userService->updateUser((string) $user->btcpay_user_id, [
                     'email' => (string) $user->email,
                 ]);
+                // The change resets emailConfirmed here too.
+                $this->reconfirmEmail($user);
             }
+
+            return;
+        }
+
+        // Changing the email resets emailConfirmed and we can only re-confirm
+        // via the admin API with the BTCPay user id - without it the change
+        // would leave the account unable to authenticate. Don't touch it.
+        if (empty($user->btcpay_user_id)) {
+            Log::warning('BTCPay email sync skipped - no btcpay_user_id to re-confirm the changed email with', [
+                'code' => 'btcpay_no_user_id',
+                'user_id' => $user->id,
+            ]);
 
             return;
         }

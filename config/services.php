@@ -44,6 +44,10 @@ return [
         // Browser-facing BTCPay origin (/raffle, /i, PoS apps). Defaults to base_url when unset.
         'public_url' => env('BTCPAY_PUBLIC_URL') ?: env('BTCPAY_BASE_URL', 'http://127.0.0.1:14142'),
         'api_key' => env('BTCPAY_API_KEY'),
+        // Escape hatch for http BTCPay on trusted PRIVATE networks with dotted
+        // hosts (e.g. http://192.168.x.x). localhost and dot-less Docker
+        // service names are always allowed; public hosts require HTTPS.
+        'allow_insecure_http' => (bool) env('BTCPAY_ALLOW_INSECURE_HTTP', false),
         // Seconds; BTCPay Greenfield user-by-email (per current API key hash).
         'user_by_email_cache_ttl' => (int) env('BTCPAY_USER_BY_EMAIL_CACHE_TTL', 300),
         'webhook_secret' => env('BTCPAY_WEBHOOK_SECRET'),

@@ -120,9 +120,58 @@ class BtcpayEmailSyncTest extends TestCase
     }
 
     #[Test]
-    public function sync_refuses_to_send_credentials_over_plain_http(): void
+    public function sync_without_btcpay_user_id_is_skipped_entirely(): void
+    {
+        // The email change resets emailConfirmed and without a BTCPay user id
+        // there is no way to re-confirm - the sync must not touch the account.
+        $user = User::factory()->create([
+            'email' => 'merchant@example.com',
+            'btcpay_user_id' => null,
+            'btcpay_api_key' => 'old-merchant-key',
+        ]);
+
+        Http::fake();
+
+        app(BtcpayEmailSyncService::class)->syncUserEmail($user);
+
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function legacy_account_without_merchant_key_reconfirms_after_update(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'merchant@example.com',
+            'btcpay_user_id' => 'btcpay-user-1',
+            'btcpay_api_key' => null,
+        ]);
+
+        Http::fake([
+            'https://btcpay.test/api/v1/users/btcpay-user-1' => Http::response([], 200),
+            'https://btcpay.test/api/v1/users/btcpay-user-1/confirm-email' => Http::response([], 200),
+        ]);
+
+        app(BtcpayEmailSyncService::class)->syncUserEmail($user);
+
+        Http::assertSent(fn ($request) => str_contains((string) $request->url(), '/users/btcpay-user-1/confirm-email'));
+    }
+
+    #[Test]
+    public function client_rejects_public_http_base_url_outright(): void
     {
         config(['services.btcpay.base_url' => 'http://btcpay.test']);
+
+        $this->expectException(\RuntimeException::class);
+
+        app(BtcpayEmailSyncService::class)->syncUserEmail($this->makeUser());
+    }
+
+    #[Test]
+    public function sync_refuses_to_send_credentials_over_plain_http(): void
+    {
+        // Dot-less Docker hostname passes the client-level guard; the sync's
+        // stricter HTTPS-only rule still keeps credentials off the wire.
+        config(['services.btcpay.base_url' => 'http://btcpay-internal']);
         $user = $this->makeUser();
         $user->forceFill(['btcpay_password' => 'stored-btcpay-pass'])->save();
 

@@ -23,7 +23,7 @@ class GuestInactivePurgeTest extends TestCase
         Config::set('guest.idle_days', 90);
         Config::set('guest.batch_size', 50);
         Config::set('guest.max_stores_check', 10);
-        Config::set('services.btcpay.base_url', 'http://guest-purge-btcpay.test');
+        Config::set('services.btcpay.base_url', 'https://guest-purge-btcpay.test');
         Config::set('services.btcpay.api_key', 'server-test-key');
     }
 

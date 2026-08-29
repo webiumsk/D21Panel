@@ -16,7 +16,14 @@ class ConfirmBtcpayUserEmail extends Command
 
     public function handle(UserService $userService): int
     {
-        $user = User::find((int) $this->argument('user'));
+        $rawId = (string) $this->argument('user');
+        if (! ctype_digit($rawId)) {
+            $this->error('User id must be numeric.');
+
+            return self::FAILURE;
+        }
+
+        $user = User::find((int) $rawId);
         if (! $user) {
             $this->error('User not found.');
 

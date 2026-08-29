@@ -84,7 +84,7 @@ class StoreEmailRuleTest extends TestCase
         Mail::fake();
         Cache::flush();
 
-        config(['services.btcpay.base_url' => 'http://btcpay.test']);
+        config(['services.btcpay.base_url' => 'https://btcpay.test']);
 
         $user = User::factory()->create(['btcpay_api_key' => 'merchant-key']);
         $store = Store::factory()->create([
@@ -106,7 +106,7 @@ class StoreEmailRuleTest extends TestCase
         ]);
 
         Http::fake([
-            'http://btcpay.test/api/v1/stores/btcpay-store-x/invoices/inv-abc' => Http::response([
+            'https://btcpay.test/api/v1/stores/btcpay-store-x/invoices/inv-abc' => Http::response([
                 'id' => 'inv-abc',
                 'orderId' => 'ord-1',
                 'status' => 'Settled',
@@ -144,7 +144,7 @@ class StoreEmailRuleTest extends TestCase
         Mail::fake();
         Cache::flush();
 
-        config(['services.btcpay.base_url' => 'http://btcpay.test']);
+        config(['services.btcpay.base_url' => 'https://btcpay.test']);
 
         $user = User::factory()->create(['btcpay_api_key' => 'merchant-key']);
         $store = Store::factory()->create([
@@ -166,7 +166,7 @@ class StoreEmailRuleTest extends TestCase
         ]);
 
         Http::fake([
-            'http://btcpay.test/api/v1/stores/btcpay-store-x/invoices/inv-abc' => Http::response([
+            'https://btcpay.test/api/v1/stores/btcpay-store-x/invoices/inv-abc' => Http::response([
                 'id' => 'inv-abc',
                 'status' => 'Settled',
                 'checkoutLink' => 'https://checkout.example/i/inv-abc',
