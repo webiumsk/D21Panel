@@ -27,7 +27,37 @@ class BtcPayClient
         $this->baseUrl = rtrim(config('services.btcpay.base_url', env('BTCPAY_BASE_URL')), '/');
         $this->apiKey = $apiKey ?? config('services.btcpay.api_key', env('BTCPAY_API_KEY'));
 
+        $this->assertSecureBaseUrl();
         $this->initializeClient();
+    }
+
+    /**
+     * Every request carries the Bearer API key (and some bodies carry account
+     * credentials) - refuse to send them to a PUBLIC host over plain HTTP.
+     * localhost and dot-less hosts (Docker service names, only resolvable
+     * inside the network) stay allowed; BTCPAY_ALLOW_INSECURE_HTTP opts in
+     * dotted private hosts (e.g. LAN IPs).
+     */
+    protected function assertSecureBaseUrl(): void
+    {
+        if (config('services.btcpay.allow_insecure_http', false)) {
+            return;
+        }
+
+        if (strtolower((string) parse_url($this->baseUrl, PHP_URL_SCHEME)) === 'https') {
+            return;
+        }
+
+        $host = strtolower((string) parse_url($this->baseUrl, PHP_URL_HOST));
+        $isLocal = in_array($host, ['localhost', '127.0.0.1', '::1', '[::1]'], true)
+            || ! str_contains($host, '.');
+        if ($isLocal) {
+            return;
+        }
+
+        throw new \RuntimeException(
+            'BTCPay base URL must use HTTPS for public hosts. Set BTCPAY_ALLOW_INSECURE_HTTP=true only for trusted private networks.'
+        );
     }
 
     /**

@@ -52,13 +52,28 @@ class BtcpayEmailSyncService
                 $this->userService->updateUser((string) $user->btcpay_user_id, [
                     'email' => (string) $user->email,
                 ]);
+                // The change resets emailConfirmed here too.
+                $this->reconfirmEmail($user);
             }
+
+            return;
+        }
+
+        // Changing the email resets emailConfirmed and we can only re-confirm
+        // via the admin API with the BTCPay user id - without it the change
+        // would leave the account unable to authenticate. Don't touch it.
+        if (empty($user->btcpay_user_id)) {
+            Log::warning('BTCPay email sync skipped - no btcpay_user_id to re-confirm the changed email with', [
+                'code' => 'btcpay_no_user_id',
+                'user_id' => $user->id,
+            ]);
 
             return;
         }
 
         try {
             $this->pushEmail($user);
+            $this->reconfirmEmail($user);
 
             return;
         } catch (BtcPayException $e) {
@@ -92,6 +107,7 @@ class BtcpayEmailSyncService
 
         try {
             $this->pushEmail($user);
+            $this->reconfirmEmail($user);
         } catch (BtcPayException $e) {
             if ($this->isEmailTakenError($e)) {
                 $this->logEmailTaken($user, $e);
@@ -127,6 +143,36 @@ class BtcpayEmailSyncService
         }
 
         $this->userService->updateCurrentUserProfile($user->getBtcPayApiKeyOrFail(), $payload);
+    }
+
+    /**
+     * Changing the email resets emailConfirmed on BTCPay; with the server's
+     * "confirmed email required" policy every merchant-API-key call then fails
+     * ("You must have a confirmed email to log in") and the whole account is
+     * dead. Re-confirm via the server key, exactly like guest provisioning
+     * does. A failure is rethrown so SyncBtcpayEmailJob retries it - pushing
+     * the (now unchanged) email again is a no-op on BTCPay.
+     */
+    protected function reconfirmEmail(User $user): void
+    {
+        if (empty($user->btcpay_user_id)) {
+            return;
+        }
+
+        try {
+            $this->userService->confirmUserEmail((string) $user->btcpay_user_id);
+        } catch (\Throwable $e) {
+            Log::error('BTCPay re-confirm after email change failed - merchant API key will not authenticate', [
+                'code' => 'btcpay_email_reconfirm_failed',
+                'user_id' => $user->id,
+                'btcpay_user_id' => $user->btcpay_user_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Wrapped so the push-email error classification above cannot
+            // swallow it - this must bubble to the queued job for a retry.
+            throw new \RuntimeException('BTCPay email re-confirm failed', 0, $e);
+        }
     }
 
     protected function isCurrentPasswordError(BtcPayException $e): bool
