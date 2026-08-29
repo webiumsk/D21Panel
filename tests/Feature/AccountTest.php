@@ -24,6 +24,21 @@ class AccountTest extends TestCase
         $response->assertJsonStructure(['id', 'name', 'email']);
     }
 
+    public function test_user_payload_exposes_guest_upgrade_email_only_flag(): void
+    {
+        config(['guest.upgrade_email_only' => true]);
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->getJson('/api/user')
+            ->assertStatus(200)
+            ->assertJsonPath('guest_upgrade_email_only', true);
+
+        config(['guest.upgrade_email_only' => false]);
+
+        $this->getJson('/api/user')
+            ->assertJsonPath('guest_upgrade_email_only', false);
+    }
+
     public function test_user_endpoint_requires_authentication(): void
     {
         $response = $this->getJson('/api/user');

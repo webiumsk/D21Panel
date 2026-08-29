@@ -67,6 +67,24 @@ class SubscriptionEntitlementService
                 throw new \Exception('User not found.');
             }
 
+            // A paid plan means a real customer: lift the guest gates. Without
+            // this, the router hard-gate and guest-restricted features keep
+            // hiding the Pro UI (webhook/admin activation never cleared it).
+            if ($lockedUser->is_guest) {
+                $lockedUser->is_guest = false;
+                $lockedUser->save();
+                // Keep the caller's instance in sync: SubscriptionController
+                // serializes it into the success payload (and may save() it
+                // afterwards) - without this the client would receive a stale
+                // is_guest=true until the next /api/user fetch.
+                $user->is_guest = false;
+                $user->syncOriginalAttribute('is_guest');
+                Log::info('Cleared is_guest on paid subscription activation', [
+                    'user_id' => $lockedUser->id,
+                    'plan' => $planName,
+                ]);
+            }
+
             $existingSubscription = Subscription::where('user_id', $lockedUser->id)
                 ->where('plan_id', $plan->id)
                 ->whereIn('status', ['active', 'grace'])

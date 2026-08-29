@@ -88,15 +88,12 @@ class SubscriptionController extends Controller
             }
 
             // Build success redirect URL with checkout ID
-            // We'll include the checkout ID in the URL so we can track it
+            // We'll include the checkout ID in the URL so we can track it.
+            // Note: the config key exists (and is null when the env var is not
+            // set), so Config::get's default never applies - use ?: instead.
             $baseUrl = config('app.url');
-            $successUrl = config('services.btcpay.subscription_success_url', "{$baseUrl}/billing/success");
+            $successUrl = config('services.btcpay.subscription_success_url') ?: "{$baseUrl}/billing/success";
             $options['successRedirectUrl'] = $successUrl;
-
-            // Add cancel URL if configured
-            if (config('services.btcpay.subscription_cancel_url')) {
-                $options['cancelRedirectUrl'] = config('services.btcpay.subscription_cancel_url');
-            }
 
             if ($request->user()?->hasConsumedTrial()) {
                 $options['isTrial'] = false;
@@ -556,7 +553,7 @@ class SubscriptionController extends Controller
             }
 
             $baseUrl = config('app.url');
-            $successUrl = config('services.btcpay.subscription_success_url', "{$baseUrl}/billing/success");
+            $successUrl = config('services.btcpay.subscription_success_url') ?: "{$baseUrl}/billing/success";
 
             $checkout = $this->btcpaySubscriptionService->createCreditPurchaseCheckout(
                 $storeId,

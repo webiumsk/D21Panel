@@ -13,7 +13,13 @@ export function useGuestUpgradeSubmit() {
   const { t } = useI18n();
   const authStore = useAuthStore();
   const flashStore = useFlashStore();
-  const emailOnly = isGuestUpgradeEmailOnly();
+  // The server is authoritative (its validation decides whether password is
+  // required); the build-time env vars are only a fallback for older payloads.
+  const emailOnly = computed(() => {
+    const server = authStore.user?.guest_upgrade_email_only;
+    if (typeof server === "boolean") return server;
+    return isGuestUpgradeEmailOnly();
+  });
 
   const loading = ref(false);
   const privacyConsent = ref(false);
@@ -50,7 +56,7 @@ export function useGuestUpgradeSubmit() {
         privacy_consent: privacyConsent.value,
         terms_accepted: termsAccepted.value,
       };
-      if (!emailOnly) {
+      if (!emailOnly.value) {
         payload.password = form.value.password;
         payload.password_confirmation = form.value.password_confirmation;
       }

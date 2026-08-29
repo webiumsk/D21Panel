@@ -94,21 +94,14 @@ class SubscriptionService
             'planId' => $planId,
         ];
 
-        // Add success redirect URL (required)
-        if (isset($options['successRedirectUrl'])) {
-            $payload['successRedirectUrl'] = $options['successRedirectUrl'];
-        } else {
-            // Fallback to default from config
-            $baseUrl = config('app.url');
-            $payload['successRedirectUrl'] = config('services.btcpay.subscription_success_url', "{$baseUrl}/billing/success");
-        }
-
-        // Add cancel redirect URL if provided
-        if (isset($options['cancelRedirectUrl'])) {
-            $payload['cancelRedirectUrl'] = $options['cancelRedirectUrl'];
-        } elseif (config('services.btcpay.subscription_cancel_url')) {
-            $payload['cancelRedirectUrl'] = config('services.btcpay.subscription_cancel_url');
-        }
+        // Add success redirect URL. NOTE: the Subscriptions plugin REQUEST field
+        // is "successRedirectLink" (the response echoes it as successRedirectUrl,
+        // which is what this code used to send - Newtonsoft silently dropped the
+        // unknown key and users were stranded on the BTCPay thanks page).
+        // There is no cancel-redirect request field in CreatePlanCheckoutRequest.
+        $baseUrl = config('app.url');
+        $payload['successRedirectLink'] = $options['successRedirectUrl']
+            ?? (config('services.btcpay.subscription_success_url') ?: "{$baseUrl}/billing/success");
 
         // Handle subscriber email - use newSubscriberEmail if provided, otherwise skip
         // Do NOT use customerSelector unless we're certain the customer exists
@@ -529,18 +522,10 @@ class SubscriptionService
             'isTrial' => false,
         ];
 
-        if (isset($options['successRedirectUrl'])) {
-            $payload['successRedirectUrl'] = $options['successRedirectUrl'];
-        } else {
-            $baseUrl = config('app.url');
-            $payload['successRedirectUrl'] = config('services.btcpay.subscription_success_url', "{$baseUrl}/billing/success");
-        }
-
-        if (isset($options['cancelRedirectUrl'])) {
-            $payload['cancelRedirectUrl'] = $options['cancelRedirectUrl'];
-        } elseif (config('services.btcpay.subscription_cancel_url')) {
-            $payload['cancelRedirectUrl'] = config('services.btcpay.subscription_cancel_url');
-        }
+        // Request field is "successRedirectLink" (see createPlanCheckout note).
+        $baseUrl = config('app.url');
+        $payload['successRedirectLink'] = $options['successRedirectUrl']
+            ?? (config('services.btcpay.subscription_success_url') ?: "{$baseUrl}/billing/success");
 
         try {
             Log::info('Creating credit purchase checkout', [
