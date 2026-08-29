@@ -391,5 +391,9 @@ class SubscriptionEntitlementTest extends TestCase
         app(SubscriptionEntitlementService::class)->activateSubscription($user, 'pro');
 
         $this->assertFalse((bool) $user->fresh()->is_guest);
+        // The passed-in instance is what SubscriptionController serializes
+        // into the success payload - it must reflect the change immediately.
+        $this->assertFalse((bool) $user->is_guest);
+        $this->assertFalse($user->isDirty('is_guest'));
     }
 }
