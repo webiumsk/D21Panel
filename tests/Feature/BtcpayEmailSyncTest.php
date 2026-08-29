@@ -65,6 +65,53 @@ class BtcpayEmailSyncTest extends TestCase
     }
 
     #[Test]
+    public function stored_btcpay_password_is_sent_as_current_password(): void
+    {
+        $user = $this->makeUser();
+        $user->forceFill(['btcpay_password' => 'stored-btcpay-pass'])->save();
+
+        Http::fake([
+            'https://btcpay.test/api/v1/users/me' => Http::response(['email' => 'merchant@example.com'], 200),
+        ]);
+
+        app(BtcpayEmailSyncService::class)->syncUserEmail($user);
+
+        Http::assertSent(function ($request) {
+            $body = $request->data();
+
+            return str_ends_with((string) $request->url(), '/api/v1/users/me')
+                && ($body['email'] ?? null) === 'merchant@example.com'
+                && ($body['currentPassword'] ?? null) === 'stored-btcpay-pass';
+        });
+    }
+
+    #[Test]
+    public function current_password_rejection_is_logged_and_not_retried(): void
+    {
+        // Legacy guest: BTCPay password was generated and discarded, and the
+        // server now demands it for email changes - a retry cannot help.
+        $user = $this->makeUser();
+
+        $usersMeCalls = 0;
+        Http::fake(function ($request) use (&$usersMeCalls) {
+            $url = (string) $request->url();
+            if (str_ends_with($url, '/api/v1/users/me')) {
+                $usersMeCalls++;
+
+                return Http::response([
+                    ['path' => 'CurrentPassword', 'message' => 'The current password is not correct.'],
+                ], 422);
+            }
+
+            return Http::response([], 404);
+        });
+
+        app(BtcpayEmailSyncService::class)->syncUserEmail($user);
+
+        $this->assertSame(1, $usersMeCalls);
+    }
+
+    #[Test]
     public function taken_email_is_logged_and_not_retried(): void
     {
         $user = $this->makeUser();

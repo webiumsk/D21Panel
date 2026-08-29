@@ -56,6 +56,19 @@ class BtcpayEmailSyncService
                 return;
             }
 
+            if ($this->isCurrentPasswordError($e)) {
+                // BTCPay wants the account password and ours is wrong or was
+                // never stored (legacy guests) - retrying cannot help.
+                Log::warning('BTCPay email sync skipped - account password required and not available', [
+                    'code' => 'btcpay_password_unknown',
+                    'user_id' => $user->id,
+                    'btcpay_user_id' => $user->btcpay_user_id,
+                    'has_stored_password' => ! empty($user->btcpay_password),
+                ]);
+
+                return;
+            }
+
             if ($e->getStatusCode() !== 403) {
                 throw $e;
             }
@@ -74,15 +87,39 @@ class BtcpayEmailSyncService
                 return;
             }
 
+            if ($this->isCurrentPasswordError($e)) {
+                Log::warning('BTCPay email sync skipped - account password required and not available', [
+                    'code' => 'btcpay_password_unknown',
+                    'user_id' => $user->id,
+                    'btcpay_user_id' => $user->btcpay_user_id,
+                    'has_stored_password' => ! empty($user->btcpay_password),
+                ]);
+
+                return;
+            }
+
             throw $e;
         }
     }
 
     protected function pushEmail(User $user): void
     {
-        $this->userService->updateCurrentUserProfile($user->getBtcPayApiKeyOrFail(), [
-            'email' => (string) $user->email,
-        ]);
+        $payload = ['email' => (string) $user->email];
+
+        // Current BTCPay requires the account password as currentPassword for
+        // email changes on PUT /users/me. Guests provisioned since the
+        // btcpay_password column exists have it stored (encrypted); older
+        // accounts had it generated and discarded, so we can only try without.
+        if (! empty($user->btcpay_password)) {
+            $payload['currentPassword'] = (string) $user->btcpay_password;
+        }
+
+        $this->userService->updateCurrentUserProfile($user->getBtcPayApiKeyOrFail(), $payload);
+    }
+
+    protected function isCurrentPasswordError(BtcPayException $e): bool
+    {
+        return str_contains(strtolower($e->getMessage()), 'currentpassword');
     }
 
     /**
