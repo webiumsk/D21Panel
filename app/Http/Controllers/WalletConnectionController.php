@@ -40,6 +40,20 @@ class WalletConnectionController extends Controller
             return response()->json(['data' => null]);
         }
 
+        // The wait-card polls this endpoint while the connection is "pending".
+        // Reconcile against live BTCPay state so a configured Lightning node
+        // flips the row to "connected" even when the original connect attempt
+        // could not record it.
+        if ($connection->status === 'pending') {
+            try {
+                if (app(WalletConnectionService::class)->syncStatusFromBtcpay($store, $connection, $request->user())) {
+                    $connection->refresh();
+                }
+            } catch (\Throwable) {
+                // Best-effort - the poll keeps returning the stored status.
+            }
+        }
+
         $validator = app(WalletConnectionValidator::class);
         $brand = $connection->type === 'lnaddress'
             ? $validator->resolveLnAddressBrand($connection)

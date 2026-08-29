@@ -652,6 +652,10 @@ class WalletConnectionService
 
             $btcpayString = $lnFlows[$type]['format']($secret);
             $this->tryConnectLightningAndMarkConnected($store, $connection, $btcpayString, $user, $userApiKey);
+            // The connect call can fail transiently while BTCPay ends up configured
+            // (or was configured out-of-band) - reconcile so the row does not stay
+            // "pending" with a working Lightning node behind it.
+            $this->markConnectedIfBtcpayLightningActive($store, $connection->fresh(), $user, $userApiKey);
 
             return;
         }

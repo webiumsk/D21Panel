@@ -54,6 +54,14 @@
             </div>
           </div>
 
+          <WalletBotWaitCard
+            v-else-if="waitingForWallet"
+            :store-id="storeId"
+            @success="handleWalletReady"
+            @continue="goToStore"
+            @cancel="cancelWalletWait"
+          />
+
           <div
             v-else
             class="bg-gray-800 shadow-xl rounded-2xl border border-gray-700 p-8"
@@ -95,6 +103,7 @@ import { useAppsStore } from '../../store/apps';
 import { walletApi, type WalletConnectionDetails } from '../../services/api';
 import type { Store } from '../../store/stores';
 import WalletConnectionForm from '../../components/stores/WalletConnectionForm.vue';
+import WalletBotWaitCard from '../../components/stores/wallet-connection/WalletBotWaitCard.vue';
 import BlinkMigrationAlertModal from '../../components/stores/BlinkMigrationAlertModal.vue';
 import StoreSidebar from '../../components/stores/StoreSidebar.vue';
 import { useBlinkMigrationAlert } from '../../composables/useBlinkMigrationAlert';
@@ -120,6 +129,7 @@ const {
 
 const storeLoading = ref(true);
 const loading = ref(true);
+const waitingForWallet = ref(false);
 const error = ref<string | null>(null);
 const connection = ref<WalletConnectionDetails | null>(null);
 
@@ -156,8 +166,39 @@ async function loadConnection() {
     }
 }
 
-function handleSubmitted() {
+/**
+ * A saved connection starts as "pending" (the config bot / sync connect runs
+ * after the POST). Navigating away immediately used to hit the guest wallet
+ * gate, which bounced right back here - an aborted redundant navigation, so
+ * the user kept staring at the form. Wait with the polling/countdown card
+ * until the connection is actually "connected", then leave.
+ */
+function handleSubmitted(target?: string) {
+    // Cashu configures store settings synchronously and SamRock pairing only
+    // resolves once connected - no provisioning wait for those.
+    if (target === 'cashu' || target === 'samrock') {
+        router.push({ name: 'stores-show', params: { id: storeId.value } });
+        return;
+    }
+    waitingForWallet.value = true;
+}
+
+async function handleWalletReady() {
+    try {
+        store.value = await storesStore.fetchStore(storeId.value);
+    } catch {
+        /* navigation below still applies */
+    }
+    goToStore();
+}
+
+function goToStore() {
     router.push({ name: 'stores-show', params: { id: storeId.value } });
+}
+
+function cancelWalletWait() {
+    waitingForWallet.value = false;
+    void loadConnection();
 }
 
 function handleCancel() {

@@ -74,6 +74,47 @@ class LightningService
                 }
             }
 
+            // BTCPay 2.x configures the store's Lightning wallet via the unified
+            // payment-methods API - try it first. The legacy /lightning/{crypto}/*
+            // routes below no longer configure anything on 2.x (the POST /connect
+            // that still answers is the node PEER connect, hence 422 "Invalid NodeUri").
+            try {
+                $response = $this->client->put(
+                    "/api/v1/stores/{$storeId}/payment-methods/{$cryptoCode}-LN",
+                    [
+                        'enabled' => true,
+                        'config' => ['connectionString' => $connectionString],
+                    ],
+                );
+
+                Log::info('BTCPay Lightning connected via payment-methods API', [
+                    'store_id' => $storeId,
+                    'crypto_code' => $cryptoCode,
+                    'response_keys' => array_keys($response),
+                ]);
+
+                return [
+                    'success' => true,
+                    'message' => 'Lightning node connected successfully',
+                    'data' => $response,
+                ];
+            } catch (BtcPayException $e) {
+                // Fall back only when the route itself is unavailable (pre-2.x
+                // server). Auth errors, validation rejections (the real reason
+                // a 2.x server refused the string) and server errors would fail
+                // the legacy routes too - preserve the original failure instead.
+                if (! in_array($e->getStatusCode(), [404, 405], true)) {
+                    throw $e;
+                }
+
+                Log::info('payment-methods Lightning route unavailable; falling back to legacy endpoints', [
+                    'store_id' => $storeId,
+                    'crypto_code' => $cryptoCode,
+                    'status' => $e->getStatusCode(),
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
             // Try different endpoints, HTTP methods, and request body formats
             // BTCPay documentation says nodeURI, but plugins may accept connectionString or connection_string
             // Also try PUT/PATCH methods as some APIs use them for updates
