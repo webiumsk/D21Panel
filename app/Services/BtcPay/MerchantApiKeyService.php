@@ -27,6 +27,8 @@ class MerchantApiKeyService
             'btcpay.store.canviewinvoices',
             'btcpay.user.canviewnotificationsforuser',
             'btcpay.user.canmanagenotificationsforuser',
+            // PUT /api/v1/users/me (email sync) - keep in lockstep with the config file.
+            'btcpay.user.canmodifyprofile',
         ]);
     }
 
