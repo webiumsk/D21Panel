@@ -379,6 +379,65 @@ class SubscriptionController extends Controller
      *
      * GET /api/subscriptions/details
      */
+    /**
+     * Self-heal local entitlements from the BTCPay subscriber record.
+     *
+     * BTCPay is the billing source of truth, but plan gating reads the local
+     * subscriptions table. When neither the webhook nor the checkout success
+     * redirect landed (misconfigured webhook, closed tab, pre-redirect-fix
+     * checkouts), a user can be an active BTCPay subscriber while the app
+     * still treats them as Free. The billing panel fetches the subscriber
+     * anyway - reconcile here so one Profile visit fixes the account.
+     */
+    protected function reconcileLocalSubscriptionFromSubscriber(User $user, array $subscriber): void
+    {
+        try {
+            if (! ($subscriber['isActive'] ?? false)) {
+                return;
+            }
+
+            if ($user->hasActiveProEntitlement()) {
+                return;
+            }
+
+            $planId = $subscriber['plan']['id'] ?? $subscriber['planId'] ?? null;
+            $planRole = $this->btcpaySubscriptionService->resolvePlanNameFromId(is_string($planId) ? $planId : null);
+            if (! $planRole) {
+                return;
+            }
+
+            $subscriptionId = $subscriber['customer']['id'] ?? $subscriber['id'] ?? null;
+
+            if ($this->btcpaySubscriptionService->subscriberIsInTrial($subscriber)) {
+                $this->subscriptionService->activateTrialSubscription(
+                    $user,
+                    $planRole,
+                    $this->btcpaySubscriptionService->resolveTrialEndsAt($subscriber),
+                    $subscriptionId,
+                );
+            } else {
+                $this->subscriptionService->activateSubscription($user, $planRole, $subscriptionId);
+            }
+
+            $user->role = $planRole;
+            if ($subscriptionId) {
+                $user->btcpay_subscription_id = $subscriptionId;
+            }
+            $user->save();
+
+            Log::info('Reconciled local subscription from BTCPay subscriber', [
+                'user_id' => $user->id,
+                'plan' => $planRole,
+                'trial' => $this->btcpaySubscriptionService->subscriberIsInTrial($subscriber),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Subscription reconcile from BTCPay subscriber failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function details(Request $request)
     {
         $user = $request->user();
@@ -404,6 +463,8 @@ class SubscriptionController extends Controller
         try {
             // Get subscriber details using email as selector
             $subscriber = $this->btcpaySubscriptionService->getSubscriber($storeId, $offeringId, $user->email);
+
+            $this->reconcileLocalSubscriptionFromSubscriber($user, $subscriber);
 
             $creditBalance = 0;
             try {

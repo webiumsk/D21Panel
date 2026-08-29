@@ -194,9 +194,12 @@ onMounted(async () => {
         try {
           await authStore.fetchUser();
 
-          // Session exists and works, redirect to dashboard
+          // Session exists and works, redirect to dashboard. This page is
+          // served by the PUBLIC bundle whose router has no "home" route -
+          // a named push would throw in matcher.resolve and leave the page
+          // stuck on the spinner, so do a full navigation into the app bundle.
           setTimeout(() => {
-            router.push({ name: "home" });
+            window.location.assign("/dashboard");
           }, 2000);
         } catch (fetchError) {
           // Session not working (e.g., link opened in different browser)
