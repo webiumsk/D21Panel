@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Jobs\SendVerificationEmailJob;
 use App\Jobs\SyncBtcpayEmailJob;
 use App\Models\User;
-use App\Services\BtcPay\UserService;
+use App\Services\BtcPay\BtcpayEmailSyncService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 class GuestUpgradeService
 {
     public function __construct(
-        protected UserService $userService
+        protected BtcpayEmailSyncService $emailSync
     ) {}
 
     /**
@@ -35,32 +35,18 @@ class GuestUpgradeService
             'allows_satflux_email_changes' => true,
         ])->save();
 
-        if (! empty($user->btcpay_api_key)) {
-            try {
-                $this->userService->updateCurrentUserProfile($user->getBtcPayApiKeyOrFail(), [
-                    'email' => $newEmail,
-                ]);
-            } catch (\Throwable $e) {
-                Log::warning('BTCPay email update failed during guest upgrade (users/me)', [
-                    'user_id' => $user->id,
-                    'btcpay_user_id' => $user->btcpay_user_id,
-                    'error' => $e->getMessage(),
-                ]);
-                $this->dispatchBtcpayEmailSyncSafely($user->id);
-            }
-        } elseif (! empty($user->btcpay_user_id)) {
-            try {
-                $this->userService->updateUser((string) $user->btcpay_user_id, [
-                    'email' => $newEmail,
-                ]);
-            } catch (\Throwable $e) {
-                Log::warning('BTCPay email update failed during guest upgrade (legacy users/{id})', [
-                    'user_id' => $user->id,
-                    'btcpay_user_id' => $user->btcpay_user_id,
-                    'error' => $e->getMessage(),
-                ]);
-                $this->dispatchBtcpayEmailSyncSafely($user->id);
-            }
+        try {
+            // Shared sync (403 -> merchant key re-mint + retry; taken email is
+            // logged and skipped). BTCPay sync stays best-effort: the Satflux
+            // upgrade must succeed even when BTCPay is unreachable.
+            $this->emailSync->syncUserEmail($user);
+        } catch (\Throwable $e) {
+            Log::warning('BTCPay email update failed during guest upgrade', [
+                'user_id' => $user->id,
+                'btcpay_user_id' => $user->btcpay_user_id,
+                'error' => $e->getMessage(),
+            ]);
+            $this->dispatchBtcpayEmailSyncSafely($user->id);
         }
 
         try {

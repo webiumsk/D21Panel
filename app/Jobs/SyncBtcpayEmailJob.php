@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\User;
-use App\Services\BtcPay\UserService;
+use App\Services\BtcPay\BtcpayEmailSyncService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -27,7 +27,7 @@ class SyncBtcpayEmailJob implements ShouldQueue
         public int $userId
     ) {}
 
-    public function handle(UserService $userService): void
+    public function handle(BtcpayEmailSyncService $emailSync): void
     {
         $user = User::find($this->userId);
         if (! $user || empty($user->email)) {
@@ -41,21 +41,7 @@ class SyncBtcpayEmailJob implements ShouldQueue
             return;
         }
 
-        if (! empty($user->btcpay_api_key)) {
-            $userService->updateCurrentUserProfile($user->getBtcPayApiKeyOrFail(), [
-                'email' => (string) $user->email,
-            ]);
-
-            return;
-        }
-
-        if (empty($user->btcpay_user_id)) {
-            return;
-        }
-
-        $userService->updateUser((string) $user->btcpay_user_id, [
-            'email' => (string) $user->email,
-        ]);
+        $emailSync->syncUserEmail($user);
     }
 
     public function failed(\Throwable $exception): void
