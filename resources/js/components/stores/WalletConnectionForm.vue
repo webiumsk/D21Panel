@@ -6,7 +6,7 @@
     v-model:switch-intent="switchToCashuIntent"
     :paste-detection="walletPasteDetection"
     @switch-to-lightning="switchToLightningIntent = true"
-    @submitted="$emit('submitted')"
+    @submitted="$emit('submitted', 'cashu')"
     @cancel="$emit('cancel')"
   />
 
@@ -590,7 +590,8 @@ const showAquaDescriptorWarnings = computed(() => {
 });
 
 const emit = defineEmits<{
-  submitted: [];
+  /** target = the connection type that was saved; undefined only for flows that are already connected when they emit. */
+  submitted: [target?: string];
   cancel: [];
 }>();
 
@@ -710,9 +711,9 @@ function focusAdjacentWalletTab(direction: -1 | 1) {
   });
 }
 
-/** QuickConnect saved the wallet (connection or Cashu settings) - reload the parent view. */
-function onQuickConnectSubmitted() {
-  emit("submitted");
+/** QuickConnect saved the wallet - forward WHERE it landed so the parent can wait for provisioning. */
+function onQuickConnectSubmitted(target: "blink" | "blitz" | "cashu" | "lnaddress") {
+  emit("submitted", target);
 }
 
 function startSamRockPairing() {
@@ -723,7 +724,8 @@ function startSamRockPairing() {
     router.replace({ path: route.path, query: q });
   }
   void startSamRockPairingCore(() => {
-    emit("submitted");
+    // SamRock pairing resolves only once the wallet is connected - no wait needed.
+    emit("submitted", "samrock");
   }, samrockFallbackAddress.value);
 }
 
@@ -1135,7 +1137,7 @@ async function handleSubmit() {
         ? undefined
         : advancedFallbackAddress.value.trim(),
     });
-    emit("submitted");
+    emit("submitted", form.type);
   } catch (rawError) {
     const err = asApiError(rawError);
     if (err.response?.status === 422) {
