@@ -3780,6 +3780,7 @@
     "pricing_pro_yearly_price": "{amount} per year",
     "pricing_pro_trial_badge": "{days} days free",
     "pricing_invoicing_highlight_title": "New: Business invoicing",
+    "pricing_company_slots_note": "More companies? Buy extra company slots one-off - {price} per company, volume packs cheaper per slot.",
     "pricing_pro_description": "Full business invoicing, expenses, and payment matching. Plus more stores, advanced stats, and automatic exports.",
     "pricing_pro_badge": "Best value",
     "pricing_pro_cta": "Upgrade to Pro",

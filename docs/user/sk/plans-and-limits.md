@@ -32,6 +32,8 @@ Ako sloty fungujú:
 - Sloty platia len s **aktívnym plánom Pro** - zvyšujú limit firiem v Pro, samy o sebe fakturáciu neodomykajú a počas expirovaného Pro sú neaktívne.
 - Firmy, ktoré s vami niekto zdieľa (napríklad ako s účtovníkom pozvaným do firmy klienta), sa do vášho limitu **nepočítajú** - počítajú sa len firmy, ktoré vlastníte.
 
+Sloty sa predávajú v balíkoch po **1, 5 a 10** - väčšie balíky sú na slot lacnejšie. Aktuálne ceny v sats nájdete v nákupnom dialógu a v sekcii **Cenník**.
+
 Sloty dokúpite cez ponuku, ktorá sa zobrazí pri dosiahnutí limitu firiem na stránke Fakturácia. Pri veľkom počte firiem môže byť vhodnejší plán Enterprise s neobmedzeným počtom firiem - kontaktujte nás.
 
 ## Upgrade

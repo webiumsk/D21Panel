@@ -170,6 +170,16 @@
                 <span>{{ t("plans.features." + key) }}</span>
               </li>
             </ul>
+            <p
+              v-if="pricing.company_slot_packs.length"
+              class="text-indigo-300/80 text-xs mt-3"
+            >
+              {{
+                t("landing.pricing_company_slots_note", {
+                  price: formatSats(pricing.company_slot_packs[0].sats),
+                })
+              }}
+            </p>
           </div>
           <ul class="space-y-3 mb-8">
             <li

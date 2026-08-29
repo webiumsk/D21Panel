@@ -32,6 +32,8 @@ How slots work:
 - Slots only take effect with an **active Pro plan** - they raise the Pro company limit, but do not unlock invoicing on their own and are dormant while your Pro plan is expired.
 - Companies shared with you by someone else (for example as an accountant invited to a client's company) do **not** count against your limit - only companies you own do.
 
+Slots are sold in packs of **1, 5 and 10** - larger packs are cheaper per slot. Current prices in sats are shown in the purchase dialog and in the **Pricing** section.
+
 You can buy slots from the prompt shown when you reach your company limit on the Invoicing page. For many companies, the Enterprise plan with unlimited companies may be a better fit - contact us.
 
 ## Upgrading

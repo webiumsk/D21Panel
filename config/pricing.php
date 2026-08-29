@@ -33,14 +33,15 @@ return [
     | Extra invoicing company slots (one-off purchases, Pro only)
     |--------------------------------------------------------------------------
     | Slots raise the company limit on top of the plan's included count.
-    | PLACEHOLDER prices: packs with sats <= 0 are not purchasable and are
-    | hidden from the API - set real prices before launch.
+    | Packs with sats <= 0 are not purchasable and are hidden from the API.
+    | Anchors: single slot = 1/3 of Pro yearly (well under a second Pro
+    | account at 210k/yr); 5-pack -20%, 10-pack -36% per slot.
     */
 
     'company_slot_packs' => [
-        ['slots' => 1, 'sats' => 0],
-        ['slots' => 5, 'sats' => 0],
-        ['slots' => 10, 'sats' => 0],
+        ['slots' => 1, 'sats' => 70_000],
+        ['slots' => 5, 'sats' => 280_000],
+        ['slots' => 10, 'sats' => 450_000],
     ],
 
 ];

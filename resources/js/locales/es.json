@@ -2464,6 +2464,7 @@
     "pricing_pro_yearly_price": "{amount} al año",
     "pricing_pro_trial_badge": "{days} días gratis",
     "pricing_invoicing_highlight_title": "Nuevo: Facturación empresarial",
+    "pricing_company_slots_note": "¿Más empresas? Compra slots adicionales con un pago único - {price} por empresa, los packs grandes salen más baratos por slot.",
     "pricing_pro_description": "Facturación completa, gastos y conciliación de pagos. Más tiendas, estadísticas avanzadas e informes automáticos.",
     "pricing_pro_badge": "Mejor valor",
     "pricing_pro_cta": "Pasar a Pro",

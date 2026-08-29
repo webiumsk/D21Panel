@@ -3780,6 +3780,7 @@
     "pricing_pro_yearly_price": "{amount} ročně",
     "pricing_pro_trial_badge": "{days} dní zdarma",
     "pricing_invoicing_highlight_title": "Novinka: Firemní fakturace",
+    "pricing_company_slots_note": "Více firem? Sloty dokoupíte jednorázově - {price} za firmu, větší balíčky jsou na slot výhodnější.",
     "pricing_pro_description": "Kompletní firemní fakturace, výdaje a párování plateb. Plus více obchodů, pokročilé statistiky a automatické exporty.",
     "pricing_pro_badge": "Nejlepší hodnota",
     "pricing_pro_cta": "Přejít na Pro",
