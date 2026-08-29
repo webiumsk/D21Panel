@@ -54,6 +54,9 @@ class BtcpayEmailSyncTest extends TestCase
             if (str_contains($url, '/api-keys/')) {
                 return Http::response([], 200);
             }
+            if (str_contains($url, 'confirm-email')) {
+                return Http::response([], 200);
+            }
 
             return Http::response([], 404);
         });
@@ -72,6 +75,7 @@ class BtcpayEmailSyncTest extends TestCase
 
         Http::fake([
             'https://btcpay.test/api/v1/users/me' => Http::response(['email' => 'merchant@example.com'], 200),
+            'https://btcpay.test/api/v1/users/btcpay-user-1/confirm-email' => Http::response([], 200),
         ]);
 
         app(BtcpayEmailSyncService::class)->syncUserEmail($user);
@@ -83,6 +87,10 @@ class BtcpayEmailSyncTest extends TestCase
                 && ($body['email'] ?? null) === 'merchant@example.com'
                 && ($body['currentPassword'] ?? null) === 'stored-btcpay-pass';
         });
+
+        // Changing the email resets emailConfirmed on BTCPay - the sync must
+        // re-confirm via the server key or the merchant API key stops working.
+        Http::assertSent(fn ($request) => str_contains((string) $request->url(), '/users/btcpay-user-1/confirm-email'));
     }
 
     #[Test]
