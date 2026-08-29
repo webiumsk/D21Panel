@@ -99,7 +99,15 @@ class LightningService
                     'data' => $response,
                 ];
             } catch (BtcPayException $e) {
-                Log::info('payment-methods Lightning connect not accepted; falling back to legacy endpoints', [
+                // Fall back only when the route itself is unavailable (pre-2.x
+                // server). Auth errors, validation rejections (the real reason
+                // a 2.x server refused the string) and server errors would fail
+                // the legacy routes too - preserve the original failure instead.
+                if (! in_array($e->getStatusCode(), [404, 405], true)) {
+                    throw $e;
+                }
+
+                Log::info('payment-methods Lightning route unavailable; falling back to legacy endpoints', [
                     'store_id' => $storeId,
                     'crypto_code' => $cryptoCode,
                     'status' => $e->getStatusCode(),
