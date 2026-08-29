@@ -191,7 +191,10 @@ import { usePricing } from '../../composables/usePricing';
 const { t } = useI18n();
 const { canUse: canUseInvoicing } = useBusinessInvoicing();
 const { canUpgradeToPro } = useCurrentPlan();
-const { pricing } = usePricing();
+const { pricing, load: loadPricing } = usePricing();
+// Fetch the real trial_days (module-level cache - a no-op when another
+// landing section already loaded pricing).
+void loadPricing();
 
 const invoicingCtaTo = computed(() => {
   if (canUseInvoicing.value) return '/invoicing';

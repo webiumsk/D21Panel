@@ -23,7 +23,7 @@ Some features check your plan. For example, **invoicing** is available on Pro an
 
 ## Free trial
 
-New accounts can try the full **Pro** plan free for **30 days**:
+Accounts on the Free plan that have not used their trial yet can try the full **Pro** plan free for **30 days**:
 
 - The trial is available **once per account**.
 - During the trial you have everything Pro includes - invoicing, the Pro company limit, exports, Stripe and more. You can also buy extra company slots during the trial.

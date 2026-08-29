@@ -87,7 +87,7 @@
     "company_slots_unit": "slot | slotů",
     "company_slots_waiting": "Čekáme na platbu - nové sloty se zde zobrazí automaticky po jejím potvrzení.",
     "company_slots_pay_btcpay": "Jednorázová platba v bitcoinu přes BTCPay checkout.",
-    "company_slots_fine_print": "Sloty jsou jednorázový nákup a nikdy nevyprší, využít je však lze jen s aktivním plánem Pro. Koupit je můžete i během zkušební doby - pokud trial skončí bez přechodu na placené Pro, sloty spí, dokud Pro nezaplatíte.",
+    "company_slots_fine_print": "Sloty jsou jednorázový nákup a nikdy nevyprší, využít je však lze jen s aktivním plánem Pro. Koupit je můžete i během zkušební doby - pokud skončí bez přechodu na placené Pro, sloty zůstanou neaktivní, dokud Pro nezaplatíte.",
     "company_slots_unavailable": "Nákup slotů momentálně není dostupný. Kontaktujte nás, prosím.",
     "company_slots_success": "Platba přijata - limit firem byl navýšen.",
     "company_slots_paid_flash": "Děkujeme! Hned po potvrzení platby se limit firem navýší.",

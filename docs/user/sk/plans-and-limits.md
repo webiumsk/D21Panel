@@ -23,7 +23,7 @@ Niektoré funkcie kontrolujú plán. Napríklad **fakturácia** je dostupná v P
 
 ## Skúšobná doba zadarmo
 
-Nové účty si môžu vyskúšať plný plán **Pro** zadarmo na **30 dní**:
+Účty na pláne Free, ktoré skúšobnú dobu ešte nevyužili, si môžu vyskúšať plný plán **Pro** zadarmo na **30 dní**:
 
 - Skúšobná doba je dostupná **raz na účet**.
 - Počas nej máte všetko, čo Pro obsahuje - fakturáciu, Pro limit firiem, exporty, Stripe a ďalšie. Počas skúšobnej doby si môžete dokúpiť aj firemné sloty.
