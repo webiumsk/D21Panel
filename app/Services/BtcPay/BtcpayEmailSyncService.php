@@ -79,6 +79,7 @@ class BtcpayEmailSyncService
         } catch (BtcPayException $e) {
             if ($this->isEmailTakenError($e)) {
                 $this->logEmailTaken($user, $e);
+                $this->labelMachineUser($user);
 
                 return;
             }
@@ -111,6 +112,7 @@ class BtcpayEmailSyncService
         } catch (BtcPayException $e) {
             if ($this->isEmailTakenError($e)) {
                 $this->logEmailTaken($user, $e);
+                $this->labelMachineUser($user);
 
                 return;
             }
@@ -191,6 +193,31 @@ class BtcpayEmailSyncService
         return str_contains($message, 'duplicateusername')
             || str_contains($message, 'already taken')
             || str_contains($message, 'setting email for user');
+    }
+
+    /**
+     * On BTCPay servers with the Monetization plugin every subscriber gets its
+     * own BTCPay user holding the real email, so renaming our store-owner
+     * machine user can never succeed there. Label the machine user via its
+     * profile NAME instead (no uniqueness constraint, no currentPassword
+     * requirement) so the admin can still identify it at a glance.
+     */
+    protected function labelMachineUser(User $user): void
+    {
+        if (empty($user->btcpay_api_key)) {
+            return;
+        }
+
+        try {
+            $this->userService->updateCurrentUserProfile($user->getBtcPayApiKeyOrFail(), [
+                'name' => 'Satflux: '.(string) $user->email,
+            ]);
+        } catch (\Throwable $e) {
+            Log::info('BTCPay machine-user name label failed (best-effort)', [
+                'user_id' => $user->id,
+                'status' => $e instanceof BtcPayException ? $e->getStatusCode() : null,
+            ]);
+        }
     }
 
     protected function logEmailTaken(User $user, BtcPayException $e): void

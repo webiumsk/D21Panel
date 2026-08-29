@@ -187,24 +187,37 @@ class BtcpayEmailSyncTest extends TestCase
     {
         $user = $this->makeUser();
 
-        $usersMeCalls = 0;
-        Http::fake(function ($request) use (&$usersMeCalls) {
+        $emailChangeAttempts = 0;
+        $nameLabelCalls = 0;
+        Http::fake(function ($request) use (&$emailChangeAttempts, &$nameLabelCalls) {
             $url = (string) $request->url();
             if (str_ends_with($url, '/api/v1/users/me')) {
-                $usersMeCalls++;
+                $body = $request->data();
+                if (isset($body['email'])) {
+                    $emailChangeAttempts++;
 
-                return Http::response([
-                    ['path' => 'email', 'message' => "Username 'merchant@example.com' is already taken."],
-                ], 422);
+                    return Http::response([
+                        ['path' => 'email', 'message' => "Username 'merchant@example.com' is already taken."],
+                    ], 422);
+                }
+
+                // Monetization-style servers keep the email forever taken - the
+                // machine user gets labeled via its profile name instead.
+                if (($body['name'] ?? null) === 'Satflux: merchant@example.com') {
+                    $nameLabelCalls++;
+
+                    return Http::response([], 200);
+                }
             }
 
             return Http::response([], 404);
         });
 
-        // Must not throw (best-effort) and must not hammer the endpoint.
+        // Must not throw (best-effort) and must not hammer the email change.
         app(BtcpayEmailSyncService::class)->syncUserEmail($user);
 
-        $this->assertSame(1, $usersMeCalls);
+        $this->assertSame(1, $emailChangeAttempts);
+        $this->assertSame(1, $nameLabelCalls);
         $this->assertSame('old-merchant-key', $user->fresh()->btcpay_api_key);
     }
 }
