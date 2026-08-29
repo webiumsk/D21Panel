@@ -87,7 +87,7 @@
     "company_slots_unit": "slot | slots",
     "company_slots_waiting": "Waiting for payment - new slots will appear here automatically once it settles.",
     "company_slots_pay_btcpay": "One-off payment in bitcoin via BTCPay checkout.",
-    "company_slots_fine_print": "Slots are a one-off purchase and never expire, but they can only be used with an active Pro plan.",
+    "company_slots_fine_print": "Slots are a one-off purchase and never expire, but they can only be used with an active Pro plan. You can buy slots during the free trial too - if the trial ends without upgrading, slots stay dormant until you pay for Pro.",
     "company_slots_unavailable": "Slot purchases are not available right now. Please contact us.",
     "company_slots_success": "Payment received - your company limit has been raised.",
     "company_slots_paid_flash": "Thanks! Your company limit will be raised as soon as the payment settles.",
@@ -3692,7 +3692,7 @@
         "expenses": "Supplier expenses with attachments and duplicates",
         "recurring": "Recurring invoice profiles with scheduled generation"
       },
-      "pro_note": "Included in PRO (30-day trial). Your BTCPay payment acceptance keeps working even if PRO expires.",
+      "pro_note": "Included in PRO ({days}-day trial). Your BTCPay payment acceptance keeps working even if PRO expires.",
       "positioning_title": "One stack, not three tools",
       "positioning_text": "Satflux combines BTCPay merchant tooling with accounting-grade invoicing. You do not need a separate payment app, another invoicing SaaS, and export scripts - Satflux is not a digital postman, but it prepares UBL and sends it through your CPDS.",
       "positioning_bullet_1": "EU merchants: SK/CZ fields, variable symbol, Pay by Square, VIES VAT checks, e-invoicing from 2027.",

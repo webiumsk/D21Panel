@@ -21,6 +21,15 @@ The exact limits and current pricing are shown on the **Pricing** page in the ap
 
 Some features check your plan. For example, **invoicing** is available on Pro and Enterprise - open Invoicing on a Free plan and you will be prompted to upgrade. Admin and Enterprise accounts always have invoicing available.
 
+## Free trial
+
+Accounts on the Free plan that have not used their trial yet can try the full **Pro** plan free for **30 days**:
+
+- The trial is available **once per account**.
+- During the trial you have everything Pro includes - invoicing, the Pro company limit, exports, Stripe and more. You can also buy extra company slots during the trial.
+- The trial has **no grace period**: when it ends without payment, the account returns to Free immediately and Pro features (including invoicing) lock. Your data stays - nothing is deleted.
+- Paying for Pro during the trial starts a full paid year **from the payment date**. Any company slots bought during the trial stay on your account and become active again with paid Pro.
+
 ## Extra company slots (invoicing)
 
 The Pro plan includes a fixed number of invoicing companies. If you need more - for example you run several businesses, or you are an accounting office managing client companies - you can buy **extra company slots** as a one-off purchase, paid in bitcoin via BTCPay.

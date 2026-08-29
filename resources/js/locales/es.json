@@ -2376,7 +2376,7 @@
         "expenses": "Gastos de proveedores con adjuntos y duplicados",
         "recurring": "Perfiles de facturas recurrentes con generación programada"
       },
-      "pro_note": "Incluido en PRO (prueba de 30 días). La aceptación de pagos BTCPay sigue funcionando aunque PRO expire.",
+      "pro_note": "Incluido en PRO (prueba de {days} días). La aceptación de pagos BTCPay sigue funcionando aunque PRO expire.",
       "positioning_title": "Un solo stack, no tres herramientas",
       "positioning_text": "Satflux combina herramientas merchant BTCPay con facturación de nivel contable. No necesita una app de pagos, otro SaaS de facturación y scripts de exportación - Satflux no es operador postal, pero prepara UBL y lo envía a través de su CPDS.",
       "positioning_bullet_1": "Comerciantes UE: campos SK/CZ, símbolo variable, Pay by Square, comprobación VIES, e-factura desde 2027.",
@@ -2785,7 +2785,7 @@
     "company_slots_unit": "slot | slots",
     "company_slots_waiting": "Esperando el pago - los nuevos slots aparecerán aquí automáticamente cuando se confirme.",
     "company_slots_pay_btcpay": "Pago único en bitcoin mediante BTCPay checkout.",
-    "company_slots_fine_print": "Los slots son una compra única y no caducan, pero solo pueden usarse con un plan Pro activo.",
+    "company_slots_fine_print": "Los slots son una compra única y no caducan, pero solo pueden usarse con un plan Pro activo. También puede comprarlos durante la prueba gratuita - si la prueba termina sin pasar a Pro de pago, los slots quedan inactivos hasta que pague Pro.",
     "company_slots_unavailable": "La compra de slots no está disponible ahora mismo. Contáctenos, por favor.",
     "company_slots_success": "Pago recibido - su límite de empresas se ha aumentado.",
     "company_slots_paid_flash": "¡Gracias! Su límite de empresas se aumentará en cuanto se confirme el pago.",

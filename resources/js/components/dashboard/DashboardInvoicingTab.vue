@@ -43,7 +43,7 @@
           <div class="absolute inset-0 bg-gradient-to-br from-indigo-600/5 to-purple-600/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
           <div class="relative z-10">
             <h3 class="text-lg font-bold text-white mb-2">{{ t('account.pro_plan') }}</h3>
-            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-2">
+            <p v-if="canStartTrial" class="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-2">
               {{ t('account.pro_trial_badge', { days: pricing.trial_days }) }}
             </p>
             <div class="text-2xl font-bold text-indigo-400 mb-1">
@@ -114,6 +114,7 @@ import {
   proHasMonthlyDiscount,
 } from '../../composables/usePricing';
 import api from '../../services/api';
+import { useCurrentPlan } from '../../composables/useCurrentPlan';
 import GuestUpgradeForm from '../account/GuestUpgradeForm.vue';
 import UpgradeModal from '../stores/UpgradeModal.vue';
 import DashboardInvoicingTabProShell from './DashboardInvoicingTabProShell.vue';
@@ -125,6 +126,7 @@ const authStore = useAuthStore();
 const { canUse } = useBusinessInvoicing();
 const { planFeatures, isInvoicingFeature, load: loadPlanFeatures } = usePlanFeatures();
 const { pricing, formatSats, load: loadPricing } = usePricing();
+const { canStartTrial } = useCurrentPlan();
 const guestUpgradeStore = useGuestUpgradeStore();
 
 const showUpgrade = ref(false);

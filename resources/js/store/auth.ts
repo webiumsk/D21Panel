@@ -32,6 +32,8 @@ export interface User {
     can_use_password_login?: boolean;
     email_verified_at?: string;
     role?: string;
+    /** Set once the one-time Pro trial was activated - null/absent = trial still available. */
+    trial_consumed_at?: string | null;
     name?: string;
     plan?: {
         code: string;

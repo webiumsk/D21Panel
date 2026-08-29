@@ -48,9 +48,16 @@ export function useCurrentPlan() {
     () => authStore.isAuthenticated && planCode.value === 'free',
   );
 
+  // The server forces isTrial=false at checkout once the one-time trial was
+  // consumed - hide "free trial" framing then (the upgrade CTA itself stays).
+  const canStartTrial = computed(
+    () => canUpgradeToPro.value && !authStore.user?.trial_consumed_at,
+  );
+
   return {
     planCode,
     hasProOrHigher,
     canUpgradeToPro,
+    canStartTrial,
   };
 }
