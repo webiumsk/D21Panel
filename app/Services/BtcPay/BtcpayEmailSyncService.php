@@ -102,6 +102,8 @@ class BtcpayEmailSyncService
     {
         $parts = explode('@', (string) $user->email, 2);
 
+        // Deliberately no $e->getMessage(): BTCPay's DuplicateUserName text
+        // carries the full email, which would defeat the masking above.
         Log::warning('BTCPay email sync skipped - email already belongs to another BTCPay user', [
             'code' => 'btcpay_email_taken',
             'user_id' => $user->id,
@@ -109,7 +111,7 @@ class BtcpayEmailSyncService
             'email_masked' => count($parts) === 2
                 ? (($parts[0] !== '' ? $parts[0][0] : '*').'***@'.$parts[1])
                 : '***',
-            'error' => $e->getMessage(),
+            'status' => $e->getStatusCode(),
         ]);
     }
 }
