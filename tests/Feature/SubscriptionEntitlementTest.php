@@ -382,6 +382,7 @@ class SubscriptionEntitlementTest extends TestCase
             'billing_phase' => Subscription::BILLING_EXPIRED,
         ]);
     }
+
     #[Test]
     public function paid_activation_clears_the_guest_flag(): void
     {
