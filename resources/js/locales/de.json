@@ -87,7 +87,7 @@
     "company_slots_unit": "Slot | Slots",
     "company_slots_waiting": "Warten auf Zahlung - neue Slots erscheinen hier automatisch, sobald die Zahlung bestätigt ist.",
     "company_slots_pay_btcpay": "Einmalige Zahlung in Bitcoin über den BTCPay-Checkout.",
-    "company_slots_fine_print": "Slots sind ein einmaliger Kauf und verfallen nie, nutzbar sind sie jedoch nur mit einem aktiven Pro-Tarif.",
+    "company_slots_fine_print": "Slots sind ein einmaliger Kauf und verfallen nie, nutzbar sind sie jedoch nur mit einem aktiven Pro-Tarif. Sie können Slots auch während der Testphase kaufen - endet diese ohne Upgrade, ruhen die Slots, bis Sie Pro bezahlen.",
     "company_slots_unavailable": "Der Slot-Kauf ist derzeit nicht verfügbar. Bitte kontaktieren Sie uns.",
     "company_slots_success": "Zahlung eingegangen - Ihr Firmenlimit wurde erhöht.",
     "company_slots_paid_flash": "Danke! Ihr Firmenlimit wird erhöht, sobald die Zahlung bestätigt ist.",
@@ -3692,7 +3692,7 @@
         "expenses": "Lieferantenausgaben mit Anhängen und Duplikaten",
         "recurring": "Wiederkehrende Rechnungsprofile mit geplanter Generierung"
       },
-      "pro_note": "In PRO enthalten (30-Tage-Test). Ihre BTCPay-Zahlungsannahme funktioniert weiter, auch wenn PRO abläuft.",
+      "pro_note": "In PRO enthalten ({days}-Tage-Test). Ihre BTCPay-Zahlungsannahme funktioniert weiter, auch wenn PRO abläuft.",
       "positioning_title": "Ein Stack, nicht drei Tools",
       "positioning_text": "Satflux kombiniert BTCPay-Händler-Tools mit buchhaltungsreifer Rechnungsstellung. Sie brauchen keine separate Zahlungs-App, kein weiteres Rechnungs-SaaS und keine Export-Skripte - Satflux ist kein digitaler Postbote, bereitet aber UBL vor und sendet es über Ihren CPDS.",
       "positioning_bullet_1": "EU-Händler: SK/CZ-Felder, Variable Symbol, Pay by Square, VIES-USt-Prüfung, E-Invoicing ab 2027.",

@@ -21,6 +21,15 @@ Presné limity a aktuálne ceny sú na stránke **Cenník** v aplikácii.
 
 Niektoré funkcie kontrolujú plán. Napríklad **fakturácia** je dostupná v Pro a Enterprise - pri otvorení Fakturácie na Free pláne dostanete ponuku na upgrade. Admin a Enterprise účty majú fakturáciu vždy dostupnú.
 
+## Skúšobná doba zadarmo
+
+Nové účty si môžu vyskúšať plný plán **Pro** zadarmo na **30 dní**:
+
+- Skúšobná doba je dostupná **raz na účet**.
+- Počas nej máte všetko, čo Pro obsahuje - fakturáciu, Pro limit firiem, exporty, Stripe a ďalšie. Počas skúšobnej doby si môžete dokúpiť aj firemné sloty.
+- Skúšobná doba **nemá ochrannú lehotu**: keď skončí bez platby, účet sa okamžite vráti na Free a Pro funkcie (vrátane fakturácie) sa uzamknú. Vaše dáta zostávajú - nič sa nemaže.
+- Zaplatením Pro počas skúšobnej doby začína plný platený rok **od dátumu platby**. Firemné sloty kúpené počas skúšobnej doby na účte zostávajú a s plateným Pro sa opäť aktivujú.
+
 ## Ďalšie firemné sloty (fakturácia)
 
 Plán Pro zahŕňa pevný počet fakturačných firiem. Ak potrebujete viac - napríklad podnikáte cez viacero firiem, alebo ste účtovná kancelária spravujúca firmy klientov - môžete si jednorazovo dokúpiť **ďalšie firemné sloty**, platené v bitcoine cez BTCPay.

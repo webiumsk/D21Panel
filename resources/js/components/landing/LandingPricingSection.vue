@@ -97,7 +97,7 @@
           class="bg-gray-800 rounded-2xl p-8 border-2 border-indigo-500 shadow-2xl relative transform md:scale-[1.02] z-10"
         >
           <div
-            v-if="canUpgradeToPro"
+            v-if="canStartTrial"
             class="absolute top-0 right-0 -mt-4 mr-4 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide"
           >
             {{
@@ -424,7 +424,7 @@ const { t } = useI18n();
 const authStore = useAuthStore();
 const { pricing, formatSats } = usePricing();
 const { planFeatures, invoicingHighlightKeys } = usePlanFeatures();
-const { canUpgradeToPro } = useCurrentPlan();
+const { canUpgradeToPro, canStartTrial } = useCurrentPlan();
 
 const subscribing = ref(false);
 const subscribeError = ref("");

@@ -87,7 +87,7 @@
     "company_slots_unit": "slot | slotů",
     "company_slots_waiting": "Čekáme na platbu - nové sloty se zde zobrazí automaticky po jejím potvrzení.",
     "company_slots_pay_btcpay": "Jednorázová platba v bitcoinu přes BTCPay checkout.",
-    "company_slots_fine_print": "Sloty jsou jednorázový nákup a nikdy nevyprší, využít je však lze jen s aktivním plánem Pro.",
+    "company_slots_fine_print": "Sloty jsou jednorázový nákup a nikdy nevyprší, využít je však lze jen s aktivním plánem Pro. Koupit je můžete i během zkušební doby - pokud trial skončí bez přechodu na placené Pro, sloty spí, dokud Pro nezaplatíte.",
     "company_slots_unavailable": "Nákup slotů momentálně není dostupný. Kontaktujte nás, prosím.",
     "company_slots_success": "Platba přijata - limit firem byl navýšen.",
     "company_slots_paid_flash": "Děkujeme! Hned po potvrzení platby se limit firem navýší.",
@@ -3692,7 +3692,7 @@
         "expenses": "Dodavatelské výdaje s přílohami a duplikáty",
         "recurring": "Pravidelné faktury s plánovaným generováním"
       },
-      "pro_note": "Součást PRO (30denní zkušební doba). Přijímání plateb přes BTCPay funguje i po vypršení PRO.",
+      "pro_note": "Součást PRO ({days}denní zkušební doba). Přijímání plateb přes BTCPay funguje i po vypršení PRO.",
       "positioning_title": "Jeden stack, ne tři nástroje",
       "positioning_text": "Satflux spojuje BTCPay merchant nástroje s účetní fakturací. Nepotřebujete samostatnou platební appku, další fakturační SaaS a exportní skripty - Satflux není digitální pošťák, ale připraví UBL a odešle ho přes váš CPDS.",
       "positioning_bullet_1": "EU obchodníci: SK/CZ pole, variabilní symbol, Pay by Square, VIES kontrola DPH, e-fakturace od 2027.",

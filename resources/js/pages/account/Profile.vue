@@ -1146,6 +1146,7 @@
                         {{ t("account.pro_plan") }}
                       </h6>
                       <p
+                        v-if="canStartTrial"
                         class="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-2"
                       >
                         {{
@@ -2233,7 +2234,7 @@ const serverLegacyCompanies = ref<ServerLegacyCompany[]>([]);
 const serverLegacyLoading = ref(false);
 const serverLegacyDeleting = ref<string | null>(null);
 
-const { planCode: effectivePlanCode } = useCurrentPlan();
+const { planCode: effectivePlanCode, canStartTrial } = useCurrentPlan();
 
 // Plan information
 const currentPlanName = computed(() => {

@@ -65,7 +65,7 @@
             </li>
           </ul>
           <p class="mt-6 text-sm text-gray-500">
-            {{ t('landing.invoicing_section.pro_note') }}
+            {{ t('landing.invoicing_section.pro_note', { days: pricing.trial_days }) }}
           </p>
         </div>
 
@@ -186,10 +186,12 @@ import {
   INVOICING_FEATURE_BULLETS,
 } from '../../constants/invoicingComparison';
 import InvoicingCompareCell from './InvoicingCompareCell.vue';
+import { usePricing } from '../../composables/usePricing';
 
 const { t } = useI18n();
 const { canUse: canUseInvoicing } = useBusinessInvoicing();
 const { canUpgradeToPro } = useCurrentPlan();
+const { pricing } = usePricing();
 
 const invoicingCtaTo = computed(() => {
   if (canUseInvoicing.value) return '/invoicing';

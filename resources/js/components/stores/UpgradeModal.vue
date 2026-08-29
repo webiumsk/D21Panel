@@ -103,10 +103,12 @@ import api from '../../services/api';
 import { useFlashStore } from '../../store/flash';
 import { usePlanFeatures } from '../../composables/usePlanFeatures';
 import { usePricing } from '../../composables/usePricing';
+import { useCurrentPlan } from '../../composables/useCurrentPlan';
 
 const { t } = useI18n();
 const { planFeatures, isInvoicingFeature, load: loadPlanFeatures } = usePlanFeatures();
 const { pricing, formatSats, load: loadPricing } = usePricing();
+const { canStartTrial } = useCurrentPlan();
 
 interface LimitRow {
   feature: string;
@@ -160,6 +162,7 @@ const benefitItems = computed(() => {
 
 const proTrialHint = computed(() => {
   if (props.recommendedPlan !== 'pro') return '';
+  if (!canStartTrial.value) return '';
   const p = pricing.value.pro;
   return t('upgrade_modal.pro_trial_hint', {
     days: pricing.value.trial_days,
