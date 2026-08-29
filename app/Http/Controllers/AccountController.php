@@ -41,6 +41,7 @@ class AccountController extends Controller
         $payload = $user->toArray();
         $subscriptionService = app(SubscriptionEntitlementService::class);
         $maxCompanies = $subscriptionService->maxCompaniesForUser($user);
+        $includedCompanies = $subscriptionService->includedCompaniesForUser($user);
 
         $payload['plan'] = $plan ? [
             'code' => $plan->code,
@@ -49,6 +50,10 @@ class AccountController extends Controller
             'max_api_keys' => $plan->max_api_keys,
             'max_ln_addresses' => $user->getMaxLightningAddresses(),
             'max_companies' => $maxCompanies,
+            'included_companies' => $includedCompanies,
+            'extra_company_slots' => ($maxCompanies !== null && $includedCompanies !== null)
+                ? max(0, $maxCompanies - $includedCompanies)
+                : 0,
             'companies_unlimited' => $maxCompanies === null && $subscriptionService->canUseBusinessInvoicing($user),
             'features' => $plan->features ?? [],
         ] : null;

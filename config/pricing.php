@@ -28,4 +28,22 @@ return [
         // No fixed price - contact sales
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Extra invoicing company slots (one-off purchases, Pro only)
+    |--------------------------------------------------------------------------
+    | Slots raise the company limit on top of the plan's included count.
+    | Packs with sats <= 0 are not purchasable and are hidden from the API.
+    | Anchors: single slot = 1/3 of Pro yearly (well under a second Pro
+    | account at 210k/yr); 5-pack -20%, 10-pack -36% per slot.
+    | Avoid pack sizes 2-4: the sk/cs unit labels use two plural forms
+    | (1 / 5+), which are wrong for 2-4 without custom vue-i18n plural rules.
+    */
+
+    'company_slot_packs' => [
+        ['slots' => 1, 'sats' => 70_000],
+        ['slots' => 5, 'sats' => 280_000],
+        ['slots' => 10, 'sats' => 450_000],
+    ],
+
 ];

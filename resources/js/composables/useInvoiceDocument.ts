@@ -433,19 +433,34 @@ export function useInvoiceDocument() {
     'issue',
     'issue_requires_online',
     'reserve_failed',
+    'company_limit',
     'not_draft',
     'series_update_failed',
     'no_default_series',
     'number_collision',
   ]);
 
+  // True when the last issue attempt was blocked by the server company limit
+  // (local-first: the Evolu company count can exceed the server limit, which
+  // only trips at the first document number allocation). Drives the buy-slot CTA.
+  const companyLimitBlocked = ref(false);
+
   function extractError(rawError: unknown) {
+    companyLimitBlocked.value = false;
     if (rawError instanceof Error && rawError.message && !KNOWN_ISSUE_ERROR_CODES.has(rawError.message)) {
       return rawError.message;
     }
     const e = asApiError(rawError);
     if (e.message === 'issue_requires_online') {
       return t('invoicing.issue_requires_online');
+    }
+    if (
+      e.message === 'company_limit'
+      || (e.response?.status === 403
+        && (e.response?.data as { code?: string } | undefined)?.code === 'company_limit')
+    ) {
+      companyLimitBlocked.value = true;
+      return t('invoicing.company_limit_issue_error');
     }
     const fieldErrors = e.response?.data?.errors;
     if (fieldErrors && typeof fieldErrors === 'object') {
@@ -1201,6 +1216,7 @@ export function useInvoiceDocument() {
     documentId,
     saving,
     error,
+    companyLimitBlocked,
     success,
     documentStatus,
     documentNumber,

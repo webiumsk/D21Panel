@@ -40,6 +40,8 @@ export interface User {
         max_api_keys: number | null;
         max_ln_addresses: number | null;
         max_companies?: number | null;
+        included_companies?: number | null;
+        extra_company_slots?: number;
         companies_unlimited?: boolean;
         features: string[];
     };

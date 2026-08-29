@@ -48,7 +48,7 @@
       "invoicing_expenses": "Ausgaben, Anhänge und ISDOC-Massenimport",
       "invoicing_bank_payments": "Bankzahlungsabgleich für Rechnungen",
       "invoicing_contacts_import": "Kontaktimport aus Excel",
-      "companies_2": "2 Unternehmensprofile",
+      "companies_2": "2 Unternehmensprofile (weitere Slots zukaufbar)",
       "companies_unlimited": "Unbegrenzte Unternehmensprofile"
     }
   },
@@ -81,6 +81,17 @@
     "pro_required_detail": "Pro umfasst SK/CZ-Rechnungen, EU-VIES-Prüfungen der USt-IdNr., ISDOC- und Peppol-UBL-Export, Zahlungszuordnung und die Verbindung zu Ihrem eigenen digitalen Postboten (SAPI-SK).",
     "vat_number_hint": "Format z. B. DE123456789. Prüfen Sie es mit einem Klick über VIES (EU-USt-Register).",
     "company_limit_reached": "Sie haben das Limit von {max} Unternehmen in Ihrem Tarif erreicht. Kontaktieren Sie uns für Enterprise (unbegrenzt).",
+    "company_slots_cta": "Zusätzliche Firmen-Slots kaufen",
+    "company_slots_title": "Zusätzliche Firmen-Slots",
+    "company_slots_body": "Im Tarif enthaltene Unternehmen: {included}. Gekaufte Zusatz-Slots: {extra}. Ein Slot gehört zu Ihrem Konto, nicht zu einem bestimmten Unternehmen - das Löschen eines Unternehmens gibt den Slot wieder frei.",
+    "company_slots_unit": "Slot | Slots",
+    "company_slots_waiting": "Warten auf Zahlung - neue Slots erscheinen hier automatisch, sobald die Zahlung bestätigt ist.",
+    "company_slots_pay_btcpay": "Einmalige Zahlung in Bitcoin über den BTCPay-Checkout.",
+    "company_slots_fine_print": "Slots sind ein einmaliger Kauf und verfallen nie, nutzbar sind sie jedoch nur mit einem aktiven Pro-Tarif.",
+    "company_slots_unavailable": "Der Slot-Kauf ist derzeit nicht verfügbar. Bitte kontaktieren Sie uns.",
+    "company_slots_success": "Zahlung eingegangen - Ihr Firmenlimit wurde erhöht.",
+    "company_slots_paid_flash": "Danke! Ihr Firmenlimit wird erhöht, sobald die Zahlung bestätigt ist.",
+    "company_limit_issue_error": "Dieses Unternehmen liegt über dem Firmenlimit Ihres Tarifs und kann daher noch keine Belege ausstellen. Kaufen Sie einen zusätzlichen Firmen-Slot oder entfernen Sie ein anderes Unternehmen.",
     "upgrade_cta": "PRO-Pläne ansehen",
     "no_companies": "Sie haben noch kein Firmenprofil.",
     "no_companies_restore_hint": "Nutzen Sie oben Import vom Server, wenn Sie noch Altdaten auf satflux haben, oder melden Sie sich mit Ihrer Wiederherstellungsphrase auf einem anderen Gerät an, auf dem Evolu Ihre Firmen bereits hat.",
@@ -1901,7 +1912,7 @@
       "invoicing_expenses": "Erfassen Sie Ausgaben mit Anhängen und ISDOC-Feldextraktion aus Lieferanten-PDFs.",
       "invoicing_bank_payments": "Importieren Sie Bankzahlungen und gleichen Sie sie mit offenen Rechnungen ab.",
       "invoicing_contacts_import": "Importieren Sie Kontakte aus CSV und nutzen Sie sie über Unternehmen hinweg.",
-      "companies_2": "Verwalten Sie auf Pro bis zu zwei Unternehmensprofile, jeweils mit eigenem Branding und Nummernkreisen."
+      "companies_2": "Verwalten Sie auf Pro bis zu zwei Unternehmensprofile, jeweils mit eigenem Branding und Nummernkreisen - weitere Unternehmen kaufen Sie als Slots hinzu."
     }
   },
   "stores": {
@@ -3769,6 +3780,7 @@
     "pricing_pro_yearly_price": "{amount} pro Jahr",
     "pricing_pro_trial_badge": "{days} Tage gratis",
     "pricing_invoicing_highlight_title": "Neu: Geschäftsrechnungen",
+    "pricing_company_slots_note": "Mehr Unternehmen? Kaufen Sie Firmen-Slots einmalig hinzu - {price} pro Unternehmen, größere Pakete sind pro Slot günstiger.",
     "pricing_pro_description": "Vollständige Geschäftsrechnungen, Ausgaben und Zahlungsabgleich. Plus mehr Stores, erweiterte Statistiken und automatische Exporte.",
     "pricing_pro_badge": "Bestes Preis-Leistungs-Verhältnis",
     "pricing_pro_cta": "Auf Pro upgraden",

@@ -25,9 +25,18 @@
       <p v-if="canUse && isRelaySyncing" class="text-xs text-amber-800 max-w-xs text-right">
         {{ t('invoicing.relay_sync_wait_hint') }}
       </p>
-      <p v-else-if="canUse && !canCreateCompany && companyLimitMax" class="text-xs text-amber-800 max-w-xs text-right">
-        {{ t('invoicing.company_limit_reached', { max: companyLimitMax }) }}
-      </p>
+      <div v-else-if="canUse && !canCreateCompany && companyLimitMax" class="max-w-xs text-right">
+        <p class="text-xs text-amber-800">
+          {{ t('invoicing.company_limit_reached', { max: companyLimitMax }) }}
+        </p>
+        <button
+          type="button"
+          class="mt-1 text-xs text-indigo-700 hover:text-indigo-900 hover:underline font-medium"
+          @click="showSlotModal = true"
+        >
+          {{ t('invoicing.company_slots_cta') }}
+        </button>
+      </div>
     </template>
 
     <OfflineNoticeBanner v-if="localFirst && canUse" class="mb-4" />
@@ -175,6 +184,8 @@
 
     <UpgradeModal :show="showUpgrade" @close="showUpgrade = false" />
 
+    <CompanySlotPurchaseModal :open="showSlotModal" @close="showSlotModal = false" @purchased="onSlotPurchased" />
+
     <InvoicingSetupWizardModal v-if="showWizard" @close="closeWizard" />
 
     <InvoicingRelaySyncModal
@@ -199,7 +210,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, unref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import InvoicingPageShell from '../../components/invoicing/InvoicingPageShell.vue';
 import BackupReminderBanner from '../../components/invoicing/BackupReminderBanner.vue';
 import LocalStorageWarningBanner from '../../components/invoicing/LocalStorageWarningBanner.vue';
@@ -238,6 +249,7 @@ import { useFlashStore } from '@/store/flash';
 import { useInvoicingOnboardingStore } from '../../store/invoicingOnboarding';
 import { shouldAutoOfferInvoicingWizard } from '../../utils/invoicingWizardGate';
 import UpgradeModal from '../../components/stores/UpgradeModal.vue';
+import CompanySlotPurchaseModal from '../../components/invoicing/CompanySlotPurchaseModal.vue';
 import InvoicingSetupWizardModal from '../../components/invoicing/InvoicingSetupWizardModal.vue';
 
 withDefaults(
@@ -249,6 +261,7 @@ withDefaults(
 
 const { t, locale } = useI18n();
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const flashStore = useFlashStore();
 const { canUse } = useBusinessInvoicing();
@@ -273,6 +286,7 @@ const {
 const onboarding = useInvoicingOnboardingStore();
 const showWizard = ref(false);
 const showUpgrade = ref(false);
+const showSlotModal = ref(false);
 const showRelaySyncModal = ref(false);
 const migrationStatus = ref<ServerMigrationStatus | null>(null);
 // Whether the initial migration-status probe has settled. The wizard waits on
@@ -502,6 +516,15 @@ onMounted(() => {
       relayOwnerHint.value = hint;
     });
   }
+  if (route.query.company_slots === 'paid') {
+    // BTCPay checkout redirect - the webhook fulfills the purchase, we just refresh.
+    flashStore.success(t('invoicing.company_slots_paid_flash'));
+    void authStore.fetchUser();
+    void router.replace({ query: { ...route.query, company_slots: undefined } });
+  } else if (route.query.buy_company_slot === '1') {
+    showSlotModal.value = true;
+    void router.replace({ query: { ...route.query, buy_company_slot: undefined } });
+  }
 });
 
 watch(companyList, () => {
@@ -581,6 +604,10 @@ const canCreateCompany = computed(() => {
 
 function openCompany(c: { id: string }): void {
   router.push({ name: 'invoicing-invoices', params: { companyId: c.id } });
+}
+
+function onSlotPurchased(): void {
+  flashStore.success(t('invoicing.company_slots_success'));
 }
 
 function onAddCompany(): void {

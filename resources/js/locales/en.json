@@ -48,7 +48,7 @@
       "invoicing_expenses": "Expenses, attachments, and bulk ISDOC import",
       "invoicing_bank_payments": "Bank payment matching for invoices",
       "invoicing_contacts_import": "Contact import from Excel",
-      "companies_2": "2 company profiles",
+      "companies_2": "2 company profiles (extra slots available)",
       "companies_unlimited": "Unlimited company profiles"
     }
   },
@@ -81,6 +81,17 @@
     "pro_required_detail": "Pro includes SK/CZ invoices, EU VIES VAT ID checks, ISDOC and Peppol UBL export, payment matching, and connection to your own digital postman (SAPI-SK).",
     "vat_number_hint": "Format e.g. SK2023980035. Verify in one click via VIES (EU VAT registry).",
     "company_limit_reached": "You have reached the limit of {max} companies on your plan. Contact us for Enterprise (unlimited).",
+    "company_slots_cta": "Buy extra company slots",
+    "company_slots_title": "Extra company slots",
+    "company_slots_body": "Companies included in your plan: {included}. Purchased extra slots: {extra}. A slot belongs to your account, not to a specific company - deleting a company frees the slot again.",
+    "company_slots_unit": "slot | slots",
+    "company_slots_waiting": "Waiting for payment - new slots will appear here automatically once it settles.",
+    "company_slots_pay_btcpay": "One-off payment in bitcoin via BTCPay checkout.",
+    "company_slots_fine_print": "Slots are a one-off purchase and never expire, but they can only be used with an active Pro plan.",
+    "company_slots_unavailable": "Slot purchases are not available right now. Please contact us.",
+    "company_slots_success": "Payment received - your company limit has been raised.",
+    "company_slots_paid_flash": "Thanks! Your company limit will be raised as soon as the payment settles.",
+    "company_limit_issue_error": "This company is over your plan's company limit, so it cannot issue documents yet. Buy an extra company slot or remove another company.",
     "upgrade_cta": "View PRO plans",
     "no_companies": "You have no company profile yet.",
     "no_companies_restore_hint": "Use Import from server above if you still have legacy data on satflux, or sign in with your recovery phrase on another device where Evolu already has your companies.",
@@ -1901,7 +1912,7 @@
       "invoicing_expenses": "Track expenses with attachments and ISDOC field extraction from supplier PDFs.",
       "invoicing_bank_payments": "Import bank payments and match them to open invoices.",
       "invoicing_contacts_import": "Import contacts from CSV and reuse them across companies.",
-      "companies_2": "Manage up to two company profiles on Pro, each with its own branding and number series."
+      "companies_2": "Manage up to two company profiles on Pro, each with its own branding and number series - need more? Buy extra company slots."
     }
   },
   "stores": {
@@ -3769,6 +3780,7 @@
     "pricing_pro_yearly_price": "{amount} per year",
     "pricing_pro_trial_badge": "{days} days free",
     "pricing_invoicing_highlight_title": "New: Business invoicing",
+    "pricing_company_slots_note": "More companies? Buy extra company slots one-off - {price} per company, volume packs cheaper per slot.",
     "pricing_pro_description": "Full business invoicing, expenses, and payment matching. Plus more stores, advanced stats, and automatic exports.",
     "pricing_pro_badge": "Best value",
     "pricing_pro_cta": "Upgrade to Pro",

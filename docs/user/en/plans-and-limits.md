@@ -21,6 +21,21 @@ The exact limits and current pricing are shown on the **Pricing** page in the ap
 
 Some features check your plan. For example, **invoicing** is available on Pro and Enterprise - open Invoicing on a Free plan and you will be prompted to upgrade. Admin and Enterprise accounts always have invoicing available.
 
+## Extra company slots (invoicing)
+
+The Pro plan includes a fixed number of invoicing companies. If you need more - for example you run several businesses, or you are an accounting office managing client companies - you can buy **extra company slots** as a one-off purchase, paid in bitcoin via BTCPay.
+
+How slots work:
+
+- A slot belongs to your **account**, not to a specific company. Deleting a company frees its slot for a new one.
+- Slots are a **one-off purchase** and never expire. They are not a subscription.
+- Slots only take effect with an **active Pro plan** - they raise the Pro company limit, but do not unlock invoicing on their own and are dormant while your Pro plan is expired.
+- Companies shared with you by someone else (for example as an accountant invited to a client's company) do **not** count against your limit - only companies you own do.
+
+Slots are sold in packs of **1, 5 and 10** - larger packs are cheaper per slot. Current prices in sats are shown in the purchase dialog and in the **Pricing** section.
+
+You can buy slots from the prompt shown when you reach your company limit on the Invoicing page. For many companies, the Enterprise plan with unlimited companies may be a better fit - contact us.
+
 ## Upgrading
 
 Upgrade from the **Pricing** page or the upgrade prompt shown when you reach a gated feature.

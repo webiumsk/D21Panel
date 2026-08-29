@@ -281,7 +281,7 @@
       "invoicing_expenses": "Registra gastos con adjuntos y extracción de campos ISDOC desde PDF de proveedores.",
       "invoicing_bank_payments": "Importa pagos bancarios y concílialos con facturas abiertas.",
       "invoicing_contacts_import": "Importa contactos desde CSV y reutilízalos entre empresas.",
-      "companies_2": "Gestiona hasta dos perfiles de empresa en Pro, cada uno con su branding y series numéricas."
+      "companies_2": "Gestiona hasta dos perfiles de empresa en Pro, cada uno con su branding y series numéricas - ¿necesitas más? Compra slots adicionales."
     }
   },
   "create_store": {
@@ -2464,6 +2464,7 @@
     "pricing_pro_yearly_price": "{amount} al año",
     "pricing_pro_trial_badge": "{days} días gratis",
     "pricing_invoicing_highlight_title": "Nuevo: Facturación empresarial",
+    "pricing_company_slots_note": "¿Más empresas? Compra slots adicionales con un pago único - {price} por empresa, los packs grandes salen más baratos por slot.",
     "pricing_pro_description": "Facturación completa, gastos y conciliación de pagos. Más tiendas, estadísticas avanzadas e informes automáticos.",
     "pricing_pro_badge": "Mejor valor",
     "pricing_pro_cta": "Pasar a Pro",
@@ -2745,7 +2746,7 @@
       "invoicing_expenses": "Gastos, adjuntos e importación ISDOC masiva",
       "invoicing_bank_payments": "Conciliación de pagos bancarios con facturas",
       "invoicing_contacts_import": "Importación de contactos desde Excel",
-      "companies_2": "2 perfiles de empresa",
+      "companies_2": "2 perfiles de empresa (slots adicionales disponibles)",
       "companies_unlimited": "Perfiles de empresa ilimitados"
     }
   },
@@ -2778,6 +2779,17 @@
     "pro_required_detail": "Pro incluye facturas SK/CZ, comprobación de IVA en VIES, export ISDOC y UBL Peppol, conciliación bancaria y conexión con su operador postal digital (SAPI-SK).",
     "vat_number_hint": "Formato p. ej. SK2023980035. Verifique con un clic en VIES (registro UE de IVA).",
     "company_limit_reached": "Ha alcanzado el límite de {max} empresas en su plan. Contacte para Enterprise (ilimitado).",
+    "company_slots_cta": "Comprar slots de empresa adicionales",
+    "company_slots_title": "Slots de empresa adicionales",
+    "company_slots_body": "Empresas incluidas en su plan: {included}. Slots adicionales comprados: {extra}. Un slot pertenece a su cuenta, no a una empresa concreta - al eliminar una empresa, el slot se libera de nuevo.",
+    "company_slots_unit": "slot | slots",
+    "company_slots_waiting": "Esperando el pago - los nuevos slots aparecerán aquí automáticamente cuando se confirme.",
+    "company_slots_pay_btcpay": "Pago único en bitcoin mediante BTCPay checkout.",
+    "company_slots_fine_print": "Los slots son una compra única y no caducan, pero solo pueden usarse con un plan Pro activo.",
+    "company_slots_unavailable": "La compra de slots no está disponible ahora mismo. Contáctenos, por favor.",
+    "company_slots_success": "Pago recibido - su límite de empresas se ha aumentado.",
+    "company_slots_paid_flash": "¡Gracias! Su límite de empresas se aumentará en cuanto se confirme el pago.",
+    "company_limit_issue_error": "Esta empresa supera el límite de empresas de su plan, por lo que aún no puede emitir documentos. Compre un slot de empresa adicional o elimine otra empresa.",
     "upgrade_cta": "Ver planes Pro",
     "no_companies": "Aún no tiene un perfil de empresa.",
     "no_companies_restore_hint": "Use Importar del servidor arriba si aún tiene datos antiguos en satflux, o inicie sesión con su frase de recuperación en otro dispositivo donde Evolu ya tenga sus empresas.",

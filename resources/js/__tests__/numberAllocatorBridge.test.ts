@@ -136,6 +136,20 @@ describe("reserveIssueNumber", () => {
         });
     });
 
+    it("maps the server company-limit 403 to company_limit (local-first over-limit backstop)", async () => {
+        const limitError = Object.assign(new Error("403"), {
+            response: { status: 403, data: { code: "company_limit", max_allowed: 2 } },
+        });
+        const { bridge } = await loadBridge({
+            list: vi.fn().mockResolvedValue([]),
+            create: vi.fn().mockRejectedValue(limitError),
+        });
+        expect(await bridge.reserveIssueNumber(identity, "invoice", "doc-request-0007")).toEqual({
+            ok: false,
+            error: "company_limit",
+        });
+    });
+
     it("fails without a legal name (no bridge identity to allocate under)", async () => {
         const { bridge, api } = await loadBridge();
         const result = await bridge.reserveIssueNumber({ legal_name: null }, "invoice", "doc-request-0006");

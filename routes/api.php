@@ -47,6 +47,7 @@ use App\Http\Controllers\Invoicing\CompanyInviteController;
 use App\Http\Controllers\Invoicing\CompanyMemberController;
 use App\Http\Controllers\Invoicing\CompanyNumberAllocatorController;
 use App\Http\Controllers\Invoicing\CompanyRegistryController;
+use App\Http\Controllers\Invoicing\CompanySlotController;
 use App\Http\Controllers\Invoicing\CompanyStockItemController;
 use App\Http\Controllers\Invoicing\CompanyWarehouseController;
 use App\Http\Controllers\Invoicing\EfakturaController;
@@ -107,6 +108,7 @@ use App\Http\Middleware\RequireVerifiedEmail;
 use App\Models\EfakturaCpdsProvider;
 use App\Models\Store;
 use App\Services\BtcPay\StoreService;
+use App\Services\Invoicing\CompanySlotService;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
@@ -136,6 +138,7 @@ Route::get('/pricing', function () {
             'sats_per_year' => (int) ($pricing['pro']['sats_per_year'] ?? 0),
             'sats_per_month_display' => (int) ($pricing['pro']['sats_per_month_display'] ?? 0),
         ],
+        'company_slot_packs' => app(CompanySlotService::class)->availablePacks(),
     ]);
 });
 
@@ -407,6 +410,9 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
             Route::post('/ephemeral/accountant-export', [AccountantExportController::class, 'ephemeralWithoutCompany']);
             Route::post('/companies', [CompanyController::class, 'store'])
                 ->middleware(EnsureCompanyLimit::class);
+            // User-level slot purchase - deliberately no company ownership/limit middleware
+            Route::post('/company-slots/purchase', [CompanySlotController::class, 'purchase'])
+                ->middleware('throttle:10,1');
             Route::get('/companies/{company}', [CompanyController::class, 'show'])
                 ->middleware(EnsureCompanyOwnership::class);
             Route::get('/companies/{company}/summary', [CompanyController::class, 'summary'])

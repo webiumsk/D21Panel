@@ -41,7 +41,7 @@ export type AllocatorReservation = {
 
 export type AllocatorReserveResult =
     | { ok: true; value: AllocatorReservation }
-    | { ok: false; error: "issue_requires_online" | "reserve_failed" };
+    | { ok: false; error: "issue_requires_online" | "reserve_failed" | "company_limit" };
 
 type BridgeCompanyRow = {
     id: string;
@@ -51,6 +51,18 @@ type BridgeCompanyRow = {
 
 export function isNetworkError(error: unknown): boolean {
     return typeof error === "object" && error !== null && !("response" in error && (error as { response?: unknown }).response);
+}
+
+/**
+ * The server enforces the plan's company limit at bridge-company creation
+ * (EnsureCompanyLimit, 403 code "company_limit") - in local-first mode the
+ * client-side company count can exceed the server limit, so the first issue
+ * for an over-limit company trips it here.
+ */
+export function isCompanyLimitError(error: unknown): boolean {
+    if (typeof error !== "object" || error === null) return false;
+    const response = (error as { response?: { status?: number; data?: { code?: string } } }).response;
+    return response?.status === 403 && response?.data?.code === "company_limit";
 }
 
 /**
@@ -153,6 +165,9 @@ export async function reserveIssueNumber(
             },
         };
     } catch (error: unknown) {
+        if (isCompanyLimitError(error)) {
+            return { ok: false, error: "company_limit" };
+        }
         return { ok: false, error: isNetworkError(error) ? "issue_requires_online" : "reserve_failed" };
     }
 }
