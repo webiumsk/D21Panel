@@ -72,6 +72,10 @@ class AccountController extends Controller
             'expense_isdoc_extract_unlimited' => $user->planFeature('expense_isdoc_extract_unlimited'),
         ];
         $payload['guest_recovery_enrolled'] = ! empty($user->guest_recovery_public_key ?? null);
+        // The client renders the guest->account upgrade form from this flag so
+        // it always matches the server-side validation (password nullable when
+        // email-only) - no build-time VITE_* env pair to keep in sync.
+        $payload['guest_upgrade_email_only'] = (bool) config('guest.upgrade_email_only');
         $payload['requires_recovery_migration'] = $user->requiresRecoveryMigration();
         $payload['can_use_password_login'] = $user->canUsePasswordLogin();
 

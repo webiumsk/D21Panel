@@ -382,4 +382,13 @@ class SubscriptionEntitlementTest extends TestCase
             'billing_phase' => Subscription::BILLING_EXPIRED,
         ]);
     }
+    #[Test]
+    public function paid_activation_clears_the_guest_flag(): void
+    {
+        $user = User::factory()->create(['is_guest' => true, 'role' => 'free']);
+
+        app(SubscriptionEntitlementService::class)->activateSubscription($user, 'pro');
+
+        $this->assertFalse((bool) $user->fresh()->is_guest);
+    }
 }

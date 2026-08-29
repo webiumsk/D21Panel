@@ -28,6 +28,7 @@ export interface User {
     is_guest?: boolean;
     allows_satflux_email_changes?: boolean;
     guest_recovery_enrolled?: boolean;
+    guest_upgrade_email_only?: boolean;
     requires_recovery_migration?: boolean;
     can_use_password_login?: boolean;
     email_verified_at?: string;
