@@ -45,10 +45,10 @@ return [
         'public_url' => env('BTCPAY_PUBLIC_URL') ?: env('BTCPAY_BASE_URL', 'http://127.0.0.1:14142'),
         'api_key' => env('BTCPAY_API_KEY'),
         // Rename the BTCPay machine user's email to the merchant's real email
-        // on guest upgrade. DANGEROUS on current BTCPay (resets emailConfirmed
-        // with no API to set it back; collides with Monetization subscriber
-        // users) - default off, the machine user is labeled by name instead.
-        'email_rename' => (bool) env('BTCPAY_EMAIL_RENAME', false),
+        // on guest upgrade. A capability probe (EmailConfirm plugin) gates the
+        // rename at runtime, so this stays on by default; set false to force
+        // label-only regardless of server capabilities.
+        'email_rename' => (bool) env('BTCPAY_EMAIL_RENAME', true),
         // Escape hatch for http BTCPay on trusted PRIVATE networks with dotted
         // hosts (e.g. http://192.168.x.x). localhost and dot-less Docker
         // service names are always allowed; public hosts require HTTPS.

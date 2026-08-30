@@ -21,6 +21,14 @@ Schedule::command('subscriptions:check-statuses')
 // Automatic monthly CSV exports for PRO users (1st of month at 03:00 for previous month)
 Schedule::job(new ProcessMonthlyExports)->monthlyOn(1, '03:00')->withoutOverlapping();
 
+// Re-confirm satflux-managed BTCPay users whose email got unconfirmed (email
+// change resets emailConfirmed; the confirmed-email policy then locks their
+// merchant API key). Uses the EmailConfirm plugin endpoint.
+Schedule::command('btcpay:heal-unconfirmed-users')
+    ->dailyAt('03:10')
+    ->withoutOverlapping()
+    ->runInBackground();
+
 // Inactive guest purge (opt-in via GUEST_PURGE_ENABLED in .env)
 Schedule::command('guests:purge-inactive')
     ->dailyAt('03:30')

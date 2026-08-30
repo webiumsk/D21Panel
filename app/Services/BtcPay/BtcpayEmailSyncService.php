@@ -44,15 +44,10 @@ class BtcpayEmailSyncService
             return;
         }
 
-        // Renaming the machine user is a one-way trap on current BTCPay: the
-        // change resets emailConfirmed and NO Greenfield endpoint can set it
-        // back (only the admin UI checkbox), so under the confirmed-email
-        // policy a successful rename permanently kills the merchant API key.
-        // Monetization servers additionally hold the target email on the
-        // subscriber shell user. Default: identify the machine user by its
-        // profile name only; BTCPAY_EMAIL_RENAME=true opts servers back in
-        // where renaming is known to be safe.
-        if (! config('services.btcpay.email_rename', false)) {
+        // Hard off-switch: BTCPAY_EMAIL_RENAME=false forces label-only. The
+        // default is on because the capability PROBE below refuses to rename
+        // on servers that cannot re-confirm the email afterwards.
+        if (! config('services.btcpay.email_rename', true)) {
             $this->labelMachineUser($user);
 
             return;
@@ -81,6 +76,23 @@ class BtcpayEmailSyncService
                 'code' => 'btcpay_no_user_id',
                 'user_id' => $user->id,
             ]);
+
+            return;
+        }
+
+        // Capability PROBE: renaming resets emailConfirmed, and only servers
+        // with the EmailConfirm plugin can set it back via API. Confirm the
+        // CURRENT (unchanged) user first - idempotent, doubles as a pre-heal.
+        // If the server cannot confirm, never touch the email: label instead.
+        try {
+            $this->userService->confirmUserEmail((string) $user->btcpay_user_id);
+        } catch (\Throwable $e) {
+            Log::info('BTCPay email rename skipped - server cannot re-confirm emails (EmailConfirm plugin missing?)', [
+                'code' => 'btcpay_confirm_unavailable',
+                'user_id' => $user->id,
+                'btcpay_user_id' => $user->btcpay_user_id,
+            ]);
+            $this->labelMachineUser($user);
 
             return;
         }

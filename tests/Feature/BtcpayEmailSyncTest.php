@@ -104,7 +104,7 @@ class BtcpayEmailSyncTest extends TestCase
 
         Http::fake([
             'https://btcpay.test/api/v1/users/me' => Http::response(['email' => 'merchant@example.com'], 200),
-            'https://btcpay.test/api/v1/users/btcpay-user-1/confirm-email' => Http::response([], 200),
+            'https://btcpay.test/api/v1/plugins/email-confirm/users/btcpay-user-1/confirm-email' => Http::response(['emailConfirmed' => true], 200),
         ]);
 
         app(BtcpayEmailSyncService::class)->syncUserEmail($user);
@@ -132,6 +132,9 @@ class BtcpayEmailSyncTest extends TestCase
         $usersMeCalls = 0;
         Http::fake(function ($request) use (&$usersMeCalls) {
             $url = (string) $request->url();
+            if (str_contains($url, 'confirm-email')) {
+                return Http::response([], 200);
+            }
             if (str_ends_with($url, '/api/v1/users/me')) {
                 $usersMeCalls++;
 
@@ -177,12 +180,43 @@ class BtcpayEmailSyncTest extends TestCase
 
         Http::fake([
             'https://btcpay.test/api/v1/users/btcpay-user-1' => Http::response([], 200),
-            'https://btcpay.test/api/v1/users/btcpay-user-1/confirm-email' => Http::response([], 200),
+            'https://btcpay.test/api/v1/plugins/email-confirm/users/btcpay-user-1/confirm-email' => Http::response(['emailConfirmed' => true], 200),
         ]);
 
         app(BtcpayEmailSyncService::class)->syncUserEmail($user);
 
         Http::assertSent(fn ($request) => str_contains((string) $request->url(), '/users/btcpay-user-1/confirm-email'));
+    }
+
+    #[Test]
+    public function rename_is_skipped_when_the_server_cannot_reconfirm(): void
+    {
+        // No EmailConfirm plugin: every confirm endpoint 404s. The capability
+        // probe must prevent the rename (it would strand the account
+        // unconfirmed) and fall back to the name label.
+        $user = $this->makeUser();
+        $user->forceFill(['btcpay_password' => 'stored-btcpay-pass'])->save();
+
+        $emailChangeAttempts = 0;
+        Http::fake(function ($request) use (&$emailChangeAttempts) {
+            $url = (string) $request->url();
+            if (str_ends_with($url, '/api/v1/users/me')) {
+                $body = $request->data();
+                if (isset($body['email'])) {
+                    $emailChangeAttempts++;
+                }
+
+                return Http::response([], 200);
+            }
+
+            return Http::response([], 404);
+        });
+
+        app(BtcpayEmailSyncService::class)->syncUserEmail($user);
+
+        $this->assertSame(0, $emailChangeAttempts);
+        Http::assertSent(fn ($request) => str_ends_with((string) $request->url(), '/api/v1/users/me')
+            && ($request->data()['name'] ?? null) === 'Satflux: merchant@example.com');
     }
 
     #[Test]
@@ -220,6 +254,9 @@ class BtcpayEmailSyncTest extends TestCase
         $nameLabelCalls = 0;
         Http::fake(function ($request) use (&$emailChangeAttempts, &$nameLabelCalls) {
             $url = (string) $request->url();
+            if (str_contains($url, 'confirm-email')) {
+                return Http::response([], 200);
+            }
             if (str_ends_with($url, '/api/v1/users/me')) {
                 $body = $request->data();
                 if (isset($body['email'])) {
