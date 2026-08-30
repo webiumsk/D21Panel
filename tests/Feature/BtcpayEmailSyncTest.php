@@ -20,7 +20,36 @@ class BtcpayEmailSyncTest extends TestCase
         config([
             'services.btcpay.base_url' => 'https://btcpay.test',
             'services.btcpay.api_key' => 'server-key',
+            // Most tests exercise the opt-in rename path; the default
+            // (label-only) has its own test below.
+            'services.btcpay.email_rename' => true,
         ]);
+    }
+
+    #[Test]
+    public function default_sync_only_labels_the_machine_user(): void
+    {
+        config(['services.btcpay.email_rename' => false]);
+        $user = $this->makeUser();
+        $user->forceFill(['btcpay_password' => 'stored-btcpay-pass'])->save();
+
+        Http::fake([
+            'https://btcpay.test/api/v1/users/me' => Http::response([], 200),
+        ]);
+
+        app(BtcpayEmailSyncService::class)->syncUserEmail($user);
+
+        // Only the name label goes out - never the email (a rename would reset
+        // emailConfirmed with no API way back).
+        Http::assertSent(function ($request) {
+            $body = $request->data();
+
+            return str_ends_with((string) $request->url(), '/api/v1/users/me')
+                && ($body['name'] ?? null) === 'Satflux: merchant@example.com'
+                && ! isset($body['email'])
+                && ! isset($body['currentPassword']);
+        });
+        Http::assertSentCount(1);
     }
 
     protected function makeUser(): User

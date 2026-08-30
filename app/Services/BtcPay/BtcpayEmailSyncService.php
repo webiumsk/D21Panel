@@ -44,6 +44,20 @@ class BtcpayEmailSyncService
             return;
         }
 
+        // Renaming the machine user is a one-way trap on current BTCPay: the
+        // change resets emailConfirmed and NO Greenfield endpoint can set it
+        // back (only the admin UI checkbox), so under the confirmed-email
+        // policy a successful rename permanently kills the merchant API key.
+        // Monetization servers additionally hold the target email on the
+        // subscriber shell user. Default: identify the machine user by its
+        // profile name only; BTCPAY_EMAIL_RENAME=true opts servers back in
+        // where renaming is known to be safe.
+        if (! config('services.btcpay.email_rename', false)) {
+            $this->labelMachineUser($user);
+
+            return;
+        }
+
         if (empty($user->btcpay_api_key)) {
             if (! empty($user->btcpay_user_id)) {
                 // Legacy accounts without a merchant key: best-effort only -
