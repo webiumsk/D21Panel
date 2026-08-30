@@ -382,8 +382,11 @@ class UserService
      */
     public function confirmUserEmail(string $userId): array
     {
-        // Try different possible endpoints for email confirmation
+        // Our EmailConfirm plugin's endpoint first (the only one that exists on
+        // current BTCPay - core has no admin email-confirm API); the legacy
+        // guesses stay as fallback for servers without the plugin.
         $possibleEndpoints = [
+            "/api/v1/plugins/email-confirm/users/{$userId}/confirm-email",
             "/api/v1/users/{$userId}/confirm-email",
             "/api/v1/users/{$userId}/email/confirm",
             "/api/v1/users/{$userId}/verify-email",
