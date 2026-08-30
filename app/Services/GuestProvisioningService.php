@@ -74,13 +74,30 @@ class GuestProvisioningService
     }
 
     /**
+     * Guest stores all used to be called "My Store", which made the BTCPay admin
+     * store list impossible to navigate. Suffix the name with the random tail of
+     * the guest email token (guest+<ulid>@...) so admins can match store <-> owner.
+     */
+    public function guestStoreName(string $guestEmail): string
+    {
+        $localPart = Str::before($guestEmail, '@');
+        $token = preg_replace('/[^0-9a-z]/i', '', Str::after($localPart, 'guest+')) ?? '';
+        $token = strtoupper(substr($token, -8));
+        if (strlen($token) < 8) {
+            $token = strtoupper(Str::random(8));
+        }
+
+        return "My Store - {$token}";
+    }
+
+    /**
      * @return array{0: User, 1: Store}
      */
     public function provisionGuest(?string $recoveryPkHex = null, ?string $guestEmail = null): array
     {
         $guestEmail ??= $this->generateGuestEmail();
         $guestPassword = Str::random(48);
-        $defaultStoreName = 'My Store';
+        $defaultStoreName = $this->guestStoreName($guestEmail);
 
         $btcpayUserId = null;
         $btcpayStoreId = null;

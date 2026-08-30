@@ -9,7 +9,7 @@ Nový obchod v Satfluxe vytvoríte v troch krokoch: základné údaje, typ peňa
 
 **Krok 1 - Základné údaje**
 
-- **Názov obchodu** - Názov vášho obchodu (napr. „Hlavný obchod“, „E-shop“).
+- **Názov obchodu** - Názov vášho obchodu (napr. „Hlavný obchod“, „E-shop“). Guest účtom sa prvý obchod vytvorí automaticky ako `My Store - XXXXXXXX` (jedinečná prípona); kedykoľvek ho premenujete v **Nastaveniach obchodu**.
 
 - **Predvolená mena** - Mena pre ceny a sumy (napr. EUR, USD, BTC, SATS).
 

@@ -9,7 +9,7 @@ You create a new store in Satflux in three steps: basic info, wallet type, and c
 
 **Step 1 - Basic info**
 
-- **Store name** - A label for your store (e.g. “Main shop”, “Online store”).
+- **Store name** - A label for your store (e.g. “Main shop”, “Online store”). Guest accounts get their first store created automatically as `My Store - XXXXXXXX` (a unique suffix); you can rename it any time in **Store settings**.
 
 - **Default currency** - The currency used for prices and amounts (e.g. EUR, USD, BTC, SATS).
 
