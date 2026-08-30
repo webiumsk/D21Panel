@@ -73,4 +73,23 @@ class RenameDefaultGuestStoresCommandTest extends TestCase
 
         $this->assertSame('My Store', $store->fresh()->name);
     }
+
+    public function test_renames_every_store_across_multiple_batches(): void
+    {
+        $stores = [];
+        for ($i = 0; $i < 130; $i++) {
+            $stores[] = $this->guestStore(sprintf('01j5x8z2ka9fbn3d4e6wpq%04d', $i));
+        }
+
+        $storeService = $this->createMock(StoreService::class);
+        $storeService->expects($this->exactly(130))->method('updateStore')->willReturn([]);
+        $this->app->instance(StoreService::class, $storeService);
+
+        $this->artisan('guests:rename-default-stores')->assertSuccessful();
+
+        $this->assertSame(0, Store::where('name', 'My Store')->count());
+        foreach ($stores as $store) {
+            $this->assertMatchesRegularExpression('/^My Store - [0-9A-Z]{8}$/', $store->fresh()->name);
+        }
+    }
 }

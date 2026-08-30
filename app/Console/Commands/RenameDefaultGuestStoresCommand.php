@@ -35,8 +35,7 @@ class RenameDefaultGuestStoresCommand extends Command
         $query = Store::query()
             ->with('user')
             ->where('name', 'My Store')
-            ->whereHas('user', fn ($q) => $q->where('is_guest', true)->where('email', 'like', 'guest+%'))
-            ->orderBy('created_at');
+            ->whereHas('user', fn ($q) => $q->where('is_guest', true)->where('email', 'like', 'guest+%'));
 
         $considered = 0;
         $renamed = 0;
