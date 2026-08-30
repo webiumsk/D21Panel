@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Store;
+use App\Models\User;
 use App\Services\BtcPay\StoreService;
 use App\Services\GuestProvisioningService;
 use Illuminate\Console\Command;
@@ -48,6 +49,7 @@ class RenameDefaultGuestStoresCommand extends Command
             }
             $considered++;
 
+            /** @var User $user */
             $user = $store->user;
             $newName = $provisioning->guestStoreName((string) $user->email);
             $btcpayStoreId = (string) $store->btcpay_store_id;
