@@ -54,7 +54,7 @@
     "bech32": "^2.0.0",
     "dompurify": "^3.4.12",
     "html5-qrcode": "^2.3.8",
-    "laravel-echo": "^1.16.0",
+    "laravel-echo": "^2.4.0",
     "lowlight": "^3.1.0",
     "nostr-tools": "^2.23.1",
     "pinia": "^2.1.7",
