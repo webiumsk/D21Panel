@@ -75,7 +75,7 @@
     "@vue/test-utils": "^2.4.11",
     "autoprefixer": "^10.4.17",
     "eslint": "^8.57.0",
-    "eslint-plugin-vue": "^9.28.0",
+    "eslint-plugin-vue": "^10.10.0",
     "jsdom": "^29.1.1",
     "laravel-vite-plugin": "^1.0",
     "postcss": "^8.5.21",
