@@ -57,7 +57,7 @@
     "laravel-echo": "^1.16.0",
     "lowlight": "^3.1.0",
     "nostr-tools": "^2.23.1",
-    "pinia": "^2.1.7",
+    "pinia": "^4.0.2",
     "pusher-js": "^8.4.3",
     "qrcode": "^1.5.4",
     "vue": "^3.5.40",
