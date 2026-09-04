@@ -13,12 +13,14 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Concerns\ReadsEmailCodes;
 use Tests\TestCase;
 
 class WalletConnectionTest extends TestCase
 {
-    use RefreshDatabase;
+    use ReadsEmailCodes, RefreshDatabase;
 
     protected const VALID_BLINK_SECRET = 'type=blink;server=https://api.blink.sv/graphql;api-key=blink_test123;wallet-id=wallet456';
 
@@ -1366,6 +1368,9 @@ class WalletConnectionTest extends TestCase
             'submitted_by_user_id' => $user->id,
         ]);
 
+        // Replacing a connected wallet needs the email-code grant (see WalletChangeConfirmationGuard).
+        $this->grantWalletChange($user, $store);
+
         $this->actingAs($user)->postJson("/api/stores/{$store->id}/wallet-connection", [
             'type' => 'blink',
             'secret' => self::VALID_BLINK_SECRET,
@@ -1380,5 +1385,336 @@ class WalletConnectionTest extends TestCase
         ]);
         $store->refresh();
         $this->assertSame('blink', $store->wallet_type);
+    }
+
+    // ---- Replacing a CONNECTED wallet: email-code grant (WalletChangeConfirmationGuard)
+
+    private function connectedBlinkStore(User $user): Store
+    {
+        $store = Store::factory()->create(['user_id' => $user->id, 'wallet_type' => 'blink']);
+        WalletConnection::create([
+            'store_id' => $store->id,
+            'type' => 'blink',
+            'encrypted_secret' => Crypt::encryptString(self::VALID_BLINK_SECRET),
+            'status' => 'connected',
+            'submitted_by_user_id' => $user->id,
+        ]);
+
+        return $store;
+    }
+
+    /** @return array<string, mixed> */
+    private function blinkReplacementPayload(): array
+    {
+        return [
+            'type' => 'blink',
+            'secret' => 'type=blink;server=https://api.blink.sv/graphql;api-key=blink_rotated;wallet-id=wallet789',
+            'fallback_lightning_address' => 'merchant@blink.sv',
+        ];
+    }
+
+    #[Test]
+    public function first_wallet_connection_needs_no_email_code(): void
+    {
+        Http::fake();
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection/change/request", [])
+            ->assertStatus(200)
+            ->assertJsonPath('data.required', false);
+
+        $this->postJson("/api/stores/{$store->id}/wallet-connection", $this->blinkReplacementPayload())
+            ->assertStatus(201);
+    }
+
+    #[Test]
+    public function pending_wallet_connection_can_be_replaced_without_email_code(): void
+    {
+        Http::fake();
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+        WalletConnection::create([
+            'store_id' => $store->id,
+            'type' => 'blink',
+            'encrypted_secret' => Crypt::encryptString(self::VALID_BLINK_SECRET),
+            'status' => 'pending',
+            'submitted_by_user_id' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection", $this->blinkReplacementPayload())
+            ->assertStatus(201);
+    }
+
+    #[Test]
+    public function replacing_connected_wallet_without_grant_is_rejected(): void
+    {
+        Http::fake();
+        $user = User::factory()->create();
+        $store = $this->connectedBlinkStore($user);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection", $this->blinkReplacementPayload())
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'wallet_change_confirmation_required');
+
+        $this->assertSame(
+            self::VALID_BLINK_SECRET,
+            Crypt::decryptString(WalletConnection::where('store_id', $store->id)->firstOrFail()->encrypted_secret)
+        );
+        $this->getJson("/api/stores/{$store->id}/wallet-connection")
+            ->assertJsonPath('data.change_confirmation.required', true)
+            ->assertJsonPath('data.change_confirmation.guest_upgrade_required', false)
+            ->assertJsonPath('data.change_confirmation.pending', null)
+            ->assertJsonPath('data.change_confirmation.granted_until', null);
+    }
+
+    #[Test]
+    public function guest_owner_must_upgrade_before_replacing_connected_wallet(): void
+    {
+        Http::fake();
+        $guest = User::factory()->guest()->create([
+            'email' => 'guest+abc@guest.satflux.io',
+            'guest_recovery_public_key' => str_repeat('a', 64),
+            'guest_recovery_enrolled_at' => now(),
+        ]);
+        $store = $this->connectedBlinkStore($guest);
+
+        $this->actingAs($guest)
+            ->postJson("/api/stores/{$store->id}/wallet-connection/change/request", [])
+            ->assertStatus(403)
+            ->assertJsonPath('code', 'guest_upgrade_required');
+
+        $this->postJson("/api/stores/{$store->id}/wallet-connection", $this->blinkReplacementPayload())
+            ->assertStatus(403)
+            ->assertJsonPath('code', 'guest_upgrade_required');
+
+        $this->getJson("/api/stores/{$store->id}/wallet-connection")
+            ->assertJsonPath('data.change_confirmation.guest_upgrade_required', true);
+
+        // Guests can still look at their own secret (session-only reveal) - nothing to confirm with.
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/reveal", [])
+            ->assertStatus(200)
+            ->assertJsonPath('data.secret', self::VALID_BLINK_SECRET);
+    }
+
+    #[Test]
+    public function change_request_requires_password_for_password_accounts(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create(['password' => bcrypt('correct-horse')]);
+        $store = $this->connectedBlinkStore($user);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection/change/request", ['password' => 'wrong'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
+
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/change/request", [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
+
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/change/request", ['password' => 'correct-horse'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.required', true)
+            ->assertJsonPath('data.challenge.purpose', 'wallet_connection_change')
+            ->assertJsonPath('data.challenge.email', $user->email);
+    }
+
+    #[Test]
+    public function change_request_reports_not_required_when_nothing_is_connected(): void
+    {
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection/change/request", [])
+            ->assertStatus(200)
+            ->assertJsonPath('data.required', false);
+    }
+
+    #[Test]
+    public function confirmed_code_grants_reveal_and_one_replacement(): void
+    {
+        Http::fake();
+        Notification::fake();
+        $user = User::factory()->create([
+            'guest_recovery_public_key' => str_repeat('a', 64),
+            'guest_recovery_enrolled_at' => now(),
+        ]);
+        $store = $this->connectedBlinkStore($user);
+
+        // Recovery-phrase account: no password needed for the request.
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection/change/request", [])
+            ->assertStatus(200)
+            ->assertJsonPath('data.required', true);
+
+        $this->getJson("/api/stores/{$store->id}/wallet-connection")
+            ->assertJsonPath('data.change_confirmation.pending.email', $user->email);
+
+        // Plain reveal is gated by the grant on a connected store.
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/reveal", [])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'wallet_change_confirmation_required');
+
+        $code = $this->lastEmailCode($user->email);
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/change/confirm", ['code' => $this->wrongEmailCode($code)])
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'code_mismatch');
+
+        $confirm = $this->postJson("/api/stores/{$store->id}/wallet-connection/change/confirm", ['code' => $code]);
+        $confirm->assertStatus(200)
+            ->assertJsonPath('data.secret', self::VALID_BLINK_SECRET)
+            ->assertJsonPath('data.type', 'blink');
+        $this->assertNotNull($confirm->json('data.granted_until'));
+
+        $this->getJson("/api/stores/{$store->id}/wallet-connection")
+            ->assertJsonPath('data.change_confirmation.pending', null);
+        $this->assertNotNull($this->getJson("/api/stores/{$store->id}/wallet-connection")->json('data.change_confirmation.granted_until'));
+
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/reveal", [])->assertStatus(200);
+
+        $this->postJson("/api/stores/{$store->id}/wallet-connection", $this->blinkReplacementPayload())
+            ->assertStatus(201);
+        $this->assertStringContainsString(
+            'blink_rotated',
+            Crypt::decryptString(WalletConnection::where('store_id', $store->id)->firstOrFail()->encrypted_secret)
+        );
+
+        // The grant is single-use: the replacement flipped the row to pending
+        // (bot/sync runs), and once connected again a new code is required.
+        WalletConnection::where('store_id', $store->id)->update(['status' => 'connected']);
+        $this->postJson("/api/stores/{$store->id}/wallet-connection", $this->blinkReplacementPayload())
+            ->assertStatus(409);
+    }
+
+    #[Test]
+    public function grant_is_scoped_to_the_store_it_was_issued_for(): void
+    {
+        Http::fake();
+        Notification::fake();
+        $user = User::factory()->create([
+            'guest_recovery_public_key' => str_repeat('a', 64),
+            'guest_recovery_enrolled_at' => now(),
+        ]);
+        $storeA = $this->connectedBlinkStore($user);
+        $storeB = $this->connectedBlinkStore($user);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$storeA->id}/wallet-connection/change/request", [])
+            ->assertStatus(200);
+        $code = $this->lastEmailCode();
+
+        $this->postJson("/api/stores/{$storeB->id}/wallet-connection/change/confirm", ['code' => $code])
+            ->assertStatus(410)
+            ->assertJsonPath('code', 'challenge_missing');
+
+        $this->postJson("/api/stores/{$storeB->id}/wallet-connection", $this->blinkReplacementPayload())
+            ->assertStatus(409);
+    }
+
+    #[Test]
+    public function expired_grant_requires_a_new_code(): void
+    {
+        Http::fake();
+        Notification::fake();
+        $user = User::factory()->create([
+            'guest_recovery_public_key' => str_repeat('a', 64),
+            'guest_recovery_enrolled_at' => now(),
+        ]);
+        $store = $this->connectedBlinkStore($user);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection/change/request", [])
+            ->assertStatus(200);
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/change/confirm", ['code' => $this->lastEmailCode()])
+            ->assertStatus(200);
+
+        $this->travel(16)->minutes();
+
+        $this->postJson("/api/stores/{$store->id}/wallet-connection", $this->blinkReplacementPayload())
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'wallet_change_confirmation_required');
+    }
+
+    #[Test]
+    public function change_resend_rotates_code_after_cooldown(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create([
+            'guest_recovery_public_key' => str_repeat('a', 64),
+            'guest_recovery_enrolled_at' => now(),
+        ]);
+        $store = $this->connectedBlinkStore($user);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection/change/request", [])
+            ->assertStatus(200);
+
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/change/resend")
+            ->assertStatus(429)
+            ->assertJsonPath('code', 'resend_cooldown');
+
+        $this->travel(61)->seconds();
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/change/resend")
+            ->assertStatus(200)
+            ->assertJsonPath('data.challenge.sends_left', 3);
+
+        $this->postJson("/api/stores/{$store->id}/wallet-connection/change/confirm", ['code' => $this->lastEmailCode()])
+            ->assertStatus(200);
+    }
+
+    #[Test]
+    public function configure_endpoint_on_connected_store_requires_grant(): void
+    {
+        Http::fake();
+        $user = User::factory()->create();
+        $store = $this->connectedBlinkStore($user);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection/configure", [
+                'connection_string' => self::VALID_BLINK_SECRET,
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'wallet_change_confirmation_required');
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function samrock_complete_on_connected_store_requires_grant(): void
+    {
+        Http::fake();
+        $user = User::factory()->create();
+        $store = $this->connectedBlinkStore($user);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/samrock/complete", [
+                'otp' => '123456',
+                'fallback_lightning_address' => 'merchant@blink.sv',
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'wallet_change_confirmation_required');
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function switching_connected_lightning_store_to_cashu_requires_grant(): void
+    {
+        Http::fake();
+        $user = User::factory()->create();
+        $store = $this->connectedBlinkStore($user);
+
+        $this->actingAs($user)
+            ->putJson("/api/stores/{$store->id}/cashu/settings", [
+                'mint_url' => 'https://mint.example.com',
+                'lightning_address' => 'merchant@blink.sv',
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'wallet_change_confirmation_required');
+        Http::assertNothingSent();
+        $this->assertSame('blink', $store->fresh()->wallet_type);
     }
 }

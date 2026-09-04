@@ -11,6 +11,19 @@ meta_description: "How to disconnect or update Blink API key / Aqua descriptor. 
 
 ---
 
+**Potvrdenie zmeny pripojenej peňaženky**
+
+Nahradenie peňaženky, ktorá je už **pripojená**, je citlivá zmena, preto ju Satflux nechá potvrdiť ešte pred otvorením formulára:
+
+1. Otvorte obchod → **Pripojenie peňaženky** a stlačte **Zmeniť pripojenie**.
+2. Zadajte heslo k účtu (účty prihlasované obnovovacou frázou tento krok preskočia).
+3. Na adresu vášho účtu pošleme **6-miestny kód**. Zadajte ho do formulára - kód platí 10 minút a nový si môžete vyžiadať po krátkom odpočte.
+4. Formulár sa otvorí s predvyplneným aktuálnym údajom. Nahraďte ho a uložte. Potvrdenie platí 15 minút; ak vyprší, Satflux si pred uložením vyžiada nový kód.
+
+Kým kód nepotvrdíte, na obchode sa nič nemení. To isté potvrdenie platí aj pre opätovné párovanie cez SamRock a prepnutie Lightning obchodu na Cashu. **Hosťovský účet** nemá e-mail, na ktorý by kód prišiel, preto ho treba najprv povýšiť pridaním e-mailovej adresy (pozri [Vytvorte si účet](/documentation/create-account)). Prvé pripojenie peňaženky k novému obchodu kód nevyžaduje.
+
+---
+
 **Blink: odvolať alebo obmeniť API kľúč, potom aktualizovať v Satfluxe**
 
 1. **V Blink dashboarde** 1: Odvoľte (zmažte) starý API kľúč a/alebo vytvorte nový s oprávneniami **read a receive**.

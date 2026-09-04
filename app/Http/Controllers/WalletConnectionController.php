@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\EmailCodeChallengeException;
+use App\Exceptions\WalletChangeConfirmationException;
 use App\Http\Requests\WalletConnectionStoreRequest;
 use App\Models\AuditLog;
+use App\Models\EmailVerificationChallenge;
 use App\Models\Store;
 use App\Models\WalletConnection;
+use App\Services\Auth\EmailCodeChallengeService;
 use App\Services\Auth\SensitiveActionAuthorization;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\LightningService;
 use App\Services\LnAddressLud21Prober;
+use App\Services\WalletChangeConfirmationGuard;
 use App\Services\WalletConnectionService;
 use App\Services\WalletConnectionValidator;
 use Illuminate\Contracts\Encryption\DecryptException;
@@ -22,8 +27,12 @@ class WalletConnectionController extends Controller
 
     protected LightningService $lightningService;
 
-    public function __construct(WalletConnectionService $service, LightningService $lightningService)
-    {
+    public function __construct(
+        WalletConnectionService $service,
+        LightningService $lightningService,
+        protected WalletChangeConfirmationGuard $changeGuard,
+        protected EmailCodeChallengeService $emailCodes,
+    ) {
         $this->service = $service;
         $this->lightningService = $lightningService;
     }
@@ -71,7 +80,142 @@ class WalletConnectionController extends Controller
                 'secret_updated_at' => $connection->secret_updated_at,
                 'submitted_by_user_id' => $connection->submitted_by_user_id,
                 'bot_failure_message' => $connection->bot_failure_message,
+                // Replacing a connected wallet needs an email-code grant (guests: upgrade first).
+                'change_confirmation' => $this->changeGuard->state($store, $request->user()),
             ],
+        ]);
+    }
+
+    /**
+     * Wallet change, step 1: re-auth (password for password accounts) and
+     * email a 6-digit code. Only needed when the store already has a
+     * CONNECTED wallet; otherwise the client goes straight to the form.
+     */
+    public function requestChange(Request $request)
+    {
+        $request->validate([
+            'password' => ['nullable', 'string'],
+        ]);
+
+        $store = $request->route('store');
+        $user = $request->user();
+
+        if (! $this->changeGuard->requiresConfirmation($store)) {
+            return response()->json(['data' => ['required' => false]]);
+        }
+        if ((bool) ($user->is_guest ?? false)) {
+            throw WalletChangeConfirmationException::guestUpgradeRequired();
+        }
+
+        SensitiveActionAuthorization::assertAllowed($user, $request);
+
+        try {
+            $challenge = $this->emailCodes->issue(
+                $user,
+                EmailVerificationChallenge::PURPOSE_WALLET_CONNECTION_CHANGE,
+                (string) $user->email,
+                ['store_id' => $store->id],
+            );
+        } catch (EmailCodeChallengeException $e) {
+            throw $e;
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 502);
+        }
+
+        AuditLog::log('wallet_connection.change_requested', 'store', $store->id, [
+            'store_id' => $store->id,
+            'challenge_id' => $challenge->id,
+        ], $user->id);
+
+        return response()->json([
+            'data' => [
+                'required' => true,
+                'challenge' => $this->emailCodes->summary($challenge),
+            ],
+        ]);
+    }
+
+    /**
+     * Wallet change, step 2: verify the code. The verified challenge is the
+     * grant (WalletChangeConfirmationGuard::GRANT_MINUTES); the secret is
+     * revealed here so the form opens in editing mode right away.
+     */
+    public function confirmChange(Request $request)
+    {
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:16'],
+        ]);
+
+        $store = $request->route('store');
+        $user = $request->user();
+        $connection = WalletConnection::where('store_id', $store->id)->first();
+
+        if (! $connection || ! $this->changeGuard->requiresConfirmation($store)) {
+            return response()->json(['message' => 'No connected wallet to change.'], 404);
+        }
+        if ((bool) ($user->is_guest ?? false)) {
+            throw WalletChangeConfirmationException::guestUpgradeRequired();
+        }
+
+        $challenge = $this->emailCodes->verify(
+            $user,
+            EmailVerificationChallenge::PURPOSE_WALLET_CONNECTION_CHANGE,
+            $validated['code'],
+        );
+        if (($challenge->payload['store_id'] ?? null) !== $store->id) {
+            // Code was issued for another store of the same owner.
+            $this->emailCodes->consume($challenge);
+            throw EmailCodeChallengeException::missing();
+        }
+
+        try {
+            $plaintext = $this->service->reveal($connection, $user);
+        } catch (DecryptException $e) {
+            return response()->json([
+                'message' => 'Unable to decrypt the stored secret. Please re-submit your wallet connection.',
+            ], 500);
+        }
+        if ($connection->type === 'aqua_descriptor') {
+            $plaintext = app(WalletConnectionValidator::class)->stripDescriptorChecksum($plaintext);
+        }
+
+        AuditLog::log('wallet_connection.change_granted', 'wallet_connection', $connection->id, [
+            'store_id' => $store->id,
+            'challenge_id' => $challenge->id,
+        ], $user->id);
+
+        return response()->json([
+            'data' => [
+                'granted_until' => $this->changeGuard->grantedUntil($store, $user)?->toIso8601String(),
+                'secret' => $plaintext,
+                'type' => $connection->type,
+                'masked_secret' => $connection->masked_secret,
+            ],
+        ]);
+    }
+
+    public function resendChange(Request $request)
+    {
+        $store = $request->route('store');
+        $user = $request->user();
+
+        if ((bool) ($user->is_guest ?? false)) {
+            throw WalletChangeConfirmationException::guestUpgradeRequired();
+        }
+
+        try {
+            $challenge = $this->emailCodes->resend($user, EmailVerificationChallenge::PURPOSE_WALLET_CONNECTION_CHANGE);
+        } catch (EmailCodeChallengeException $e) {
+            throw $e;
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 502);
+        }
+        if (($challenge->payload['store_id'] ?? null) !== $store->id) {
+            throw EmailCodeChallengeException::missing();
+        }
+
+        return response()->json([
+            'data' => ['challenge' => $this->emailCodes->summary($challenge)],
         ]);
     }
 
@@ -94,6 +238,9 @@ class WalletConnectionController extends Controller
 
         $user = $request->user();
         SensitiveActionAuthorization::assertAllowed($user, $request);
+        // A connected wallet's secret is only shown after the email code
+        // (guests keep the password/session reveal - they cannot receive codes).
+        $this->changeGuard->assert($store, $user, allowGuest: true);
 
         try {
             $plaintext = $this->service->reveal($connection, $user);
@@ -219,6 +366,9 @@ class WalletConnectionController extends Controller
         $store = $request->route('store');
         $user = $request->user();
 
+        // Replacing a connected wallet needs the email-code grant.
+        $this->changeGuard->assert($store, $user);
+
         // pending = bot runs first; support notified only on bot failure
         $connection = $this->service->createOrUpdate(
             $store,
@@ -240,6 +390,8 @@ class WalletConnectionController extends Controller
             ],
             $user->id
         );
+
+        $this->changeGuard->consumeGrant($store, $user);
 
         return response()->json([
             'data' => [
@@ -521,6 +673,11 @@ class WalletConnectionController extends Controller
         $store = $request->route('store');
         $user = $request->user();
         $cryptoCode = $request->input('crypto_code', 'BTC');
+
+        // Same gate as the wallet-connection POST: a connected wallet is only
+        // replaced behind the email-code grant.
+        $this->changeGuard->assert($store, $user);
+        $this->changeGuard->consumeGrant($store, $user);
 
         // Get merchant API key
         $userApiKey = $store->user->getBtcPayApiKeyOrFail();

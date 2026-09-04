@@ -26,6 +26,8 @@ return [
     'email_code_cooldown' => 'Espere :seconds segundos antes de solicitar otro código.',
     'email_code_send_limit' => 'Se han enviado demasiados códigos a esta dirección. Inténtelo más tarde.',
     'email_code_send_failed' => 'No se pudo enviar el correo de verificación. Inténtelo en un momento.',
+    'wallet_change_confirmation_required' => 'Confirme el cambio con el código que le enviamos por correo antes de sustituir el monedero conectado.',
+    'wallet_change_guest_upgrade_required' => 'Cambiar un monedero conectado requiere una cuenta con correo verificado. Actualice primero su cuenta de invitado.',
     'guest_feature_requires_account' => 'Esta acción requiere una cuenta completa. Mejore la cuenta en Ajustes.',
     'guest_one_store_only' => 'Las sesiones de invitado están limitadas a una tienda. Cree una cuenta completa para añadir más.',
     'guest_pos_limit_one' => 'El modo invitado permite solo una aplicación Punto de venta por tienda.',
