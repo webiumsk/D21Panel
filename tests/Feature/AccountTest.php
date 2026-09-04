@@ -5,12 +5,14 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\ReadsEmailCodes;
 use Tests\TestCase;
 
 class AccountTest extends TestCase
 {
-    use RefreshDatabase;
+    use ReadsEmailCodes, RefreshDatabase;
 
     public function test_authenticated_user_can_get_own_profile(): void
     {
@@ -157,35 +159,68 @@ class AccountTest extends TestCase
         $response->assertJsonValidationErrors(['current_password']);
     }
 
-    public function test_guest_can_upgrade_with_email_and_then_login_with_new_credentials(): void
+    public function test_guest_upgrade_request_stages_code_without_touching_guest_row(): void
     {
-        $guest = User::factory()->create([
-            'email' => 'guest-upgrade@satflux.io',
-            'password' => bcrypt('old-password'),
-            'is_guest' => true,
-            'email_verified_at' => now(),
-            'btcpay_user_id' => null,
-            'btcpay_api_key' => null,
-        ]);
+        Notification::fake();
+        $guest = $this->makeGuest('guest+abc@guest.satflux.io');
         Sanctum::actingAs($guest);
 
-        $upgradeResponse = $this->putJson('/api/user/guest/upgrade', $this->guestUpgradePayload([
+        $response = $this->postJson('/api/user/guest/upgrade/request', $this->guestUpgradePayload([
             'method' => 'email',
-            'email' => 'upgraded@satflux.io',
+            'email' => '  Upgraded@Satflux.IO  ',
             'password' => 'new-secure-password',
             'password_confirmation' => 'new-secure-password',
         ]));
 
-        $upgradeResponse->assertStatus(200);
-        $upgradeResponse->assertJsonPath('user.email', 'upgraded@satflux.io');
-        $upgradeResponse->assertJsonPath('user.is_guest', false);
-        $upgradeResponse->assertJsonPath('user.allows_satflux_email_changes', true);
+        $response->assertStatus(200)
+            ->assertJsonPath('challenge.email', 'upgraded@satflux.io')
+            ->assertJsonPath('challenge.purpose', 'guest_upgrade')
+            ->assertJsonPath('challenge.attempts_left', 5)
+            ->assertJsonMissingPath('challenge.code_hash');
+
+        $guest->refresh();
+        $this->assertTrue((bool) $guest->is_guest);
+        $this->assertSame('guest+abc@guest.satflux.io', $guest->email);
+        $this->assertTrue(Hash::check('old-password', $guest->password));
+        $this->assertNull($guest->privacy_consent_at);
+
+        // The staged challenge is exposed on /api/user so the SPA can resume the code step.
+        $this->getJson('/api/user')
+            ->assertStatus(200)
+            ->assertJsonPath('pending_email_challenge.email', 'upgraded@satflux.io')
+            ->assertJsonPath('is_guest', true);
+
+        $this->lastEmailCode('upgraded@satflux.io');
+    }
+
+    public function test_guest_can_upgrade_with_code_and_then_login_with_new_credentials(): void
+    {
+        Notification::fake();
+        $guest = $this->makeGuest('guest-upgrade@satflux.io');
+        Sanctum::actingAs($guest);
+
+        $this->postJson('/api/user/guest/upgrade/request', $this->guestUpgradePayload([
+            'method' => 'email',
+            'email' => 'upgraded@satflux.io',
+            'password' => 'new-secure-password',
+            'password_confirmation' => 'new-secure-password',
+        ]))->assertStatus(200);
+
+        $confirm = $this->postJson('/api/user/guest/upgrade/confirm', ['code' => $this->lastEmailCode()]);
+
+        $confirm->assertStatus(200);
+        $confirm->assertJsonPath('user.email', 'upgraded@satflux.io');
+        $confirm->assertJsonPath('user.is_guest', false);
+        $confirm->assertJsonPath('user.allows_satflux_email_changes', true);
 
         $guest->refresh();
         $this->assertSame('upgraded@satflux.io', $guest->email);
         $this->assertFalse((bool) $guest->is_guest);
         $this->assertTrue((bool) $guest->allows_satflux_email_changes);
-        $this->assertNull($guest->email_verified_at);
+        // Proven by the code - no second verification round, no limbo.
+        $this->assertNotNull($guest->email_verified_at);
+        $this->assertNotNull($guest->privacy_consent_at);
+        $this->assertNotNull($guest->terms_accepted_at);
         $this->assertTrue(Hash::check('new-secure-password', $guest->password));
 
         $this->assertTrue(
@@ -194,30 +229,134 @@ class AccountTest extends TestCase
                 'password' => 'new-secure-password',
             ])
         );
+
+        $this->getJson('/api/user')->assertJsonPath('pending_email_challenge', null);
+
+        // Second tab confirming again is a no-op success.
+        $this->postJson('/api/user/guest/upgrade/confirm', ['code' => '000000'])
+            ->assertStatus(200)
+            ->assertJsonPath('user.is_guest', false);
     }
 
-    public function test_guest_upgrade_email_trims_and_lowercases_before_save(): void
+    public function test_guest_upgrade_wrong_code_reports_attempts_and_keeps_guest(): void
     {
-        $guest = User::factory()->create([
-            'email' => 'guest-trim@satflux.io',
-            'password' => bcrypt('old-password'),
-            'is_guest' => true,
-            'email_verified_at' => now(),
-            'btcpay_user_id' => null,
-            'btcpay_api_key' => null,
-        ]);
+        config(['guest.upgrade_email_only' => true]);
+        Notification::fake();
+        $guest = $this->makeGuest('guest-wrong@satflux.io');
         Sanctum::actingAs($guest);
 
-        $upgradeResponse = $this->putJson('/api/user/guest/upgrade', $this->guestUpgradePayload([
+        $this->postJson('/api/user/guest/upgrade/request', $this->guestUpgradePayload([
             'method' => 'email',
-            'email' => '  Trimmed-Case@Satflux.IO  ',
-            'password' => 'new-secure-password',
-            'password_confirmation' => 'new-secure-password',
-        ]));
+            'email' => 'wrong@satflux.io',
+        ]))->assertStatus(200);
+        $wrong = $this->wrongEmailCode($this->lastEmailCode());
 
-        $upgradeResponse->assertStatus(200);
+        $this->postJson('/api/user/guest/upgrade/confirm', ['code' => $wrong])
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'code_mismatch')
+            ->assertJsonPath('attempts_left', 4);
+
+        $this->assertTrue((bool) $guest->fresh()->is_guest);
+    }
+
+    public function test_guest_upgrade_confirm_without_request_is_410(): void
+    {
+        $guest = $this->makeGuest('guest-none@satflux.io');
+        Sanctum::actingAs($guest);
+
+        $this->postJson('/api/user/guest/upgrade/confirm', ['code' => '123456'])
+            ->assertStatus(410)
+            ->assertJsonPath('code', 'challenge_missing');
+    }
+
+    public function test_guest_upgrade_resend_respects_server_cooldown(): void
+    {
+        config(['guest.upgrade_email_only' => true]);
+        Notification::fake();
+        $guest = $this->makeGuest('guest-resend@satflux.io');
+        Sanctum::actingAs($guest);
+
+        $this->postJson('/api/user/guest/upgrade/request', $this->guestUpgradePayload([
+            'method' => 'email',
+            'email' => 'resend@satflux.io',
+        ]))->assertStatus(200);
+
+        $this->postJson('/api/user/guest/upgrade/resend')
+            ->assertStatus(429)
+            ->assertJsonPath('code', 'resend_cooldown')
+            ->assertHeader('Retry-After');
+
+        $this->travel(61)->seconds();
+
+        $this->postJson('/api/user/guest/upgrade/resend')
+            ->assertStatus(200)
+            ->assertJsonPath('challenge.sends_left', 3);
+
+        $this->postJson('/api/user/guest/upgrade/confirm', ['code' => $this->lastEmailCode()])
+            ->assertStatus(200)
+            ->assertJsonPath('user.is_guest', false);
+    }
+
+    public function test_guest_upgrade_fails_when_email_taken_between_request_and_confirm(): void
+    {
+        config(['guest.upgrade_email_only' => true]);
+        Notification::fake();
+        $guest = $this->makeGuest('guest-race@satflux.io');
+        Sanctum::actingAs($guest);
+
+        $this->postJson('/api/user/guest/upgrade/request', $this->guestUpgradePayload([
+            'method' => 'email',
+            'email' => 'race@satflux.io',
+        ]))->assertStatus(200);
+        $code = $this->lastEmailCode();
+
+        User::factory()->create(['email' => 'race@satflux.io']);
+
+        $this->postJson('/api/user/guest/upgrade/confirm', ['code' => $code])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
         $guest->refresh();
-        $this->assertSame('trimmed-case@satflux.io', $guest->email);
+        $this->assertTrue((bool) $guest->is_guest);
+        $this->assertSame('guest-race@satflux.io', $guest->email);
+        // The burnt challenge is gone; the guest has to pick another address.
+        $this->getJson('/api/user')->assertJsonPath('pending_email_challenge', null);
+    }
+
+    public function test_guest_upgrade_request_rejects_taken_email_upfront(): void
+    {
+        config(['guest.upgrade_email_only' => true]);
+        User::factory()->create(['email' => 'taken@satflux.io']);
+        $guest = $this->makeGuest('guest-taken@satflux.io');
+        Sanctum::actingAs($guest);
+
+        $this->postJson('/api/user/guest/upgrade/request', $this->guestUpgradePayload([
+            'method' => 'email',
+            'email' => 'taken@satflux.io',
+        ]))->assertStatus(422)->assertJsonValidationErrors(['email']);
+    }
+
+    public function test_non_guest_cannot_request_guest_upgrade(): void
+    {
+        config(['guest.upgrade_email_only' => true]);
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->postJson('/api/user/guest/upgrade/request', $this->guestUpgradePayload([
+            'method' => 'email',
+            'email' => 'other@satflux.io',
+        ]))->assertStatus(422);
+    }
+
+    public function test_legacy_put_guest_upgrade_route_is_gone(): void
+    {
+        config(['guest.upgrade_email_only' => true]);
+        $guest = $this->makeGuest('guest-legacy@satflux.io');
+        Sanctum::actingAs($guest);
+
+        $this->putJson('/api/user/guest/upgrade', $this->guestUpgradePayload([
+            'method' => 'email',
+            'email' => 'legacy@satflux.io',
+        ]))->assertStatus(405);
     }
 
     public function test_guest_upgrade_lightning_method_is_no_longer_supported(): void
@@ -228,7 +367,7 @@ class AccountTest extends TestCase
         ]);
         Sanctum::actingAs($guest);
 
-        $response = $this->putJson('/api/user/guest/upgrade', $this->guestUpgradePayload([
+        $response = $this->postJson('/api/user/guest/upgrade/request', $this->guestUpgradePayload([
             'method' => 'lightning',
             'email' => 'real@example.com',
             'password' => 'new-secure-password',
@@ -237,6 +376,18 @@ class AccountTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['method']);
+    }
+
+    private function makeGuest(string $email): User
+    {
+        return User::factory()->create([
+            'email' => $email,
+            'password' => bcrypt('old-password'),
+            'is_guest' => true,
+            'email_verified_at' => now(),
+            'btcpay_user_id' => null,
+            'btcpay_api_key' => null,
+        ]);
     }
 
     /**

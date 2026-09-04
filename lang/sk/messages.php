@@ -25,6 +25,9 @@ return [
 
     // Account
     'profile_updated' => 'Profile updated successfully',
+    'guest_upgrade_code_sent' => 'Poslali sme vám e-mail so 6-miestnym overovacím kódom.',
+    'guest_upgrade_confirmed' => 'E-mail potvrdený. Váš účet je povýšený.',
+    'guest_upgrade_already_done' => 'Tento účet je už povýšený.',
     'password_updated' => 'Password updated successfully',
 
     // Stores

@@ -21,6 +21,7 @@
         <env name="APP_ENV" value="testing"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_DRIVER" value="array"/>
+        <env name="CACHE_STORE" value="array"/>
         <env name="REDIS_CLIENT" value="array"/>
         <!-- Use PostgreSQL for tests if available, otherwise SQLite -->
         <!-- To use SQLite, install: sudo apt install php8.3-sqlite3 -->

@@ -25,6 +25,9 @@ return [
 
     // Account
     'profile_updated' => 'Profile updated successfully',
+    'guest_upgrade_code_sent' => 'Le hemos enviado un código de verificación de 6 dígitos.',
+    'guest_upgrade_confirmed' => 'Correo confirmado. Su cuenta ha sido actualizada.',
+    'guest_upgrade_already_done' => 'Esta cuenta ya está actualizada.',
     'password_updated' => 'Password updated successfully',
 
     // Stores

@@ -41,13 +41,22 @@
           {{ t("account.pending_email_title") }}
         </h1>
         <p class="mt-3 text-sm text-gray-400 leading-relaxed">
-          {{ t("account.pending_email_subtitle") }}
+          {{ pendingChallenge ? t("account.email_code_subtitle") : t("account.pending_email_subtitle") }}
         </p>
       </div>
 
       <div
         class="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6"
       >
+        <template v-if="pendingChallenge">
+          <EmailCodeVerification
+            :challenge="pendingChallenge"
+            :confirm="confirmCode"
+            :resend="resendCode"
+            @change-email="goToAccount"
+          />
+        </template>
+        <template v-else>
         <div v-if="userEmail" class="rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-4 py-3">
           <p class="text-xs font-medium text-indigo-200/90 uppercase tracking-wide">
             {{ t("account.pending_email_sent_to") }}
@@ -120,6 +129,8 @@
           </button>
         </div>
 
+        </template>
+
         <div class="pt-2 border-t border-gray-700/60 text-center">
           <button
             type="button"
@@ -135,12 +146,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useAuthStore } from "../../store/auth";
 import { useFlashStore } from "../../store/flash";
 import api from "../../services/api";
+import EmailCodeVerification from "../../components/account/EmailCodeVerification.vue";
+import { useGuestUpgradeSubmit } from "../../composables/useGuestUpgradeSubmit";
 
 const RESEND_COOLDOWN_SEC = 60;
 
@@ -157,6 +170,14 @@ const resendCooldownSeconds = ref(0);
 let cooldownTimer: ReturnType<typeof setInterval> | null = null;
 
 const userEmail = computed(() => authStore.user?.email ?? "");
+
+// Code flow (guest -> Free staged upgrade): the staged challenge rides on
+// /api/user, so a reload resumes here. Everything below the template branch
+// is the legacy link flow kept for accounts that are still mid-link.
+const { confirm: confirmCode, resend: resendCode } = useGuestUpgradeSubmit();
+const pendingChallenge = computed(
+  () => (authStore.user?.is_guest ? authStore.user?.pending_email_challenge ?? null : null),
+);
 
 function startCooldown() {
   resendCooldownSeconds.value = RESEND_COOLDOWN_SEC;
@@ -182,10 +203,26 @@ onMounted(async () => {
     router.replace({ name: "login", query: { redirect: "/account/check-email" } });
     return;
   }
+  if (authStore.user?.is_guest) {
+    if (!pendingChallenge.value) {
+      // Nothing staged (expired / already done) - back to the upgrade form.
+      router.replace({ name: "account" });
+    }
+    return;
+  }
   if (authStore.user?.email_verified_at) {
     router.replace({ name: "account" });
   }
 });
+
+watch(
+  () => authStore.user?.is_guest,
+  (isGuest, wasGuest) => {
+    if (wasGuest && isGuest === false) {
+      router.replace({ name: "account" });
+    }
+  },
+);
 
 onUnmounted(() => {
   if (cooldownTimer) {

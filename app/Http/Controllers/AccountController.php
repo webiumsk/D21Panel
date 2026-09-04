@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\EmailCodeChallengeException;
 use App\Models\Store;
+use App\Services\Auth\EmailCodeChallengeService;
 use App\Services\BtcPay\LightningAddressService;
 use App\Services\BtcPay\RaffleService;
 use App\Services\BtcPay\TicketService;
@@ -25,6 +27,7 @@ class AccountController extends Controller
         protected RaffleService $raffleService,
         protected GuestUpgradeService $guestUpgradeService,
         protected ComplianceGate $complianceGate,
+        protected EmailCodeChallengeService $emailCodes,
     ) {}
 
     /**
@@ -78,6 +81,11 @@ class AccountController extends Controller
         $payload['guest_upgrade_email_only'] = (bool) config('guest.upgrade_email_only');
         $payload['requires_recovery_migration'] = $user->requiresRecoveryMigration();
         $payload['can_use_password_login'] = $user->canUsePasswordLogin();
+        // Staged guest -> Free upgrade awaiting its email code (lets the SPA
+        // resume the code step after a reload). Never the hash or payload.
+        $payload['pending_email_challenge'] = (bool) ($user->is_guest ?? false)
+            ? $this->emailCodes->summary($this->guestUpgradeService->pending($user))
+            : null;
 
         return response()->json($payload);
     }
@@ -280,11 +288,11 @@ class AccountController extends Controller
     }
 
     /**
-     * Upgrade a guest account to a regular (non-guest) identity.
-     *
-     * Guest → Free: real email + verification. Password optional when upgrade_email_only.
+     * Guest -> Free, step 1: validate the address and email a 6-digit code.
+     * The guest row is untouched until the code is confirmed. Password is
+     * optional when upgrade_email_only.
      */
-    public function upgradeGuest(Request $request)
+    public function requestGuestUpgrade(Request $request)
     {
         $user = $request->user();
         if (! $user || ! (bool) ($user->is_guest ?? false)) {
@@ -318,20 +326,72 @@ class AccountController extends Controller
         );
 
         try {
-            $upgradedUser = $this->guestUpgradeService->upgrade($user, $validated);
-            $this->complianceGate->linkLatestRegistrationScreening($validated['email'], $upgradedUser);
-            LegalConsent::recordRegistration($upgradedUser);
-        } catch (ValidationException $e) {
+            $challenge = $this->guestUpgradeService->stage($user, $validated);
+        } catch (EmailCodeChallengeException|ValidationException $e) {
             throw $e;
         } catch (\RuntimeException $e) {
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 502);
+            return response()->json(['message' => $e->getMessage()], 502);
         }
 
         return response()->json([
-            'message' => 'Guest account upgraded successfully.',
+            'message' => __('messages.guest_upgrade_code_sent'),
+            'challenge' => $this->emailCodes->summary($challenge),
+        ]);
+    }
+
+    /**
+     * Guest -> Free, step 2: confirm the code and apply the staged upgrade.
+     * Idempotent for an account that already finished (second tab).
+     */
+    public function confirmGuestUpgrade(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+        if (! (bool) ($user->is_guest ?? false)) {
+            return response()->json([
+                'message' => __('messages.guest_upgrade_already_done'),
+                'user' => $user->makeVisible('role'),
+            ]);
+        }
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:16'],
+        ]);
+
+        try {
+            $upgradedUser = $this->guestUpgradeService->confirm($user, $validated['code']);
+        } catch (EmailCodeChallengeException|ValidationException $e) {
+            throw $e;
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 502);
+        }
+
+        return response()->json([
+            'message' => __('messages.guest_upgrade_confirmed'),
             'user' => $upgradedUser->makeVisible('role'),
+        ]);
+    }
+
+    public function resendGuestUpgrade(Request $request)
+    {
+        $user = $request->user();
+        if (! $user || ! (bool) ($user->is_guest ?? false)) {
+            return response()->json(['message' => 'Only guest accounts can be upgraded.'], 422);
+        }
+
+        try {
+            $challenge = $this->guestUpgradeService->resend($user);
+        } catch (EmailCodeChallengeException $e) {
+            throw $e;
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 502);
+        }
+
+        return response()->json([
+            'message' => __('messages.guest_upgrade_code_sent'),
+            'challenge' => $this->emailCodes->summary($challenge),
         ]);
     }
 }

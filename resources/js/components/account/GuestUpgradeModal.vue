@@ -49,17 +49,14 @@ import { useI18n } from 'vue-i18n';
 import GuestUpgradeForm from './GuestUpgradeForm.vue';
 import { useGuestUpgradeModal } from '../../composables/useGuestUpgradeModal';
 
-function redirectToEmailVerification(): void {
-  window.location.assign('/account/check-email');
-}
-
 const { t } = useI18n();
 const { open, featureLabelKey, closeGuestUpgradeModal } = useGuestUpgradeModal();
 
 const isOpen = computed(() => open.value);
 
 function onUpgradeSuccess(): void {
+  // The code was confirmed in place; the store now holds the non-guest user
+  // and every guest gate re-evaluates on its own.
   closeGuestUpgradeModal();
-  redirectToEmailVerification();
 }
 </script>

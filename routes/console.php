@@ -95,3 +95,9 @@ Schedule::command('efaktura:purge-inbound-inbox')
     ->dailyAt('04:40')
     ->withoutOverlapping()
     ->runInBackground();
+
+// Finished email-code challenges (EmailVerificationChallenge::prunable) are
+// dropped a day after they expire/complete; nothing else schedules model:prune.
+Schedule::command('model:prune', ['--model' => [\App\Models\EmailVerificationChallenge::class]])
+    ->hourly()
+    ->withoutOverlapping();

@@ -115,10 +115,22 @@ class AuthTest extends TestCase
         $user = User::factory()->unverified()->create();
         Sanctum::actingAs($user);
 
-        $response = $this->getJson('/api/user');
+        $response = $this->getJson('/api/user/limits');
 
         $response->assertStatus(403);
         $response->assertJson(['message' => __('auth.email_not_verified')]);
+    }
+
+    public function test_unverified_user_can_still_load_own_profile(): void
+    {
+        // Regression: the "check your email" screen needs the profile; a 403
+        // here made the SPA drop the session and show the login form instead.
+        $user = User::factory()->unverified()->create(['is_guest' => false]);
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/user')
+            ->assertStatus(200)
+            ->assertJsonPath('email_verified_at', null);
     }
 
     public function test_user_can_logout(): void

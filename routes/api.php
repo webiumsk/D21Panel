@@ -332,10 +332,16 @@ Route::any('/chorala-proxy/v1/{path}', [ChoralaProxyController::class, 'forward'
 Route::get('/chorala/widget-settings', [ChoralaController::class, 'widgetSettings'])
     ->middleware(['throttle:60,1']);
 
+// Profile fetch is deliberately outside RequireVerifiedEmail: a non-guest
+// account whose email is still unverified (legacy link flow) must be able to
+// load its own profile, otherwise the SPA drops the session and shows the
+// login/register form instead of the "check your email" screen.
+Route::middleware(['auth:sanctum', 'throttle:api-user'])
+    ->get('/user', [AccountController::class, 'user']);
+
 // Authenticated routes (email must be verified - classic registration and API use)
 Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-user'])->group(function () {
     // User/Account routes
-    Route::get('/user', [AccountController::class, 'user']);
     Route::get('/chorala/widget-token', [ChoralaController::class, 'widgetToken']);
     Route::get('/user/limits', [AccountController::class, 'limits']);
     // Passkey recovery envelopes (ciphertext-only, see PasskeyEnvelopeController)
@@ -345,7 +351,14 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
     Route::put('/user', [AccountController::class, 'updateProfile']);
     Route::put('/user/password', [AccountController::class, 'updatePassword'])
         ->middleware('throttle:5,1');
-    Route::put('/user/guest/upgrade', [AccountController::class, 'upgradeGuest']);
+    // Guest -> Free upgrade via 6-digit email code (EmailCodeChallengeService).
+    // Own limiters: guessing and outbound mail never eat the api-user budget.
+    Route::post('/user/guest/upgrade/request', [AccountController::class, 'requestGuestUpgrade'])
+        ->middleware('throttle:email-code-send');
+    Route::post('/user/guest/upgrade/confirm', [AccountController::class, 'confirmGuestUpgrade'])
+        ->middleware('throttle:email-code-confirm');
+    Route::post('/user/guest/upgrade/resend', [AccountController::class, 'resendGuestUpgrade'])
+        ->middleware('throttle:email-code-send');
 
     // Panel API keys (for our API, not BTCPay)
     Route::middleware('guest.restrict')->group(function () {
