@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * A 6-digit code emailed to prove control of an address before a change is
@@ -20,11 +21,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<string, mixed>|null $payload
  * @property int $attempts
  * @property int $send_count
- * @property \Illuminate\Support\Carbon|null $last_sent_at
- * @property \Illuminate\Support\Carbon $expires_at
- * @property \Illuminate\Support\Carbon|null $verified_at
- * @property \Illuminate\Support\Carbon|null $consumed_at
- * @property \Illuminate\Support\Carbon|null $superseded_at
+ * @property Carbon|null $last_sent_at
+ * @property Carbon $expires_at
+ * @property Carbon|null $verified_at
+ * @property Carbon|null $consumed_at
+ * @property Carbon|null $superseded_at
  */
 class EmailVerificationChallenge extends Model
 {
