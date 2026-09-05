@@ -44,11 +44,14 @@ class StoreService
      * Store-level payment methods (e.g. BTC-CHAIN, BTC-LN) as configured in BTCPay.
      * If a user-level API key is provided, it will be used instead of server-level.
      */
-    public function getStorePaymentMethods(string $storeId, ?string $userApiKey = null): array
+    public function getStorePaymentMethods(string $storeId, ?string $userApiKey = null, bool $includeConfig = false): array
     {
+        // includeConfig needs btcpay.store.canmodifystoresettings (the merchant key has it).
+        $query = $includeConfig ? ['includeConfig' => 'true'] : [];
+
         return $this->client->withUserKey(
             $userApiKey,
-            fn () => $this->client->get("/api/v1/stores/{$storeId}/payment-methods")
+            fn () => $this->client->get("/api/v1/stores/{$storeId}/payment-methods", $query)
         );
     }
 

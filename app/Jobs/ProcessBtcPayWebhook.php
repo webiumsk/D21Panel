@@ -91,6 +91,12 @@ class ProcessBtcPayWebhook implements ShouldQueue
                 }
             }
 
+            // Invoice activity is when a hijacked wallet costs money: re-check the
+            // BTCPay config against the Satflux baseline (throttled inside the job).
+            if (str_starts_with((string) $eventType, 'Invoice')) {
+                VerifyWalletConfig::dispatch($store->id);
+            }
+
             try {
                 app(StoreEmailRuleDispatcher::class)->dispatchForWebhook($this->webhookEvent, $store);
             } catch (\Throwable $e) {

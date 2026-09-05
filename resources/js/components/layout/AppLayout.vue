@@ -4,6 +4,7 @@
     class="flex min-h-dvh max-h-dvh flex-col overflow-hidden bg-gray-900 md:h-dvh md:max-h-dvh md:min-h-0"
   >
     <AppHeader class="shrink-0" />
+    <SecurityAlertBanner />
     <main class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div
@@ -27,6 +28,7 @@
 
 <script setup lang="ts">
 import AppHeader from './AppHeader.vue';
+import SecurityAlertBanner from './SecurityAlertBanner.vue';
 import AppFooter from './AppFooter.vue';
 import AppMobileBottomNav from './AppMobileBottomNav.vue';
 import OnboardingTour from '../OnboardingTour.vue';

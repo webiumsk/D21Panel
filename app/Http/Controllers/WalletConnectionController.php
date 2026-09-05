@@ -17,6 +17,7 @@ use App\Services\LnAddressLud21Prober;
 use App\Services\WalletChangeConfirmationGuard;
 use App\Services\WalletConnectionService;
 use App\Services\WalletConnectionValidator;
+use App\Services\WalletSecurity\WalletSecurityNotifier;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -32,6 +33,7 @@ class WalletConnectionController extends Controller
         LightningService $lightningService,
         protected WalletChangeConfirmationGuard $changeGuard,
         protected EmailCodeChallengeService $emailCodes,
+        protected WalletSecurityNotifier $securityNotifier,
     ) {
         $this->service = $service;
         $this->lightningService = $lightningService;
@@ -82,6 +84,10 @@ class WalletConnectionController extends Controller
                 'bot_failure_message' => $connection->bot_failure_message,
                 // Replacing a connected wallet needs an email-code grant (guests: upgrade first).
                 'change_confirmation' => $this->changeGuard->state($store, $request->user()),
+                // Drift monitoring (WalletConfigIntegrityService): BTCPay config vs. the Satflux baseline.
+                'config_verified_at' => $connection->config_verified_at?->toIso8601String(),
+                'drift_detected_at' => $connection->drift_detected_at?->toIso8601String(),
+                'drift_details' => $connection->drift_details,
             ],
         ]);
     }
@@ -183,6 +189,7 @@ class WalletConnectionController extends Controller
             'store_id' => $store->id,
             'challenge_id' => $challenge->id,
         ], $user->id);
+        $this->securityNotifier->secretRevealed($store, $connection, $user, 'wallet change confirmed by email code');
 
         return response()->json([
             'data' => [
@@ -253,6 +260,7 @@ class WalletConnectionController extends Controller
                 'message' => 'Unable to decrypt the stored secret. Please re-submit your wallet connection.',
             ], 500);
         }
+        $this->securityNotifier->secretRevealed($store, $connection, $user, 'owner reveal');
 
         if ($connection->type === 'aqua_descriptor') {
             $plaintext = app(WalletConnectionValidator::class)->stripDescriptorChecksum($plaintext);
@@ -525,6 +533,9 @@ class WalletConnectionController extends Controller
 
         $connection->loadMissing('store');
         $store = $connection->store;
+        if ($store instanceof Store) {
+            $this->securityNotifier->secretRevealed($store, $connection, $request->user(), 'support reveal');
+        }
 
         return response()->json([
             'data' => [
