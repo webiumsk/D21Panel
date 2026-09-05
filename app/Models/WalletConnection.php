@@ -72,7 +72,15 @@ class WalletConnection extends Model
     }
 
     /**
-     * Get the masked secret (first 6 + last 6 characters).
+     * Connection-string keys whose values are public identifiers, kept in
+     * clear so the owner can tell which wallet/address is connected.
+     */
+    private const MASK_CLEAR_KEYS = ['type', 'server', 'ln-address', 'lnaddress', 'username'];
+
+    /**
+     * Get the masked secret for display (owner card, support list, e-mails).
+     * key=value connection strings keep their type/server/Lightning address and
+     * mask only the credential values; anything else shows first 6 + last 6.
      * This is an accessor that can be accessed via $model->masked_secret.
      */
     public function getMaskedSecretAttribute(): string
@@ -87,17 +95,59 @@ class WalletConnection extends Model
         }
 
         try {
-            $decrypted = Crypt::decryptString($encrypted);
-            if (strlen($decrypted) <= 12) {
-                // If secret is too short, just show stars
-                return str_repeat('*', strlen($decrypted));
-            }
-
-            return substr($decrypted, 0, 6).'...'.substr($decrypted, -6);
+            return self::maskSecret(Crypt::decryptString($encrypted));
         } catch (\Exception $e) {
             // If decryption fails, return masked placeholder
             return '******...******';
         }
+    }
+
+    public static function maskSecret(string $plain): string
+    {
+        $plain = trim($plain);
+
+        if (preg_match('/^[^;=\s]+@[^;=\s]+$/', $plain) === 1) {
+            // Bare Lightning address - public by design.
+            return $plain;
+        }
+
+        // BTCPay-style connection string (type=...;key=value;...) - URIs and
+        // descriptors never carry a leading type= pair.
+        if (preg_match('/(?:^|;)\s*type\s*=/i', $plain) === 1) {
+            $parts = [];
+            foreach (array_filter(array_map('trim', explode(';', $plain))) as $pair) {
+                [$key, $value] = array_pad(explode('=', $pair, 2), 2, '');
+                $key = trim($key);
+                $value = trim($value);
+                if (in_array(strtolower($key), self::MASK_CLEAR_KEYS, true)) {
+                    $parts[] = $key.'='.$value;
+                } else {
+                    $parts[] = $key.'='.self::maskValue($value);
+                }
+            }
+
+            return implode(';', $parts).';';
+        }
+
+        if (strlen($plain) <= 12) {
+            // If secret is too short, just show stars
+            return str_repeat('*', strlen($plain));
+        }
+
+        return substr($plain, 0, 6).'...'.substr($plain, -6);
+    }
+
+    /** Last four characters of a credential, the rest starred. */
+    private static function maskValue(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+        if (strlen($value) <= 8) {
+            return str_repeat('*', strlen($value));
+        }
+
+        return '****'.substr($value, -4);
     }
 
     /**
