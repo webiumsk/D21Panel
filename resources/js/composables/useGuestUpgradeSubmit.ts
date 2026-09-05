@@ -91,9 +91,8 @@ export function useGuestUpgradeSubmit() {
 
   /** Step 2: confirm the code; throws so the code component can map the error. */
   async function confirm(code: string): Promise<void> {
-    let response;
     try {
-      response = await api.post("/user/guest/upgrade/confirm", { code });
+      await api.post("/user/guest/upgrade/confirm", { code });
     } catch (e: unknown) {
       const err = e as { response?: { data?: { errors?: { email?: string[] } } } };
       const emailError = err?.response?.data?.errors?.email?.[0];
@@ -107,11 +106,11 @@ export function useGuestUpgradeSubmit() {
       throw e;
     }
     challenge.value = null;
-    if (response?.data?.user) {
-      authStore.user = { ...response.data.user, pending_email_challenge: null };
-    } else {
-      await authStore.fetchUser();
-    }
+    // The confirm response carries a raw user without the computed /user
+    // fields (can_use_password_login, guest_recovery_enrolled, plan_features).
+    // Recovery-phrase accounts would otherwise be asked for a password on the
+    // next sensitive action, so always reload the canonical payload.
+    await authStore.fetchUser();
     flashStore.success(t("account.pending_email_verified"));
   }
 
