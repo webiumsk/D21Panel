@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\WalletConnection;
+use App\Notifications\EmailCodeNotification;
 use App\Services\BtcPay\BoltzService;
 use App\Services\LnAddressLud21Prober;
 use App\Services\WalletConnectionValidator;
@@ -1665,6 +1666,58 @@ class WalletConnectionTest extends TestCase
 
         $this->postJson("/api/stores/{$store->id}/wallet-connection/change/confirm", ['code' => $this->lastEmailCode()])
             ->assertStatus(200);
+    }
+
+    #[Test]
+    public function change_resend_for_another_stores_challenge_does_not_rotate_the_code(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create([
+            'guest_recovery_public_key' => str_repeat('a', 64),
+            'guest_recovery_enrolled_at' => now(),
+        ]);
+        $storeA = $this->connectedBlinkStore($user);
+        $storeB = $this->connectedBlinkStore($user);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$storeA->id}/wallet-connection/change/request", [])
+            ->assertStatus(200);
+        $code = $this->lastEmailCode();
+
+        $this->travel(61)->seconds();
+        $this->postJson("/api/stores/{$storeB->id}/wallet-connection/change/resend")
+            ->assertStatus(410)
+            ->assertJsonPath('code', 'challenge_missing');
+
+        // Nothing was rotated or re-sent: the original code still confirms store A.
+        Notification::assertSentOnDemandTimes(EmailCodeNotification::class, 1);
+        $this->postJson("/api/stores/{$storeA->id}/wallet-connection/change/confirm", ['code' => $code])
+            ->assertStatus(200);
+    }
+
+    #[Test]
+    public function configure_failure_leaves_the_grant_for_a_retry(): void
+    {
+        Http::fake([
+            '*/payment-methods/BTC-LN' => Http::response(['message' => 'boom'], 500),
+            '*' => Http::response([], 200),
+        ]);
+        Notification::fake();
+        $user = User::factory()->create([
+            'guest_recovery_public_key' => str_repeat('a', 64),
+            'guest_recovery_enrolled_at' => now(),
+        ]);
+        $store = $this->connectedBlinkStore($user);
+        $grant = $this->grantWalletChange($user, $store);
+
+        $this->actingAs($user)
+            ->postJson("/api/stores/{$store->id}/wallet-connection/configure", [
+                'connection_string' => self::VALID_BLINK_SECRET,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('success', false);
+
+        $this->assertNull($grant->fresh()->consumed_at, 'a failed BTCPay call must not burn the grant');
     }
 
     #[Test]

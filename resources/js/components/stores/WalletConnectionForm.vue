@@ -843,12 +843,20 @@ watch(
     switchToCashuIntent.value = false;
     switchToLightningIntent.value = false;
     walletSetupTab.value = "ln";
+    // A code issued for the previous store must never be entered here.
+    changeChallenge.value = null;
+    resumeEditingAfterGrant.value = false;
   },
 );
 
 watch(
   () => props.existingConnection,
   (conn) => {
+    // Mirror the server's pending challenge unless the code step is open
+    // right now (its challenge came from this session's request/resend).
+    if (viewMode.value !== "code") {
+      changeChallenge.value = conn?.change_confirmation?.pending ?? null;
+    }
     if (!conn) {
       viewMode.value = "create";
 

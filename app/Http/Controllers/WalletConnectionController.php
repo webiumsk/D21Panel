@@ -203,15 +203,19 @@ class WalletConnectionController extends Controller
             throw WalletChangeConfirmationException::guestUpgradeRequired();
         }
 
+        // Scope check BEFORE rotating: a challenge issued for another store of
+        // the same owner must not get a fresh code (and e-mail) out of this one.
+        $active = $this->emailCodes->active($user, EmailVerificationChallenge::PURPOSE_WALLET_CONNECTION_CHANGE);
+        if ($active && ($active->payload['store_id'] ?? null) !== $store->id) {
+            throw EmailCodeChallengeException::missing();
+        }
+
         try {
             $challenge = $this->emailCodes->resend($user, EmailVerificationChallenge::PURPOSE_WALLET_CONNECTION_CHANGE);
         } catch (EmailCodeChallengeException $e) {
             throw $e;
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 502);
-        }
-        if (($challenge->payload['store_id'] ?? null) !== $store->id) {
-            throw EmailCodeChallengeException::missing();
         }
 
         return response()->json([
@@ -675,9 +679,9 @@ class WalletConnectionController extends Controller
         $cryptoCode = $request->input('crypto_code', 'BTC');
 
         // Same gate as the wallet-connection POST: a connected wallet is only
-        // replaced behind the email-code grant.
+        // replaced behind the email-code grant. The grant is consumed only once
+        // BTCPay accepted the new wallet (below), so a failed attempt can retry.
         $this->changeGuard->assert($store, $user);
-        $this->changeGuard->consumeGrant($store, $user);
 
         // Get merchant API key
         $userApiKey = $store->user->getBtcPayApiKeyOrFail();
@@ -713,6 +717,7 @@ class WalletConnectionController extends Controller
 
             // If connection successful, update status
             if ($result['success'] ?? false) {
+                $this->changeGuard->consumeGrant($store, $user);
                 $this->service->markConnected($connection, $user);
                 $result['status'] = 'connected';
                 $result['message'] = 'Lightning node connected successfully to BTCPay.';
