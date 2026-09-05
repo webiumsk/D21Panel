@@ -224,6 +224,16 @@ watch(
   },
 );
 
+// The staged challenge can vanish while the user is still a guest: a failed
+// confirm (address taken meanwhile) or "use a different address" both drop
+// it. Without a challenge this page would fall back to the legacy link UI,
+// which is meaningless for a guest - send them back to the upgrade form.
+watch(pendingChallenge, (challenge, previous) => {
+  if (previous && !challenge && authStore.user?.is_guest) {
+    router.replace({ name: "account" });
+  }
+});
+
 onUnmounted(() => {
   if (cooldownTimer) {
     clearInterval(cooldownTimer);
@@ -273,9 +283,8 @@ function goToAccount() {
   router.push({ name: "account" });
 }
 
-/** "Use a different address": drop the staged code so the account page opens on the email form. */
+/** "Use a different address": drop the staged code; the pendingChallenge watch returns to the email form. */
 function changeStagedEmail() {
   discardChallenge();
-  goToAccount();
 }
 </script>
