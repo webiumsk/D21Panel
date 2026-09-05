@@ -146,7 +146,9 @@
       >
         <LightningAddressQuickConnect
           :store-id="storeId"
+          :initial-address="quickConnectAddress"
           @submitted="onQuickConnectSubmitted"
+          @confirmation-required="onGrantExpired"
         />
       </div>
 
@@ -695,6 +697,17 @@ const { openGuestUpgradeModal } = useGuestUpgradeModal();
 const canUsePasswordLogin = computed(
   () => authStore.user?.can_use_password_login ?? true,
 );
+/** Address prefilled into the Lightning-address tab when editing an lnaddress connection. */
+const quickConnectAddress = ref("");
+
+/** Bare address out of a stored lnaddress connection string (or the bare address itself). */
+function lnAddressFromConnectionString(secret: string): string {
+  const trimmed = secret.trim();
+  if (!trimmed.includes(";") && !trimmed.includes("=")) return trimmed;
+  const match = trimmed.match(/(?:^|;)\s*(?:ln-address|lnaddress|username)\s*=\s*([^;]+)/i);
+  return match?.[1]?.trim() ?? "";
+}
+
 /** Shared post-reveal handoff: prefill the setup form and switch to editing. */
 function applyRevealedConnection(reveal: { secret?: string; type?: string }) {
   form.type = (reveal.type ||
@@ -705,7 +718,9 @@ function applyRevealedConnection(reveal: { secret?: string; type?: string }) {
     )) as WalletConnectionFormType;
   form.secret = reveal.secret || "";
   sanitizeSecretForDeclaredType();
-  syncWalletFormAquaTabAfterReveal();
+  quickConnectAddress.value =
+    form.type === "lnaddress" ? lnAddressFromConnectionString(form.secret) : "";
+  syncWalletSetupTabAfterReveal();
   viewMode.value = "editing";
 }
 
@@ -934,10 +949,34 @@ async function handleConfirmPassword() {
   }
 }
 
+/**
+ * Set when a save was refused because the grant expired: the merchant already
+ * typed the new connection, so after the fresh code we return to the form as
+ * it was instead of prefilling it with the revealed (old) secret again.
+ */
+const resumeEditingAfterGrant = ref(false);
+
 async function handleConfirmChangeCode(code: string) {
   const grant = await walletApi.connection.change.confirm(props.storeId, code);
   changeChallenge.value = null;
+  if (resumeEditingAfterGrant.value) {
+    resumeEditingAfterGrant.value = false;
+    errors.general = "";
+    viewMode.value = "editing";
+    return;
+  }
   applyRevealedConnection(grant);
+}
+
+/** Grant expired mid-edit (409 on save): keep the typed values and re-run the code step. */
+function onGrantExpired(typedAddress?: string) {
+  if (typeof typedAddress === "string") {
+    quickConnectAddress.value = typedAddress;
+  }
+  errors.general = t("stores.wallet_change_grant_expired");
+  resumeEditingAfterGrant.value = true;
+  changeChallenge.value = null;
+  startWalletConnectionEdit();
 }
 
 async function handleResendChangeCode() {
@@ -949,6 +988,8 @@ async function handleResendChangeCode() {
 function cancelChangeCode() {
   viewMode.value = "readonly";
   passwordError.value = "";
+  resumeEditingAfterGrant.value = false;
+  errors.general = "";
 }
 
 function handleCancelEdit() {
@@ -993,7 +1034,13 @@ function sanitizeSecretForDeclaredType() {
   }
 }
 
-function syncWalletFormAquaTabAfterReveal() {
+function syncWalletSetupTabAfterReveal() {
+  if (form.type === "lnaddress" && showWalletSetupTabs.value) {
+    // A plain Lightning address belongs on the address tab, not the raw
+    // connection-string tab - the merchant only ever typed the address.
+    walletSetupTab.value = "ln";
+    return;
+  }
   if (form.type !== "aqua_descriptor") {
     walletSetupTab.value = "advanced";
     return;
@@ -1226,9 +1273,7 @@ async function handleSubmit() {
     const code = err.response?.data?.code;
     if (code === "wallet_change_confirmation_required") {
       // Grant expired (or never granted): back through the confirmation step.
-      errors.general = t("stores.wallet_change_grant_expired");
-      changeChallenge.value = null;
-      startWalletConnectionEdit();
+      onGrantExpired();
       return;
     }
     if (code === "guest_upgrade_required") {

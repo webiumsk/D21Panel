@@ -108,16 +108,20 @@ import WalletTypeIcon from "../../WalletTypeIcon.vue";
 
 const props = defineProps<{
   storeId: string;
+  /** Prefill when editing an existing Lightning-address connection. */
+  initialAddress?: string;
 }>();
 
 const emit = defineEmits<{
   /** Fired after a successful save; target tells the parent where the store landed. */
   submitted: [target: Exclude<LightningAddressTarget, "probe">];
+  /** The wallet-change grant expired: the parent re-runs the email code and restores the address. */
+  "confirmation-required": [address: string];
 }>();
 
 const { t } = useI18n();
 
-const address = ref("");
+const address = ref(props.initialAddress ?? "");
 const cashuConsent = ref(false);
 const submitting = ref(false);
 const probing = ref(false);
@@ -209,6 +213,10 @@ async function submit() {
     emit("submitted", target);
   } catch (rawError) {
     const err = asApiError(rawError);
+    if (err.response?.data?.code === "wallet_change_confirmation_required") {
+      emit("confirmation-required", address.value);
+      return;
+    }
     const validationErrors = err.response?.data?.errors;
     if (err.response?.status === 422 && validationErrors) {
       const first = Object.values(validationErrors)[0];
