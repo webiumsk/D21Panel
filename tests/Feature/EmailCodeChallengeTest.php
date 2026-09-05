@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Exceptions\EmailCodeChallengeException;
+use App\Models\AuditLog;
 use App\Models\EmailVerificationChallenge;
 use App\Models\User;
 use App\Notifications\EmailCodeNotification;
@@ -10,6 +11,7 @@ use App\Services\Auth\EmailCodeChallengeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Tests\Concerns\ReadsEmailCodes;
 use Tests\TestCase;
 
@@ -78,7 +80,17 @@ class EmailCodeChallengeTest extends TestCase
 
         $verified = $this->service->verify($this->user, self::P, ' '.substr($code, 0, 3).' '.substr($code, 3).' ');
         $this->assertNotNull($verified->verified_at);
+        $this->assertNotNull($challenge->fresh()->verified_at, 'verified_at must be committed, not rolled back');
         $this->assertSame(['secret' => 1], $verified->payload);
+
+        // audit_logs.target_id is a uuid column (enforced on PostgreSQL only):
+        // the row must target the challenge, not the integer user id.
+        $audit = AuditLog::query()->where('action', 'email_challenge.confirmed')->latest('id')->first();
+        $this->assertNotNull($audit);
+        $this->assertSame('email_verification_challenge', $audit->target_type);
+        $this->assertSame($challenge->id, $audit->target_id);
+        $this->assertTrue(Str::isUuid((string) $audit->target_id));
+        $this->assertSame($this->user->id, $audit->user_id);
 
         $this->service->consume($verified);
         $fresh = $challenge->fresh();

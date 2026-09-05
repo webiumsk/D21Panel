@@ -143,17 +143,20 @@ class EmailCodeChallengeService
         $this->assertPurpose($purpose);
         $code = preg_replace('/\D+/', '', $code) ?? '';
 
-        /** @var array{challenge: ?EmailVerificationChallenge, error: ?EmailCodeChallengeException} $result */
+        // Audit rows are written after the transaction: a failed insert inside
+        // it would abort the whole transaction on PostgreSQL and silently roll
+        // back verified_at together with it.
+        /** @var array{challenge: ?EmailVerificationChallenge, error: ?EmailCodeChallengeException, audit: ?string} $result */
         $result = DB::transaction(function () use ($user, $purpose, $code) {
             $challenge = $this->lockedLive($user, $purpose);
             if (! $challenge) {
-                return ['challenge' => null, 'error' => EmailCodeChallengeException::missing()];
+                return ['challenge' => null, 'error' => EmailCodeChallengeException::missing(), 'audit' => null];
             }
             if ($challenge->attempts >= self::MAX_ATTEMPTS) {
-                return ['challenge' => $challenge, 'error' => EmailCodeChallengeException::locked()];
+                return ['challenge' => $challenge, 'error' => EmailCodeChallengeException::locked(), 'audit' => null];
             }
             if ($challenge->isExpired()) {
-                return ['challenge' => $challenge, 'error' => EmailCodeChallengeException::expired()];
+                return ['challenge' => $challenge, 'error' => EmailCodeChallengeException::expired(), 'audit' => null];
             }
 
             $matches = strlen($code) === self::CODE_LENGTH
@@ -168,23 +171,25 @@ class EmailCodeChallengeService
                     $challenge->payload = null;
                 }
                 $challenge->save();
-                $this->audit($locked ? 'email_challenge.locked' : 'email_challenge.failed', $challenge);
 
                 return [
                     'challenge' => $challenge,
                     'error' => $locked
                         ? EmailCodeChallengeException::locked()
                         : EmailCodeChallengeException::mismatch(self::MAX_ATTEMPTS - $challenge->attempts),
+                    'audit' => $locked ? 'email_challenge.locked' : 'email_challenge.failed',
                 ];
             }
 
             $challenge->verified_at = now();
             $challenge->save();
-            $this->audit('email_challenge.confirmed', $challenge);
 
-            return ['challenge' => $challenge, 'error' => null];
+            return ['challenge' => $challenge, 'error' => null, 'audit' => 'email_challenge.confirmed'];
         });
 
+        if ($result['audit'] !== null && $result['challenge'] !== null) {
+            $this->audit($result['audit'], $result['challenge']);
+        }
         if ($result['error'] !== null) {
             throw $result['error'];
         }
@@ -310,9 +315,10 @@ class EmailCodeChallengeService
     private function audit(string $action, EmailVerificationChallenge $challenge): void
     {
         try {
-            AuditLog::log($action, 'user', (string) $challenge->user_id, [
+            // audit_logs.target_id is a uuid column: target the challenge row,
+            // never the integer user id (the actor is recorded in user_id).
+            AuditLog::log($action, 'email_verification_challenge', $challenge->id, [
                 'purpose' => $challenge->purpose,
-                'challenge_id' => $challenge->id,
                 'email' => LogSanitizer::email($challenge->email),
                 'attempts' => $challenge->attempts,
                 'send_count' => $challenge->send_count,
