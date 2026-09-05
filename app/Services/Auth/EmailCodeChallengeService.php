@@ -60,6 +60,11 @@ class EmailCodeChallengeService
         $code = $this->generateCode();
 
         $challenge = DB::transaction(function () use ($user, $purpose, $email, $payload, $ttlMinutes, $code) {
+            // Serialise concurrent requests for the same user (double submit):
+            // without this both would supersede nothing and race the partial
+            // unique index on insert.
+            User::query()->whereKey($user->id)->lockForUpdate()->first();
+
             EmailVerificationChallenge::query()
                 ->where('user_id', $user->id)
                 ->where('purpose', $purpose)
@@ -287,11 +292,12 @@ class EmailCodeChallengeService
 
     private function assertTargetSendAllowed(string $email): void
     {
+        // Reserve first, then check: hit() is an atomic increment, so two
+        // concurrent requests cannot both pass a separate "is there room" check.
         $key = 'email-code-target:'.hash('sha256', $email);
-        if (RateLimiter::tooManyAttempts($key, self::TARGET_SENDS_PER_HOUR)) {
+        if (RateLimiter::hit($key, 3600) > self::TARGET_SENDS_PER_HOUR) {
             throw EmailCodeChallengeException::sendLimit();
         }
-        RateLimiter::hit($key, 3600);
     }
 
     private function assertPurpose(string $purpose): void

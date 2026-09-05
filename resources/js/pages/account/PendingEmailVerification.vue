@@ -53,7 +53,7 @@
             :challenge="pendingChallenge"
             :confirm="confirmCode"
             :resend="resendCode"
-            @change-email="goToAccount"
+            @change-email="changeStagedEmail"
           />
         </template>
         <template v-else>
@@ -174,7 +174,7 @@ const userEmail = computed(() => authStore.user?.email ?? "");
 // Code flow (guest -> Free staged upgrade): the staged challenge rides on
 // /api/user, so a reload resumes here. Everything below the template branch
 // is the legacy link flow kept for accounts that are still mid-link.
-const { confirm: confirmCode, resend: resendCode } = useGuestUpgradeSubmit();
+const { confirm: confirmCode, resend: resendCode, discardChallenge } = useGuestUpgradeSubmit();
 const pendingChallenge = computed(
   () => (authStore.user?.is_guest ? authStore.user?.pending_email_challenge ?? null : null),
 );
@@ -271,5 +271,11 @@ async function handleResend() {
 
 function goToAccount() {
   router.push({ name: "account" });
+}
+
+/** "Use a different address": drop the staged code so the account page opens on the email form. */
+function changeStagedEmail() {
+  discardChallenge();
+  goToAccount();
 }
 </script>

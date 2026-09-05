@@ -99,10 +99,10 @@ export function useGuestUpgradeSubmit() {
       const emailError = err?.response?.data?.errors?.email?.[0];
       if (emailError) {
         // Address got taken between request and confirm: the server burnt the
-        // challenge, so drop the code step and ask for another address.
+        // challenge, so drop the code step and ask for another address. Still
+        // a failure - the caller must not treat it as a finished upgrade.
         discardChallenge();
         flashStore.error(emailError);
-        return;
       }
       throw e;
     }
