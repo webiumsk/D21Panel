@@ -98,10 +98,14 @@ class AppServiceProvider extends ServiceProvider
         // Email-code challenges (EmailCodeChallengeService): per-user caps on
         // guessing and on outbound mail, independent of the shared api-user budget.
         RateLimiter::for('email-code-confirm', function (Request $request) {
-            return Limit::perMinute(10)->by('user:'.($request->user()?->id ?? $request->ip()));
+            $user = $request->user();
+
+            return Limit::perMinute(10)->by($user ? 'user:'.$user->id : 'ip:'.$request->ip());
         });
         RateLimiter::for('email-code-send', function (Request $request) {
-            return Limit::perHour(5)->by('user:'.($request->user()?->id ?? $request->ip()));
+            $user = $request->user();
+
+            return Limit::perHour(5)->by($user ? 'user:'.$user->id : 'ip:'.$request->ip());
         });
         // Per-user limiter for authenticated API endpoints (avoids shared-IP throttling)
         RateLimiter::for('api-user', function (Request $request) {
