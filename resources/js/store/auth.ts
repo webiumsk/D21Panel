@@ -18,8 +18,23 @@ import { ensureEvoluBoundToAccountSeed } from '../evolu/bootstrap';
 import { readRelayOverride, writeRelayOverrideUrl } from '@/evolu/relayOverrideStorage';
 import { normalizeEvoluRelayBaseUrl } from '@/evolu/config';
 
+function isEmailNotVerifiedResponse(error: { response?: { data?: unknown } } | null): boolean {
+    const data = error?.response?.data as { code?: unknown } | undefined;
+    return data?.code === 'email_not_verified';
+}
+
 function scheduleChoralaSync(): void {
     void import('../services/chorala').then(({ syncChoralaIdentity }) => syncChoralaIdentity());
+}
+
+/** Staged 6-digit email code (never the hash or payload) - see EmailCodeChallengeService. */
+export interface EmailChallengeSummary {
+    purpose: string;
+    email: string;
+    expires_at: string;
+    resend_available_at: string;
+    attempts_left: number;
+    sends_left?: number;
 }
 
 export interface User {
@@ -31,6 +46,7 @@ export interface User {
     guest_upgrade_email_only?: boolean;
     requires_recovery_migration?: boolean;
     can_use_password_login?: boolean;
+    pending_email_challenge?: EmailChallengeSummary | null;
     email_verified_at?: string;
     role?: string;
     /** Set once the one-time Pro trial was activated - null/absent = trial still available. */
@@ -108,7 +124,8 @@ export const useAuthStore = defineStore('auth', () => {
         writeRelayOverrideUrl(normalized);
     }
 
-    async function fetchUser() {
+    /** Resolves true when the canonical /user payload was loaded; false when the reload failed (user left as is). */
+    async function fetchUser(): Promise<boolean> {
         try {
             await ensureCsrfCookie();
             hydrateAccountMnemonicSession();
@@ -123,15 +140,23 @@ export const useAuthStore = defineStore('auth', () => {
             if (mnemonic && isInvoicingLocalFirst()) {
                 void ensureEvoluBoundToAccountSeed();
             }
+            return true;
         } catch (rawError) {
             const error = asApiError(rawError);
             const status = error?.response?.status ?? error?.status;
+            if (status === 403 && isEmailNotVerifiedResponse(error)) {
+                // Authenticated but unverified: keep whatever user we have so
+                // the "check your email" screen can render instead of the
+                // login form (GET /user itself no longer 403s; belt and braces).
+                return false;
+            }
             if (status === 401 || status === 403) {
                 user.value = null;
                 scheduleChoralaSync();
                 await tryAutoRestoreGuestFromStoredSeed();
-                return;
+                return false;
             }
+            return false;
         }
     }
 

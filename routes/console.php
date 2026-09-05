@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\ProcessMonthlyExports;
+use App\Models\EmailVerificationChallenge;
 use Illuminate\Support\Facades\Schedule;
 
 // Check subscription statuses daily at 2 AM
@@ -103,3 +104,9 @@ Schedule::command('efaktura:purge-inbound-inbox')
     ->dailyAt('04:40')
     ->withoutOverlapping()
     ->runInBackground();
+
+// Finished email-code challenges (EmailVerificationChallenge::prunable) are
+// dropped a day after they expire/complete; nothing else schedules model:prune.
+Schedule::command('model:prune', ['--model' => [EmailVerificationChallenge::class]])
+    ->hourly()
+    ->withoutOverlapping();

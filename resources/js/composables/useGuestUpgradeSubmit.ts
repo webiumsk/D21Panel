@@ -1,14 +1,17 @@
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useAuthStore } from "../store/auth";
+import { useAuthStore, type EmailChallengeSummary } from "../store/auth";
 import { useFlashStore } from "../store/flash";
 import api from "../services/api";
 import { isGuestUpgradeEmailOnly } from "../config/auth";
 
-function redirectToEmailVerification(): void {
-  window.location.assign("/account/check-email");
-}
-
+/**
+ * Guest -> Free upgrade in two steps against the 6-digit email code API:
+ * submit() stages the address (server emails the code, guest row untouched),
+ * confirm() applies the upgrade, resend() rotates the code. The staged
+ * challenge also arrives in /api/user as `pending_email_challenge`, so a
+ * reload lands straight on the code step.
+ */
 export function useGuestUpgradeSubmit() {
   const { t } = useI18n();
   const authStore = useAuthStore();
@@ -29,6 +32,9 @@ export function useGuestUpgradeSubmit() {
     password: "",
     password_confirmation: "",
   });
+  const challenge = ref<EmailChallengeSummary | null>(
+    authStore.user?.pending_email_challenge ?? null,
+  );
 
   const canSubmit = computed(
     () => privacyConsent.value && termsAccepted.value,
@@ -46,6 +52,7 @@ export function useGuestUpgradeSubmit() {
     resetSensitiveFields();
   }
 
+  /** Step 1: request the code. Resolves true when the code step should open. */
   async function submit(): Promise<boolean> {
     if (!canSubmit.value) return false;
     loading.value = true;
@@ -61,23 +68,81 @@ export function useGuestUpgradeSubmit() {
         payload.password_confirmation = form.value.password_confirmation;
       }
 
-      const response = await api.put("/user/guest/upgrade", payload);
-      if (response?.data?.user) {
-        authStore.user = response.data.user;
-      } else {
-        await authStore.fetchUser();
+      const response = await api.post("/user/guest/upgrade/request", payload);
+      challenge.value = (response?.data?.challenge as EmailChallengeSummary) ?? null;
+      if (authStore.user) {
+        authStore.user = { ...authStore.user, pending_email_challenge: challenge.value };
       }
       resetSensitiveFields();
-      redirectToEmailVerification();
-      return true;
+      return challenge.value !== null;
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string } } };
+      const err = e as {
+        response?: { data?: { message?: string; errors?: Record<string, string[]> } };
+      };
+      const firstError = Object.values(err?.response?.data?.errors ?? {})[0]?.[0];
       flashStore.error(
-        err?.response?.data?.message || t("account.guest_upgrade_failed"),
+        firstError || err?.response?.data?.message || t("account.guest_upgrade_failed"),
       );
       return false;
     } finally {
       loading.value = false;
+    }
+  }
+
+  /** Step 2: confirm the code; throws so the code component can map the error. */
+  async function confirm(code: string): Promise<void> {
+    let response;
+    try {
+      response = await api.post("/user/guest/upgrade/confirm", { code });
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { errors?: { email?: string[] } } } };
+      const emailError = err?.response?.data?.errors?.email?.[0];
+      if (emailError) {
+        // Address got taken between request and confirm: the server burnt the
+        // challenge, so drop the code step and ask for another address. Still
+        // a failure - the caller must not treat it as a finished upgrade.
+        discardChallenge();
+        flashStore.error(emailError);
+      }
+      throw e;
+    }
+    challenge.value = null;
+    // The upgrade is committed server-side: settle the store right away (no
+    // guest, no staged challenge) so the code step closes even if the reload
+    // below fails. The confirm response carries a raw user without the
+    // computed /user fields (can_use_password_login, guest_recovery_enrolled,
+    // plan_features) - recovery-phrase accounts would otherwise be asked for a
+    // password on the next sensitive action - so reload the canonical payload.
+    if (authStore.user) {
+      authStore.user = {
+        ...authStore.user,
+        ...(response?.data?.user ?? {}),
+        is_guest: false,
+        pending_email_challenge: null,
+      };
+    }
+    const reloaded = await authStore.fetchUser();
+    if (reloaded) {
+      flashStore.success(t("account.pending_email_verified"));
+    } else {
+      flashStore.warning(t("account.pending_email_verified_reload_failed"));
+    }
+  }
+
+  async function resend(): Promise<EmailChallengeSummary | null> {
+    const response = await api.post("/user/guest/upgrade/resend");
+    challenge.value = (response?.data?.challenge as EmailChallengeSummary) ?? challenge.value;
+    if (authStore.user) {
+      authStore.user = { ...authStore.user, pending_email_challenge: challenge.value };
+    }
+    return challenge.value;
+  }
+
+  /** "Use a different address": drop the local step; the next request supersedes the server row. */
+  function discardChallenge() {
+    challenge.value = null;
+    if (authStore.user) {
+      authStore.user = { ...authStore.user, pending_email_challenge: null };
     }
   }
 
@@ -87,9 +152,13 @@ export function useGuestUpgradeSubmit() {
     privacyConsent,
     termsAccepted,
     form,
+    challenge,
     canSubmit,
     resetForm,
     resetSensitiveFields,
     submit,
+    confirm,
+    resend,
+    discardChallenge,
   };
 }

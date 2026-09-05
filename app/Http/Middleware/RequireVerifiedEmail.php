@@ -32,7 +32,7 @@ class RequireVerifiedEmail
         }
 
         return $request->expectsJson()
-            ? response()->json(['message' => __('auth.email_not_verified')], 403)
+            ? response()->json(['message' => __('auth.email_not_verified'), 'code' => 'email_not_verified'], 403)
             : redirect()->guest('/login');
     }
 

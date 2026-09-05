@@ -23,7 +23,13 @@ Right after signing up, Satflux offers to add a **passkey**. A passkey lets you 
 
 ## Add an email (optional)
 
-You can add an email address in your account later - it is only used for notifications and account recovery hints, never as your login secret.
+You can add an email address in your account later - it is only used for subscription billing, notifications and confirming sensitive changes, never as your login secret.
+
+1. Open **Account** and enter your email in the **Upgrade guest account** box (or use the upgrade prompt that appears when a feature needs an email).
+2. We email you a **6-digit code**. Type it into the form - the code expires after 10 minutes and works only once.
+3. Done. Nothing changes on your account until the code is confirmed, so an unconfirmed address never gets in the way.
+
+If the email does not arrive, check your spam folder or press **Send a new code** (available again after a short countdown). After five wrong attempts the code is locked - request a new one. If you typed the address wrong, choose **Use a different email address** and start again.
 
 ## Next step
 

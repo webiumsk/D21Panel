@@ -7,11 +7,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\ReadsEmailCodes;
 use Tests\TestCase;
 
 class SeedFirstLoginTest extends TestCase
 {
-    use RefreshDatabase;
+    use ReadsEmailCodes, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -110,12 +111,17 @@ class SeedFirstLoginTest extends TestCase
         ]);
         Sanctum::actingAs($guest);
 
-        $response = $this->putJson('/api/user/guest/upgrade', [
+        $this->postJson('/api/user/guest/upgrade/request', [
             'method' => 'email',
             'email' => 'free-user@satflux.io',
             'privacy_consent' => true,
             'terms_accepted' => true,
-        ]);
+        ])->assertStatus(200)->assertJsonPath('challenge.email', 'free-user@satflux.io');
+
+        // Nothing changes until the code is confirmed.
+        $this->assertTrue((bool) $guest->fresh()->is_guest);
+
+        $response = $this->postJson('/api/user/guest/upgrade/confirm', ['code' => $this->lastEmailCode()]);
 
         $response->assertStatus(200);
         $response->assertJsonPath('user.email', 'free-user@satflux.io');
@@ -124,7 +130,9 @@ class SeedFirstLoginTest extends TestCase
         $guest->refresh();
         $this->assertSame('free-user@satflux.io', $guest->email);
         $this->assertFalse((bool) $guest->is_guest);
-        $this->assertNull($guest->email_verified_at);
+        $this->assertNotNull($guest->email_verified_at);
+        // Email-only upgrade keeps the existing (dead) password untouched.
+        $this->assertTrue(Hash::check('old-password', (string) $guest->password));
         $this->assertFalse(Hash::check('new-secure-password', (string) $guest->password));
     }
 }

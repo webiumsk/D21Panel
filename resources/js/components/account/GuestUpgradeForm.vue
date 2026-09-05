@@ -1,5 +1,16 @@
 <template>
-  <form class="space-y-3" @submit.prevent="onSubmit">
+  <div v-if="challenge" class="space-y-3">
+    <p v-if="introFeatureLabel" class="text-sm text-gray-300">
+      {{ t('account.guest_upgrade_modal_intro', { feature: introFeatureLabel }) }}
+    </p>
+    <EmailCodeVerification
+      :challenge="challenge"
+      :confirm="onConfirm"
+      :resend="resend"
+      @change-email="discardChallenge"
+    />
+  </div>
+  <form v-else class="space-y-3" @submit.prevent="onSubmit">
     <p v-if="introFeatureLabel" class="text-sm text-gray-300">
       {{ t('account.guest_upgrade_modal_intro', { feature: introFeatureLabel }) }}
     </p>
@@ -97,6 +108,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useGuestUpgradeSubmit } from '../../composables/useGuestUpgradeSubmit';
+import EmailCodeVerification from './EmailCodeVerification.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -112,6 +124,9 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
+  /** Code requested - the code step is now showing. */
+  'code-sent': [];
+  /** Code confirmed - the account is upgraded. */
   success: [];
 }>();
 
@@ -122,8 +137,12 @@ const {
   privacyConsent,
   termsAccepted,
   form,
+  challenge,
   canSubmit,
   submit,
+  confirm,
+  resend,
+  discardChallenge,
 } = useGuestUpgradeSubmit();
 
 const introFeatureLabel = computed(() => {
@@ -134,7 +153,12 @@ const introFeatureLabel = computed(() => {
 async function onSubmit() {
   const ok = await submit();
   if (ok) {
-    emit('success');
+    emit('code-sent');
   }
+}
+
+async function onConfirm(code: string) {
+  await confirm(code);
+  emit('success');
 }
 </script>

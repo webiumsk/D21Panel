@@ -23,7 +23,13 @@ Hneď po registrácii Satflux ponúkne pridať **passkey**. Passkey vám umožn�
 
 ## Pridajte e-mail (voliteľné)
 
-E-mail si môžete pridať neskôr v účte - slúži len na notifikácie a pomôcky pri obnove, nikdy nie ako prihlasovacie tajomstvo.
+E-mail si môžete pridať neskôr v účte - slúži len na fakturáciu predplatného, notifikácie a potvrdzovanie citlivých zmien, nikdy nie ako prihlasovacie tajomstvo.
+
+1. Otvorte **Účet** a do rámčeka **Povýšiť hosťovský účet** zadajte svoj e-mail (alebo použite výzvu na povýšenie, ktorá sa zobrazí, keď funkcia vyžaduje e-mail).
+2. Pošleme vám **6-miestny kód**. Opíšte ho do formulára - kód platí 10 minút a funguje len raz.
+3. Hotovo. Kým kód nepotvrdíte, na účte sa nič nemení, takže nepotvrdená adresa vám nikdy nebude prekážať.
+
+Ak e-mail nepríde, skontrolujte spam alebo stlačte **Poslať nový kód** (dostupné po krátkom odpočte). Po piatich nesprávnych pokusoch sa kód zamkne - vyžiadajte si nový. Ak ste adresu zadali zle, zvoľte **Použiť inú e-mailovú adresu** a začnite odznova.
 
 ## Ďalší krok
 
