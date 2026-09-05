@@ -2990,6 +2990,7 @@
     "pending_email_still_unverified": "E-mail stále nevidíme jako ověřený. Otevřete odkaz v poslední zprávě, počkejte několik sekund a zkuste znovu.",
     "pending_email_go_account": "Přejít do nastavení účtu",
     "pending_email_verified": "E-mail ověřen. Vítejte!",
+    "pending_email_verified_reload_failed": "E-mail ověřen, ale údaje účtu se nepodařilo obnovit. Načtěte stránku znovu a pokračujte.",
     "email_code_sent_to": "Kód odeslán na",
     "email_code_subtitle": "Zadejte 6místný kód z e-mailu a dokončete povýšení účtu.",
     "email_code_instructions": "Opište 6místný kód z e-mailu. Platí 10 minut - pokud ho nevidíte, zkontrolujte spam.",

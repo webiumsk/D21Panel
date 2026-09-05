@@ -124,7 +124,8 @@ export const useAuthStore = defineStore('auth', () => {
         writeRelayOverrideUrl(normalized);
     }
 
-    async function fetchUser() {
+    /** Resolves true when the canonical /user payload was loaded; false when the reload failed (user left as is). */
+    async function fetchUser(): Promise<boolean> {
         try {
             await ensureCsrfCookie();
             hydrateAccountMnemonicSession();
@@ -139,6 +140,7 @@ export const useAuthStore = defineStore('auth', () => {
             if (mnemonic && isInvoicingLocalFirst()) {
                 void ensureEvoluBoundToAccountSeed();
             }
+            return true;
         } catch (rawError) {
             const error = asApiError(rawError);
             const status = error?.response?.status ?? error?.status;
@@ -146,14 +148,15 @@ export const useAuthStore = defineStore('auth', () => {
                 // Authenticated but unverified: keep whatever user we have so
                 // the "check your email" screen can render instead of the
                 // login form (GET /user itself no longer 403s; belt and braces).
-                return;
+                return false;
             }
             if (status === 401 || status === 403) {
                 user.value = null;
                 scheduleChoralaSync();
                 await tryAutoRestoreGuestFromStoredSeed();
-                return;
+                return false;
             }
+            return false;
         }
     }
 

@@ -1704,6 +1704,7 @@
     "pending_email_still_unverified": "Aún no vemos tu correo como verificado. Abre el enlace del último mensaje, espera unos segundos e inténtalo otra vez.",
     "pending_email_go_account": "Ir a ajustes de la cuenta",
     "pending_email_verified": "Correo verificado. ¡Bienvenido!",
+    "pending_email_verified_reload_failed": "Correo verificado, pero no se pudieron actualizar los datos de la cuenta. Recarga la página para continuar.",
     "email_code_sent_to": "Código enviado a",
     "email_code_subtitle": "Introduzca el código de 6 dígitos que le enviamos por correo para terminar de actualizar su cuenta.",
     "email_code_instructions": "Escriba el código de 6 dígitos del correo. Caduca en 10 minutos - revise la carpeta de spam si no lo ve.",

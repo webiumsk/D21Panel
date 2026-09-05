@@ -2990,6 +2990,7 @@
     "pending_email_still_unverified": "We still do not see a verified email on your account. Open the link in the latest message, wait a few seconds, then try again.",
     "pending_email_go_account": "Go to account settings",
     "pending_email_verified": "Email verified. Welcome!",
+    "pending_email_verified_reload_failed": "Email verified, but your account details could not be refreshed. Reload the page to continue.",
     "email_code_sent_to": "Code sent to",
     "email_code_subtitle": "Enter the 6-digit code we emailed you to finish upgrading your account.",
     "email_code_instructions": "Type the 6-digit code from the email. It expires in 10 minutes - check spam/junk if you do not see it.",

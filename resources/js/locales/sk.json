@@ -2991,6 +2991,7 @@
     "pending_email_still_unverified": "E-mail stále nevidíme ako overený. Otvor odkaz v poslednej správe, počkaj pár sekúnd a skús znova.",
     "pending_email_go_account": "Ísť do nastavení účtu",
     "pending_email_verified": "E-mail je overený. Vitaj!",
+    "pending_email_verified_reload_failed": "E-mail je overený, ale údaje účtu sa nepodarilo obnoviť. Načítaj stránku znova a pokračuj.",
     "email_code_sent_to": "Kód odoslaný na",
     "email_code_subtitle": "Zadajte 6-miestny kód z e-mailu a dokončite povýšenie účtu.",
     "email_code_instructions": "Opíšte 6-miestny kód z e-mailu. Platí 10 minút - ak ho nevidíte, skontrolujte spam.",

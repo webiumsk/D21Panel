@@ -91,8 +91,9 @@ export function useGuestUpgradeSubmit() {
 
   /** Step 2: confirm the code; throws so the code component can map the error. */
   async function confirm(code: string): Promise<void> {
+    let response;
     try {
-      await api.post("/user/guest/upgrade/confirm", { code });
+      response = await api.post("/user/guest/upgrade/confirm", { code });
     } catch (e: unknown) {
       const err = e as { response?: { data?: { errors?: { email?: string[] } } } };
       const emailError = err?.response?.data?.errors?.email?.[0];
@@ -106,12 +107,26 @@ export function useGuestUpgradeSubmit() {
       throw e;
     }
     challenge.value = null;
-    // The confirm response carries a raw user without the computed /user
-    // fields (can_use_password_login, guest_recovery_enrolled, plan_features).
-    // Recovery-phrase accounts would otherwise be asked for a password on the
-    // next sensitive action, so always reload the canonical payload.
-    await authStore.fetchUser();
-    flashStore.success(t("account.pending_email_verified"));
+    // The upgrade is committed server-side: settle the store right away (no
+    // guest, no staged challenge) so the code step closes even if the reload
+    // below fails. The confirm response carries a raw user without the
+    // computed /user fields (can_use_password_login, guest_recovery_enrolled,
+    // plan_features) - recovery-phrase accounts would otherwise be asked for a
+    // password on the next sensitive action - so reload the canonical payload.
+    if (authStore.user) {
+      authStore.user = {
+        ...authStore.user,
+        ...(response?.data?.user ?? {}),
+        is_guest: false,
+        pending_email_challenge: null,
+      };
+    }
+    const reloaded = await authStore.fetchUser();
+    if (reloaded) {
+      flashStore.success(t("account.pending_email_verified"));
+    } else {
+      flashStore.warning(t("account.pending_email_verified_reload_failed"));
+    }
   }
 
   async function resend(): Promise<EmailChallengeSummary | null> {

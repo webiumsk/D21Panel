@@ -2990,6 +2990,7 @@
     "pending_email_still_unverified": "Wir sehen auf Ihrem Konto noch keine bestätigte E-Mail. Öffnen Sie den Link in der neuesten Nachricht, warten Sie einige Sekunden und versuchen Sie es erneut.",
     "pending_email_go_account": "Zu den Kontoeinstellungen",
     "pending_email_verified": "E-Mail bestätigt. Willkommen!",
+    "pending_email_verified_reload_failed": "E-Mail bestätigt, aber die Kontodaten konnten nicht aktualisiert werden. Lade die Seite neu, um fortzufahren.",
     "email_code_sent_to": "Code gesendet an",
     "email_code_subtitle": "Geben Sie den 6-stelligen Code aus der E-Mail ein, um das Konto-Upgrade abzuschließen.",
     "email_code_instructions": "Tippen Sie den 6-stelligen Code aus der E-Mail ein. Er läuft in 10 Minuten ab - prüfen Sie den Spam-Ordner, falls er fehlt.",
