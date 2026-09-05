@@ -8,6 +8,7 @@ use App\Services\BtcPay\CashuService;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\LightningService;
 use App\Services\StoreChecklistService;
+use App\Services\WalletChangeConfirmationGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,12 @@ class CashuController extends Controller
             'max_melt_fee_reserve_percent_of_minted' => ['sometimes', 'nullable', 'numeric', 'between:0,100'],
         ]);
 
+        $changeGuard = app(WalletChangeConfirmationGuard::class);
+        if ($switchingFromLightning) {
+            // Lightning -> Cashu drops the connected wallet: email-code gate applies.
+            $changeGuard->assert($store, $request->user());
+        }
+
         $userApiKey = $store->user->getBtcPayApiKeyOrFail();
 
         $payload = $this->buildCashuMeltSettingsPayloadFromRequest($request);
@@ -98,6 +105,9 @@ class CashuController extends Controller
 
                 return $this->cashuService->saveSettings($store->btcpay_store_id, $payload, $userApiKey);
             });
+            if ($switchingFromLightning) {
+                $changeGuard->consumeGrant($store, $request->user());
+            }
         } catch (BtcPayException $e) {
             if ($e->getStatusCode() === 400
                 && str_contains($e->getMessage(), 'Request body must be a JSON object')) {

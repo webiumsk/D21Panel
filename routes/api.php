@@ -991,6 +991,15 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
         ->middleware([EnsureStoreOwnership::class, AuditLog::class.':wallet_connection.revealed', 'throttle:5,1']);
     Route::post('/stores/{store}/wallet-connection', [WalletConnectionController::class, 'store'])
         ->middleware([EnsureStoreOwnership::class, AuditLog::class.':wallet_connection.created']);
+    // Replacing a CONNECTED wallet: password re-auth + 6-digit email code
+    // (WalletChangeConfirmationGuard). confirm reveals the secret and grants
+    // the write for a short window; guests are told to upgrade first.
+    Route::post('/stores/{store}/wallet-connection/change/request', [WalletConnectionController::class, 'requestChange'])
+        ->middleware([EnsureStoreOwnership::class, 'throttle:email-code-send']);
+    Route::post('/stores/{store}/wallet-connection/change/confirm', [WalletConnectionController::class, 'confirmChange'])
+        ->middleware([EnsureStoreOwnership::class, AuditLog::class.':wallet_connection.revealed', 'throttle:email-code-confirm']);
+    Route::post('/stores/{store}/wallet-connection/change/resend', [WalletConnectionController::class, 'resendChange'])
+        ->middleware([EnsureStoreOwnership::class, 'throttle:email-code-send']);
     Route::post('/stores/{store}/wallet-connection/check-duplicate', [WalletConnectionController::class, 'checkDuplicate'])
         ->middleware([EnsureStoreOwnership::class]);
     // Server-side LUD-21 verify probe for unknown Lightning-address domains

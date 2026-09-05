@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { classifyApiErrorForFlash, GLOBAL_API_ERROR_MESSAGE_KEYS, type GlobalApiErrorKind } from './apiError';
+import type { EmailChallengeSummary } from '../store/auth';
 import type { BlinkMigrationAlert, Store } from '../store/stores';
 import type { BtcPayApp, StoreDashboardStats, StoreSettings, UpdateStoreSettingsPayload } from '../types/btcpay';
 
@@ -236,6 +237,24 @@ export interface WalletConnectionDetails {
     secret_updated_at?: string | null;
     submitted_by_user_id?: number | null;
     bot_failure_message?: string | null;
+    /** Replacing a connected wallet needs an email-code grant (WalletChangeConfirmationGuard). */
+    change_confirmation?: WalletChangeConfirmationState | null;
+}
+
+export interface WalletChangeConfirmationState {
+    required: boolean;
+    guest_upgrade_required: boolean;
+    pending: EmailChallengeSummary | null;
+    granted_until: string | null;
+}
+
+export interface WalletChangeRequestResult {
+    required: boolean;
+    challenge?: EmailChallengeSummary;
+}
+
+export interface WalletChangeGrant extends WalletSecretReveal {
+    granted_until: string | null;
 }
 
 /** Support queue row: a wallet connection enriched with store/actor context. */
@@ -295,6 +314,21 @@ export const walletApi = {
         async reveal(storeId: string, confirmation: SensitiveActionConfirmation): Promise<WalletSecretReveal> {
             const { data } = await api.post<ApiEnvelope<WalletSecretReveal>>(`/stores/${storeId}/wallet-connection/reveal`, confirmation);
             return data.data;
+        },
+        /** Replacing a CONNECTED wallet: re-auth + email code, confirm reveals the secret and grants the write. */
+        change: {
+            async request(storeId: string, confirmation: SensitiveActionConfirmation): Promise<WalletChangeRequestResult> {
+                const { data } = await api.post<ApiEnvelope<WalletChangeRequestResult>>(`/stores/${storeId}/wallet-connection/change/request`, confirmation);
+                return data.data;
+            },
+            async confirm(storeId: string, code: string): Promise<WalletChangeGrant> {
+                const { data } = await api.post<ApiEnvelope<WalletChangeGrant>>(`/stores/${storeId}/wallet-connection/change/confirm`, { code });
+                return data.data;
+            },
+            async resend(storeId: string): Promise<EmailChallengeSummary | null> {
+                const { data } = await api.post<ApiEnvelope<{ challenge: EmailChallengeSummary | null }>>(`/stores/${storeId}/wallet-connection/change/resend`);
+                return data.data?.challenge ?? null;
+            },
         },
         // Note: this endpoint responds without the { data } envelope
         async test(storeId: string, payload: { connection_string: string; crypto_code: string }): Promise<{ success?: boolean; message?: string; requires_manual_config?: boolean }> {

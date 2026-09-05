@@ -26,6 +26,8 @@ return [
     'email_code_cooldown' => 'Please wait :seconds seconds before requesting another code.',
     'email_code_send_limit' => 'Too many codes were sent to this address. Try again later.',
     'email_code_send_failed' => 'We could not send the verification email. Try again in a moment.',
+    'wallet_change_confirmation_required' => 'Confirm the change with the code we emailed you before replacing the connected wallet.',
+    'wallet_change_guest_upgrade_required' => 'Changing a connected wallet requires an account with a verified email. Upgrade your guest account first.',
     'guest_feature_requires_account' => 'This action requires a full account. Upgrade from Account settings.',
     'guest_one_store_only' => 'Guest sessions are limited to one store. Create a full account to add more stores.',
     'guest_pos_limit_one' => 'Guest mode allows only one Point of Sale app per store.',

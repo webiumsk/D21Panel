@@ -11,11 +11,12 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\ReadsEmailCodes;
 use Tests\TestCase;
 
 class CashuPaymentsTest extends TestCase
 {
-    use RefreshDatabase;
+    use ReadsEmailCodes, RefreshDatabase;
 
     public function test_list_payments_normalizes_pending_to_settled_when_settled_at_present(): void
     {
@@ -242,6 +243,9 @@ class CashuPaymentsTest extends TestCase
         ]);
 
         Sanctum::actingAs($user);
+
+        // Lightning -> Cashu drops the connected wallet: needs the email-code grant.
+        $this->grantWalletChange($user, $store);
 
         $this->putJson("/api/stores/{$store->id}/cashu/settings", [
             'mint_url' => 'https://mint.example/x',

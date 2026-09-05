@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Store;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\SamRockService;
+use App\Services\WalletChangeConfirmationGuard;
 use App\Services\WalletConnectionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -138,6 +139,10 @@ class SamRockController extends Controller
             'fallback_lightning_address' => ['required', 'string', 'max:320', 'regex:/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/'],
         ]);
 
+        // Re-pairing over a connected wallet replaces it: same email-code gate as the form.
+        $changeGuard = app(WalletChangeConfirmationGuard::class);
+        $changeGuard->assert($store, $request->user());
+
         $userApiKey = $store->user->getBtcPayApiKeyOrFail();
 
         try {
@@ -166,6 +171,7 @@ class SamRockController extends Controller
             $request->user(),
             $validated['fallback_lightning_address']
         );
+        $changeGuard->consumeGrant($store, $request->user());
 
         $fallbackConfigured = true;
         try {

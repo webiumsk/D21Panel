@@ -9,6 +9,19 @@ You can **change** your wallet credential (Blink connection string or Aqua descr
 
 ---
 
+**Confirming a change of a connected wallet**
+
+Replacing a wallet that is already **connected** is a sensitive change, so Satflux asks you to confirm it before the form opens:
+
+1. Open the store → **Wallet connection** and press **Change connection**.
+2. Enter your account password (accounts that sign in with a recovery phrase skip this step).
+3. We email a **6-digit code** to your account address. Enter it in the form - the code expires after 10 minutes and you can request a new one after a short countdown.
+4. The form opens with the current credential filled in. Replace it and save. The confirmation is valid for 15 minutes; if it runs out, Satflux asks for a new code before saving.
+
+Nothing on your store changes until the code is confirmed, and the same confirmation covers re-pairing with SamRock and switching a Lightning store to Cashu. A **guest account** has no email to receive the code, so it must first be upgraded with an email address (see [Create your account](/documentation/create-account)). The first wallet connection of a new store needs no code.
+
+---
+
 **Blink: revoke or rotate the API key, then update in Satflux**
 
 1. **In the Blink dashboard** 1: Revoke (delete) the old API key and/or create a new one with **read and receive** only.

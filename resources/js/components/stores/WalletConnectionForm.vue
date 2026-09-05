@@ -76,6 +76,28 @@
       </div>
     </template>
 
+    <!-- Email-code step: a connected wallet is only replaced after the code -->
+    <template v-else-if="existingConnection && viewMode === 'code' && changeChallenge">
+      <div class="bg-gray-900/50 border border-gray-700 rounded-xl p-6 max-w-md space-y-4">
+        <p class="text-sm text-gray-400">
+          {{ t("stores.wallet_change_code_intro") }}
+        </p>
+        <EmailCodeVerification
+          :challenge="changeChallenge"
+          :confirm="handleConfirmChangeCode"
+          :resend="handleResendChangeCode"
+          :allow-change-email="false"
+        />
+        <button
+          type="button"
+          class="text-sm text-gray-400 hover:text-white"
+          @click="cancelChangeCode"
+        >
+          {{ t("common.cancel") }}
+        </button>
+      </div>
+    </template>
+
     <!-- Unified wallet setup (paste first, SamRock second - same as create store) -->
     <template v-else-if="showWalletSetupForm">
       <div class="space-y-6">
@@ -124,7 +146,9 @@
       >
         <LightningAddressQuickConnect
           :store-id="storeId"
+          :initial-address="quickConnectAddress"
           @submitted="onQuickConnectSubmitted"
+          @confirmation-required="onGrantExpired"
         />
       </div>
 
@@ -477,7 +501,9 @@ import { asApiError } from "../../utils/apiError";
 import { ref, reactive, computed, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { useAuthStore } from "../../store/auth";
+import { useAuthStore, type EmailChallengeSummary } from "../../store/auth";
+import { useGuestUpgradeModal } from "../../composables/useGuestUpgradeModal";
+import EmailCodeVerification from "../account/EmailCodeVerification.vue";
 import { useSamRockPairing } from "../../composables/useSamRockPairing";
 import CashuConnectionSection from "./wallet-connection/CashuConnectionSection.vue";
 import ConnectionReadonlyCard from "./wallet-connection/ConnectionReadonlyCard.vue";
@@ -625,7 +651,7 @@ const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 
-type ViewMode = "readonly" | "password" | "editing" | "create";
+type ViewMode = "readonly" | "password" | "code" | "editing" | "create";
 
 type WalletConnectionFormType = "blink" | "blitz" | "flash" | "lnaddress" | "aqua_descriptor" | "nwc";
 
@@ -661,11 +687,27 @@ const viewMode = ref<ViewMode>(initialWalletViewMode(props.existingConnection));
 const passwordInput = ref("");
 const passwordError = ref("");
 const revealing = ref(false);
+/** Staged email-code challenge for replacing a CONNECTED wallet (WalletChangeConfirmationGuard). */
+const changeChallenge = ref<EmailChallengeSummary | null>(
+  props.existingConnection?.change_confirmation?.pending ?? null,
+);
+const { openGuestUpgradeModal } = useGuestUpgradeModal();
 
 /** Legacy email/password accounts; recovery-phrase users have no password. */
 const canUsePasswordLogin = computed(
   () => authStore.user?.can_use_password_login ?? true,
 );
+/** Address prefilled into the Lightning-address tab when editing an lnaddress connection. */
+const quickConnectAddress = ref("");
+
+/** Bare address out of a stored lnaddress connection string (or the bare address itself). */
+function lnAddressFromConnectionString(secret: string): string {
+  const trimmed = secret.trim();
+  if (!trimmed.includes(";") && !trimmed.includes("=")) return trimmed;
+  const match = trimmed.match(/(?:^|;)\s*(?:ln-address|lnaddress|username)\s*=\s*([^;]+)/i);
+  return match?.[1]?.trim() ?? "";
+}
+
 /** Shared post-reveal handoff: prefill the setup form and switch to editing. */
 function applyRevealedConnection(reveal: { secret?: string; type?: string }) {
   form.type = (reveal.type ||
@@ -676,7 +718,9 @@ function applyRevealedConnection(reveal: { secret?: string; type?: string }) {
     )) as WalletConnectionFormType;
   form.secret = reveal.secret || "";
   sanitizeSecretForDeclaredType();
-  syncWalletFormAquaTabAfterReveal();
+  quickConnectAddress.value =
+    form.type === "lnaddress" ? lnAddressFromConnectionString(form.secret) : "";
+  syncWalletSetupTabAfterReveal();
   viewMode.value = "editing";
 }
 
@@ -799,12 +843,20 @@ watch(
     switchToCashuIntent.value = false;
     switchToLightningIntent.value = false;
     walletSetupTab.value = "ln";
+    // A code issued for the previous store must never be entered here.
+    changeChallenge.value = null;
+    resumeEditingAfterGrant.value = false;
   },
 );
 
 watch(
   () => props.existingConnection,
   (conn) => {
+    // Mirror the server's pending challenge unless the code step is open
+    // right now (its challenge came from this session's request/resend).
+    if (viewMode.value !== "code") {
+      changeChallenge.value = conn?.change_confirmation?.pending ?? null;
+    }
     if (!conn) {
       viewMode.value = "create";
 
@@ -835,9 +887,30 @@ watch(
   { flush: "post" },
 );
 
+const changeNeedsGuestUpgrade = computed(
+  () =>
+    props.existingConnection?.change_confirmation?.guest_upgrade_required === true ||
+    (props.existingConnection?.change_confirmation?.required === true && authStore.user?.is_guest === true),
+);
+
+function promptGuestUpgradeForWalletChange() {
+  passwordError.value = t("stores.wallet_change_guest_required");
+  openGuestUpgradeModal("stores.wallet_change_feature_label");
+}
+
 function startWalletConnectionEdit() {
   passwordError.value = "";
   passwordInput.value = "";
+  if (changeNeedsGuestUpgrade.value) {
+    // Guests have no inbox for the code: upgrade to Free first.
+    promptGuestUpgradeForWalletChange();
+    return;
+  }
+  if (changeChallenge.value && props.existingConnection?.change_confirmation?.required) {
+    // A code is already on its way (e.g. reload mid-flow).
+    viewMode.value = "code";
+    return;
+  }
   if (!canUsePasswordLogin.value) {
     void handleConfirmPassword();
     return;
@@ -845,6 +918,11 @@ function startWalletConnectionEdit() {
   viewMode.value = "password";
 }
 
+/**
+ * Password step. For a CONNECTED wallet the server answers with an email-code
+ * challenge (the secret is revealed once the code is confirmed); otherwise it
+ * reports required=false and we fall back to the plain reveal.
+ */
 async function handleConfirmPassword() {
   if (canUsePasswordLogin.value && !passwordInput.value.trim()) return;
   passwordError.value = "";
@@ -853,11 +931,22 @@ async function handleConfirmPassword() {
     const payload = canUsePasswordLogin.value
       ? { password: passwordInput.value }
       : {};
-    const reveal = await walletApi.connection.reveal(props.storeId, payload);
+    const change = await walletApi.connection.change.request(props.storeId, payload);
     passwordInput.value = "";
+    if (change.required && change.challenge) {
+      changeChallenge.value = change.challenge;
+      viewMode.value = "code";
+      return;
+    }
+    const reveal = await walletApi.connection.reveal(props.storeId, payload);
     applyRevealedConnection(reveal);
   } catch (rawError) {
     const err = asApiError(rawError);
+    if (err.response?.data?.code === "guest_upgrade_required") {
+      viewMode.value = "readonly";
+      promptGuestUpgradeForWalletChange();
+      return;
+    }
     const msg =
       err.response?.data?.errors?.password?.[0] ||
       err.response?.data?.message ||
@@ -866,6 +955,49 @@ async function handleConfirmPassword() {
   } finally {
     revealing.value = false;
   }
+}
+
+/**
+ * Set when a save was refused because the grant expired: the merchant already
+ * typed the new connection, so after the fresh code we return to the form as
+ * it was instead of prefilling it with the revealed (old) secret again.
+ */
+const resumeEditingAfterGrant = ref(false);
+
+async function handleConfirmChangeCode(code: string) {
+  const grant = await walletApi.connection.change.confirm(props.storeId, code);
+  changeChallenge.value = null;
+  if (resumeEditingAfterGrant.value) {
+    resumeEditingAfterGrant.value = false;
+    errors.general = "";
+    viewMode.value = "editing";
+    return;
+  }
+  applyRevealedConnection(grant);
+}
+
+/** Grant expired mid-edit (409 on save): keep the typed values and re-run the code step. */
+function onGrantExpired(typedAddress?: string) {
+  if (typeof typedAddress === "string") {
+    quickConnectAddress.value = typedAddress;
+  }
+  errors.general = t("stores.wallet_change_grant_expired");
+  resumeEditingAfterGrant.value = true;
+  changeChallenge.value = null;
+  startWalletConnectionEdit();
+}
+
+async function handleResendChangeCode() {
+  const next = await walletApi.connection.change.resend(props.storeId);
+  if (next) changeChallenge.value = next;
+  return next;
+}
+
+function cancelChangeCode() {
+  viewMode.value = "readonly";
+  passwordError.value = "";
+  resumeEditingAfterGrant.value = false;
+  errors.general = "";
 }
 
 function handleCancelEdit() {
@@ -910,7 +1042,13 @@ function sanitizeSecretForDeclaredType() {
   }
 }
 
-function syncWalletFormAquaTabAfterReveal() {
+function syncWalletSetupTabAfterReveal() {
+  if (form.type === "lnaddress" && showWalletSetupTabs.value) {
+    // A plain Lightning address belongs on the address tab, not the raw
+    // connection-string tab - the merchant only ever typed the address.
+    walletSetupTab.value = "ln";
+    return;
+  }
   if (form.type !== "aqua_descriptor") {
     walletSetupTab.value = "advanced";
     return;
@@ -1140,6 +1278,17 @@ async function handleSubmit() {
     emit("submitted", form.type);
   } catch (rawError) {
     const err = asApiError(rawError);
+    const code = err.response?.data?.code;
+    if (code === "wallet_change_confirmation_required") {
+      // Grant expired (or never granted): back through the confirmation step.
+      onGrantExpired();
+      return;
+    }
+    if (code === "guest_upgrade_required") {
+      viewMode.value = "readonly";
+      promptGuestUpgradeForWalletChange();
+      return;
+    }
     if (err.response?.status === 422) {
       const validationErrors = err.response?.data?.errors ?? {};
       Object.keys(validationErrors).forEach((key) => {
