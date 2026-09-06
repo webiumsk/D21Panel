@@ -45,14 +45,15 @@ class WalletSecurityNotifier
         );
     }
 
-    /** @param array{changed: string[], added: string[], removed: string[]} $diff */
+    /** @param array{changed: string[], added: string[], removed: string[], details?: array<string, array{expected: string|null, actual: string|null}>} $diff */
     public function driftDetected(Store $store, WalletConnection $connection, array $diff): void
     {
         $summary = $this->diffSummary($diff);
         $this->merchantMessage(
             $store,
             'Wallet configuration changed outside Satflux - '.$store->name,
-            'The payment configuration of "'.$store->name.'" on the payment server no longer matches the wallet you connected ('.$summary.').'
+            'The payment configuration of "'.$store->name.'" on the payment server no longer matches the wallet you connected. '
+            .self::describeForMerchant($connection, $diff)
             .' Payments may be routed elsewhere. Reconnect your wallet immediately and contact support.',
         );
 
@@ -133,6 +134,68 @@ class WalletSecurityNotifier
         } catch (\Throwable $e) {
             Log::warning('Failed to post wallet security alert to Discord', ['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Merchant-facing sentence(s): "Your Lightning address changed from A to B."
+     * for address-based wallets, otherwise which connection string / method
+     * changed with masked values. The expected side falls back to the secret
+     * Satflux holds when the baseline predates config snapshots.
+     *
+     * @param  array{changed: string[], added: string[], removed: string[], details?: array<string, array{expected: string|null, actual: string|null}>}  $diff
+     */
+    public static function describeForMerchant(WalletConnection $connection, array $diff): string
+    {
+        $sentences = [];
+        $details = $diff['details'] ?? [];
+        $storedMasked = $connection->masked_secret ?: null;
+        $storedAddress = $storedMasked ? self::lightningAddressIn($storedMasked) : null;
+
+        foreach ($diff['changed'] as $method) {
+            $expected = $details[$method]['expected'] ?? null;
+            $actual = $details[$method]['actual'] ?? null;
+            $isLightning = strtoupper($method) === 'BTC-LN' || str_ends_with(strtoupper($method), '-LN');
+            $from = self::lightningAddressIn($expected) ?? ($isLightning ? $storedAddress : null);
+            $to = self::lightningAddressIn($actual);
+            if ($to !== null && $from !== null && $to !== $from) {
+                $sentences[] = 'Your Lightning address was changed from '.$from.' to '.$to.'.';
+            } elseif ($to !== null && $from === null) {
+                $sentences[] = 'The Lightning address on the payment server is now '.$to.($storedMasked ? ' instead of your connection '.$storedMasked : '').'.';
+            } elseif ($actual !== null && str_starts_with($actual, 'disabled')) {
+                $sentences[] = 'Payment method '.$method.' was disabled.';
+            } else {
+                $exp = $expected ?? ($isLightning ? $storedMasked : null);
+                $sentences[] = 'The connection string of '.$method.' was changed'
+                    .($exp !== null ? ' (expected '.$exp : '')
+                    .($actual !== null ? ($exp !== null ? ', found ' : ' (found ').$actual : '')
+                    .(($exp !== null || $actual !== null) ? ')' : '').'.';
+            }
+        }
+        foreach ($diff['added'] as $method) {
+            $actual = $details[$method]['actual'] ?? null;
+            $sentences[] = 'Payment method '.$method.' was added'.($actual !== null ? ' ('.$actual.')' : '').'.';
+        }
+        foreach ($diff['removed'] as $method) {
+            $sentences[] = 'Payment method '.$method.' was removed.';
+        }
+
+        return $sentences === [] ? 'Details: '.self::diffSummary($diff) : implode(' ', $sentences);
+    }
+
+    /** user@domain out of a (masked) connection-string summary or bare address, or null. */
+    public static function lightningAddressIn(?string $text): ?string
+    {
+        if ($text === null || $text === '') {
+            return null;
+        }
+        if (preg_match('/(?:ln-address|lnaddress|username)=([^;\s\]]+@[^;\s\]]+)/i', $text, $m) === 1) {
+            return $m[1];
+        }
+        if (preg_match('/(?:^|[\s\[=])([A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})(?:$|[\s\];])/', $text, $m) === 1) {
+            return $m[1];
+        }
+
+        return null;
     }
 
     /** @param array{changed: string[], added: string[], removed: string[], details?: array<string, array{expected: string|null, actual: string|null}>} $diff */

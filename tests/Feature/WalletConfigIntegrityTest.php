@@ -146,6 +146,11 @@ class WalletConfigIntegrityTest extends TestCase
         $this->assertStringContainsString('api-key=****CKER', $detail['actual']);
         $this->assertStringNotContainsString('blink_test123', json_encode($fresh->drift_details));
         $this->assertStringNotContainsString('blink_ATTACKER', json_encode($fresh->drift_details));
+        // Merchant text names what changed without leaking credentials.
+        $body = UserMessage::where('user_id', $user->id)->where('type', 'security')->latest('id')->value('body');
+        $this->assertStringContainsString('The connection string of BTC-LN was changed (expected', $body);
+        $this->assertStringContainsString('api-key=****CKER', $body);
+        $this->assertStringNotContainsString('blink_ATTACKER', $body);
         $this->assertDatabaseHas('audit_logs', ['action' => 'wallet_connection.drift_detected', 'target_id' => $connection->id]);
 
         // Merchant: pinned security message + e-mail. Admin: security message.
@@ -366,6 +371,37 @@ class WalletConfigIntegrityTest extends TestCase
         $this->getJson('/api/admin/wallet-changes/drifts')->assertJsonCount(0, 'data');
         $this->postJson("/api/admin/wallet-connections/{$connection->id}/verify-config")
             ->assertJsonPath('data.status', 'ok');
+    }
+
+    #[Test]
+    public function merchant_text_shows_old_and_new_lightning_address(): void
+    {
+        $connection = new WalletConnection(['type' => 'lnaddress', 'encrypted_secret' => Crypt::encryptString('type=lnaddress;ln-address=shop@blink.sv;')]);
+
+        $text = \App\Services\WalletSecurity\WalletSecurityNotifier::describeForMerchant($connection, [
+            'changed' => ['BTC-LN'], 'added' => [], 'removed' => [],
+            'details' => ['BTC-LN' => [
+                'expected' => 'enabled connectionString=type=lnaddress;ln-address=shop@blink.sv;',
+                'actual' => 'enabled connectionString=type=lnaddress;ln-address=thief@coinos.io;',
+            ]],
+        ]);
+        $this->assertSame('Your Lightning address was changed from shop@blink.sv to thief@coinos.io.', $text);
+
+        // Baseline predates snapshots: the expected side comes from the stored secret.
+        $text = \App\Services\WalletSecurity\WalletSecurityNotifier::describeForMerchant($connection, [
+            'changed' => ['BTC-LN'], 'added' => [], 'removed' => [],
+            'details' => ['BTC-LN' => ['expected' => null, 'actual' => 'enabled connectionString=type=lnaddress;ln-address=thief@coinos.io;']],
+        ]);
+        $this->assertSame('Your Lightning address was changed from shop@blink.sv to thief@coinos.io.', $text);
+
+        $text = \App\Services\WalletSecurity\WalletSecurityNotifier::describeForMerchant($connection, [
+            'changed' => ['BTC-LN'], 'added' => ['BTC-CHAIN'], 'removed' => [],
+            'details' => [
+                'BTC-LN' => ['expected' => 'enabled connectionString=type=lnaddress;ln-address=shop@blink.sv;', 'actual' => 'disabled connectionString=type=lnaddress;ln-address=shop@blink.sv;'],
+                'BTC-CHAIN' => ['expected' => null, 'actual' => 'enabled derivationScheme=xpub6****abcd'],
+            ],
+        ]);
+        $this->assertSame('Payment method BTC-LN was disabled. Payment method BTC-CHAIN was added (enabled derivationScheme=xpub6****abcd).', $text);
     }
 
     private function seedGrant(User $user, Store $store): void
