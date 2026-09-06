@@ -24,6 +24,24 @@ class InvoiceService
      * @param  string|null  $userApiKey  User-level API key (optional)
      * @return array Invoice list with pagination metadata
      */
+    /** Archive (soft-delete) a BTCPay invoice - used for the payee-attestation canary. */
+    public function archiveInvoice(string $storeId, string $invoiceId, ?string $userApiKey = null): void
+    {
+        $originalApiKey = null;
+        if ($userApiKey) {
+            $originalApiKey = $this->client->getApiKey();
+            $this->client->setApiKey($userApiKey);
+        }
+
+        try {
+            $this->client->delete("/api/v1/stores/{$storeId}/invoices/{$invoiceId}");
+        } finally {
+            if ($userApiKey && $originalApiKey) {
+                $this->client->setApiKey($originalApiKey);
+            }
+        }
+    }
+
     /**
      * Create a BTCPay store invoice (Greenfield).
      *
@@ -86,6 +104,9 @@ class InvoiceService
     {
         $apiKeyHash = $userApiKey ? hash('sha256', $userApiKey) : 'server';
         Cache::forget("btcpay:invoice:{$storeId}:{$invoiceId}:{$apiKeyHash}");
+        // The payment list changes with every settlement: drop it together
+        // with the invoice, otherwise a webhook-driven resync reads stale payments.
+        Cache::forget("btcpay:invoice:payment_methods:{$storeId}:{$invoiceId}:{$apiKeyHash}");
     }
 
     public function getInvoice(string $storeId, string $invoiceId, ?string $userApiKey = null): array

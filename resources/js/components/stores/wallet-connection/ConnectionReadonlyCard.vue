@@ -74,6 +74,28 @@
       </ul>
       <p class="mt-2 text-sm text-red-100/90">{{ t("stores.wallet_drift_action") }}</p>
     </div>
+    <div
+      v-if="connection.payee_mismatch_at && connection.payee_mismatch_details"
+      class="mt-6 rounded-xl border border-red-500/60 bg-red-500/10 p-4"
+      role="alert"
+    >
+      <p class="text-sm font-semibold text-red-200">{{ t("stores.wallet_payee_title") }}</p>
+      <p class="mt-1 text-sm text-red-100/90">
+        {{
+          t("stores.wallet_payee_body", {
+            date: new Date(connection.payee_mismatch_at).toLocaleString(),
+            invoice: connection.payee_mismatch_details.invoice_id || "-",
+          })
+        }}
+      </p>
+      <p class="mt-1 text-xs font-mono text-red-200/80 break-all">
+        {{ t("stores.wallet_payee_found") }}: {{ connection.payee_mismatch_details.pubkey }}
+      </p>
+      <p class="mt-1 text-xs font-mono text-red-200/80 break-all">
+        {{ t("stores.wallet_payee_expected") }}: {{ connection.payee_mismatch_details.expected.join(", ") }}
+      </p>
+      <p class="mt-2 text-sm text-red-100/90">{{ t("stores.wallet_payee_action") }}</p>
+    </div>
     <div class="mt-6 pt-6 border-t border-gray-700">
       <span
         class="block text-gray-500 text-xs uppercase tracking-wider mb-2"

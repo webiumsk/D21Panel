@@ -249,6 +249,19 @@ export interface WalletConnectionDetails {
         removed: string[];
         details?: Record<string, { expected: string | null; actual: string | null }>;
     } | null;
+    /** Payee attestation: when the Lightning node behind the wallet was learned. */
+    payee_learned_at?: string | null;
+    /** Set while a settled payment was signed by a node that is not the wallet's. */
+    payee_mismatch_at?: string | null;
+    payee_mismatch_details?: WalletPayeeMismatch | null;
+}
+
+export interface WalletPayeeMismatch {
+    pubkey: string;
+    invoice_id: string | null;
+    method: string | null;
+    expected: string[];
+    seen_at: string;
 }
 
 export interface WalletChangeConfirmationState {

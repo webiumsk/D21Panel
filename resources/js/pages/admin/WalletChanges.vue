@@ -42,7 +42,7 @@
                 {{ d.store?.name || d.store?.id }}
                 <span class="text-gray-400 font-normal text-sm">· {{ d.owner_email }}</span>
               </p>
-              <p class="text-xs text-red-200/90 mt-1">
+              <p v-if="d.drift_detected_at" class="text-xs text-red-200/90 mt-1">
                 {{ t("admin.wallet_changes.drift_since") }} {{ formatDate(d.drift_detected_at) }}
                 · {{ t("admin.wallet_changes.last_check") }} {{ formatDate(d.config_verified_at) }}
               </p>
@@ -51,6 +51,21 @@
               </p>
               <p v-if="d.drift_details" class="text-xs font-mono text-red-200 mt-1">
                 {{ diffSummary(d.drift_details) }}
+              </p>
+              <template v-if="d.payee_mismatch_at && d.payee_mismatch_details">
+                <p class="text-xs text-red-200/90 mt-2">
+                  {{ t("admin.wallet_changes.payee_mismatch_since") }} {{ formatDate(d.payee_mismatch_at) }}
+                  · {{ t("admin.wallet_changes.col_invoice") }} {{ d.payee_mismatch_details.invoice_id || "-" }}
+                </p>
+                <p class="text-xs font-mono text-red-200 mt-1 break-all">
+                  {{ t("admin.wallet_changes.payee_found") }}: {{ d.payee_mismatch_details.pubkey }}
+                </p>
+                <p class="text-xs font-mono text-gray-300 mt-1 break-all">
+                  {{ t("admin.wallet_changes.payee_expected") }}: {{ d.payee_mismatch_details.expected.join(", ") }}
+                </p>
+              </template>
+              <p v-else-if="d.payee_pubkeys?.length" class="text-xs font-mono text-gray-400 mt-1 break-all">
+                {{ t("admin.wallet_changes.allowed_nodes") }} ({{ d.payee_learn_source }}): {{ d.payee_pubkeys.join(", ") }}
               </p>
             </div>
             <div class="flex gap-2 shrink-0">
@@ -69,12 +84,31 @@
                 {{ t("admin.wallet_changes.verify_now") }}
               </button>
               <button
+                v-if="d.drift_detected_at"
                 type="button"
                 class="text-xs font-medium rounded-md px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50"
                 :disabled="busyId === d.id"
                 @click="rebaseline(d.id)"
               >
                 {{ t("admin.wallet_changes.accept_config") }}
+              </button>
+              <button
+                v-if="d.payee_mismatch_at && d.payee_mismatch_details"
+                type="button"
+                class="text-xs font-medium rounded-md px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50"
+                :disabled="busyId === d.id"
+                @click="acceptPayee(d.id, d.payee_mismatch_details.pubkey)"
+              >
+                {{ t("admin.wallet_changes.accept_payee") }}
+              </button>
+              <button
+                v-if="d.payee_mismatch_at"
+                type="button"
+                class="text-xs font-medium rounded-md px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-50"
+                :disabled="busyId === d.id"
+                @click="relearnPayee(d.id)"
+              >
+                {{ t("admin.wallet_changes.relearn_payee") }}
               </button>
             </div>
           </div>
@@ -212,6 +246,10 @@ interface DriftRow {
   drift_detected_at: string | null;
   config_verified_at: string | null;
   drift_details: DriftDiff | null;
+  payee_pubkeys: string[] | null;
+  payee_learn_source: string | null;
+  payee_mismatch_at: string | null;
+  payee_mismatch_details: { pubkey: string; invoice_id: string | null; expected: string[] } | null;
 }
 
 const { t } = useI18n();
@@ -287,6 +325,32 @@ async function rebaseline(id: string) {
   }
 }
 
+async function acceptPayee(id: string, pubkey: string) {
+  busyId.value = id;
+  try {
+    await api.post(`/admin/wallet-connections/${id}/accept-payee`, { pubkey });
+    flash.success(t("admin.wallet_changes.payee_accepted"));
+    await reload();
+  } catch {
+    // The API interceptor already surfaced the failure as a flash.
+  } finally {
+    busyId.value = null;
+  }
+}
+
+async function relearnPayee(id: string) {
+  busyId.value = id;
+  try {
+    await api.post(`/admin/wallet-connections/${id}/learn-payee`);
+    flash.success(t("admin.wallet_changes.payee_relearned"));
+    await reload();
+  } catch {
+    flash.error(t("admin.wallet_changes.payee_relearn_failed"));
+  } finally {
+    busyId.value = null;
+  }
+}
+
 function diffSummary(diff: DriftDiff | null): string {
   if (!diff) return "";
   const parts: string[] = [];
@@ -315,17 +379,21 @@ function detailText(row: LogRow): string {
   if (Array.isArray(m.methods)) bits.push((m.methods as string[]).join(", "));
   if (typeof m.challenge_id === "string") bits.push(`challenge ${m.challenge_id.slice(-8)}`);
   if (typeof m.success === "boolean") bits.push(m.success ? "success" : "failed");
+  if (typeof m.pubkey === "string") bits.push(`node ${m.pubkey}`);
+  if (Array.isArray(m.pubkeys)) bits.push(`nodes ${(m.pubkeys as string[]).join(", ")}`);
+  if (typeof m.source === "string") bits.push(m.source);
+  if (typeof m.invoice_id === "string") bits.push(`invoice ${m.invoice_id}`);
   return bits.join(" · ");
 }
 
 function rowClass(action: string): string {
-  if (action === "wallet_connection.drift_detected") return "bg-red-500/10";
+  if (action === "wallet_connection.drift_detected" || action === "wallet_connection.payee_mismatch") return "bg-red-500/10";
   if (action === "wallet_connection.drift_resolved") return "bg-emerald-500/5";
   return "";
 }
 
 function badgeClass(action: string): string {
-  if (action === "wallet_connection.drift_detected") return "bg-red-500/20 text-red-300";
+  if (action === "wallet_connection.drift_detected" || action === "wallet_connection.payee_mismatch") return "bg-red-500/20 text-red-300";
   if (action === "wallet_connection.drift_resolved" || action === "wallet_connection.config_baselined") return "bg-emerald-500/20 text-emerald-300";
   if (action === "wallet_connection.revealed") return "bg-amber-500/20 text-amber-300";
   if (action.startsWith("wallet_connection.change_")) return "bg-indigo-500/20 text-indigo-300";

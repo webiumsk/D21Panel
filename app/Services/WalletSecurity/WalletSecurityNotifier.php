@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserMessage;
 use App\Models\WalletConnection;
 use App\Notifications\WalletConfigDriftNotification;
+use App\Notifications\WalletPayeeMismatchNotification;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -70,6 +71,36 @@ class WalletSecurityNotifier
             'Wallet config drift: '.$store->name,
             'Store "'.$store->name.'" (owner '.($merchant instanceof User && $merchant->email ? $merchant->email : 'unknown').'): '
             .self::describeForMerchant($connection, $diff).' Technical diff: '.$summary,
+            16711680,
+        );
+    }
+
+    /** @param array{pubkey: string, invoice_id: string|null, method: string|null, expected: list<string>, seen_at: string} $details */
+    public function payeeMismatch(Store $store, WalletConnection $connection, array $details): void
+    {
+        $short = fn (string $k) => substr($k, 0, 10).'…'.substr($k, -6);
+        $what = 'A Lightning payment'.($details['invoice_id'] ? ' on invoice '.$details['invoice_id'] : '')
+            .' was received by node '.$short($details['pubkey'])
+            .', not by the node your wallet uses ('.implode(', ', array_map($short, $details['expected'])).').';
+        $this->merchantMessage(
+            $store,
+            'Payment received by an unknown wallet - '.$store->name,
+            $what.' Money paid to "'.$store->name.'" may be going to someone else. Check your wallet balance, reconnect your wallet and contact support immediately.',
+        );
+
+        $merchant = $store->user;
+        if ($merchant instanceof User && $merchant->email) {
+            try {
+                $merchant->notify(new WalletPayeeMismatchNotification($store, $connection, $details));
+            } catch (\Throwable $e) {
+                Log::error('Failed to send payee mismatch e-mail', ['store_id' => $store->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        $this->adminAlert(
+            'Payee mismatch: '.$store->name,
+            'Store "'.$store->name.'" (owner '.($merchant instanceof User && $merchant->email ? $merchant->email : 'unknown').'): '.$what
+            .' Full node id: '.$details['pubkey'],
             16711680,
         );
     }

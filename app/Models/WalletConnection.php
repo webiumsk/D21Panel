@@ -14,6 +14,11 @@ use Illuminate\Support\Facades\Crypt;
  * @property array<string, mixed>|null $config_snapshot
  * @property Carbon|null $config_verified_at
  * @property Carbon|null $drift_detected_at
+ * @property list<string>|null $payee_pubkeys
+ * @property string|null $payee_learn_source
+ * @property Carbon|null $payee_learned_at
+ * @property Carbon|null $payee_mismatch_at
+ * @property array{pubkey: string, invoice_id: string|null, method: string|null, expected: list<string>, seen_at: string}|null $payee_mismatch_details
  * @property array{changed: string[], added: string[], removed: string[], details?: array<string, array{expected: string|null, actual: string|null}>}|null $drift_details
  */
 class WalletConnection extends Model
@@ -43,6 +48,11 @@ class WalletConnection extends Model
         'config_verified_at',
         'drift_detected_at',
         'drift_details',
+        'payee_pubkeys',
+        'payee_learn_source',
+        'payee_learned_at',
+        'payee_mismatch_at',
+        'payee_mismatch_details',
     ];
 
     /**
@@ -62,6 +72,10 @@ class WalletConnection extends Model
             'config_verified_at' => 'datetime',
             'drift_detected_at' => 'datetime',
             'drift_details' => 'array',
+            'payee_pubkeys' => 'array',
+            'payee_learned_at' => 'datetime',
+            'payee_mismatch_at' => 'datetime',
+            'payee_mismatch_details' => 'array',
         ];
     }
 

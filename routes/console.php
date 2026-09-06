@@ -113,6 +113,13 @@ Schedule::command('wallet-connections:verify-config')
     ->withoutOverlapping()
     ->runInBackground();
 
+// Payee attestation: wallets still without an allow-list (canary failed at
+// connect time) get another canary once a day; first payments fill the gap.
+Schedule::command('wallet-connections:learn-payees')
+    ->dailyAt('04:10')
+    ->withoutOverlapping()
+    ->runInBackground();
+
 Schedule::command('model:prune', ['--model' => [EmailVerificationChallenge::class]])
     ->hourly()
     ->withoutOverlapping();
