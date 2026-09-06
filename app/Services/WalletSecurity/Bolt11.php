@@ -91,11 +91,17 @@ final class Bolt11
 
         $preimage = $hrp.self::wordsToBytes($data, true);
         $hash = hash('sha256', $preimage, true);
-        $payee = $fields['payee_field'];
-        $source = 'field';
-        if ($payee === null) {
-            $payee = self::recoverPubKey($hash, substr($sig, 0, 32), substr($sig, 32, 32), ord($sig[64]));
-            $source = 'recovered';
+        // The signer is always recovered from the signature; an explicit `n`
+        // field is only accepted when it is that signer (a forged or tampered
+        // `n` must never become the payee we attest against).
+        $recovered = self::recoverPubKey($hash, substr($sig, 0, 32), substr($sig, 32, 32), ord($sig[64]));
+        $payee = $recovered;
+        $source = 'recovered';
+        if ($fields['payee_field'] !== null) {
+            if (! hash_equals($recovered, $fields['payee_field'])) {
+                throw new \InvalidArgumentException('Payee field does not match the invoice signature');
+            }
+            $source = 'field';
         }
 
         return [
@@ -139,7 +145,7 @@ final class Bolt11
             'm' => '1000',
             'u' => '1000000',
             'n' => '1000000000',
-            'p' => '10000000000000',
+            'p' => '1000000000000',
         };
         $msat = bcdiv(bcmul($amount, $msatPerBtc, 0), $divisor, 0);
 

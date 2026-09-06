@@ -24,24 +24,6 @@ class InvoiceService
      * @param  string|null  $userApiKey  User-level API key (optional)
      * @return array Invoice list with pagination metadata
      */
-    /** Archive (soft-delete) a BTCPay invoice - used for the payee-attestation canary. */
-    public function archiveInvoice(string $storeId, string $invoiceId, ?string $userApiKey = null): void
-    {
-        $originalApiKey = null;
-        if ($userApiKey) {
-            $originalApiKey = $this->client->getApiKey();
-            $this->client->setApiKey($userApiKey);
-        }
-
-        try {
-            $this->client->delete("/api/v1/stores/{$storeId}/invoices/{$invoiceId}");
-        } finally {
-            if ($userApiKey && $originalApiKey) {
-                $this->client->setApiKey($originalApiKey);
-            }
-        }
-    }
-
     /**
      * Create a BTCPay store invoice (Greenfield).
      *
@@ -62,6 +44,15 @@ class InvoiceService
                 $this->client->setApiKey($originalApiKey);
             }
         }
+    }
+
+    /** Archive (soft-delete) a BTCPay invoice - used for the payee-attestation canary. */
+    public function archiveInvoice(string $storeId, string $invoiceId, ?string $userApiKey = null): void
+    {
+        $this->client->withUserKey(
+            $userApiKey,
+            fn () => $this->client->delete("/api/v1/stores/{$storeId}/invoices/{$invoiceId}")
+        );
     }
 
     public function listInvoices(string $storeId, array $filters = [], ?int $skip = null, ?int $take = null, ?string $userApiKey = null): array

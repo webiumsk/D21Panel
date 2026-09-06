@@ -39,9 +39,9 @@ Keď sa zistí rozdiel:
 
 Každú Lightning faktúru podpisuje uzol, ktorý platbu prijíma. Pri pripojení peňaženky si Satflux od platobného servera vypýta malú testovaciu faktúru (nikdy sa neplatí a hneď sa archivuje), prečíta z nej podpisujúci uzol a zapamätá si ho ako uzol vašej peňaženky. Ak sa testovacia faktúra nedá prečítať, zapamätá si uzol z prvej zaplatenej faktúry.
 
-Odvtedy sa kontroluje každá vysporiadaná Lightning platba: uzol, ktorý podpísal jej faktúru, musí byť uzol vašej peňaženky. Platba podpísaná iným uzlom vyvolá bezpečnostnú správu a e-mail s číslom faktúry a uzlom a na stránke Pripojenie peňaženky sa zobrazí červené varovanie. Táto kontrola nezávisí od toho, čo platobný server tvrdí o svojej konfigurácii - pozerá sa na faktúry, ktoré boli naozaj zaplatené.
+Odvtedy sa kontroluje každá vysporiadaná Lightning platba: uzol, ktorý podpísal jej faktúru, musí byť uzol vašej peňaženky. Platba podpísaná iným uzlom vyvolá bezpečnostnú správu a e-mail s číslom faktúry a uzlom a na stránke Pripojenie peňaženky sa zobrazí červené varovanie. Táto kontrola nezávisí od toho, čo platobný server tvrdí o svojej konfigurácii - pozerá sa na faktúry, ktoré boli naozaj zaplatené. Ak sa faktúra nedá dekódovať alebo skontrolovať, zlyhanie sa zaloguje a platba sa aj tak zaznamená; také platby nie sú overené.
 
-Ak ste peňaženku úmyselne presunuli k inému poskytovateľovi, nové pripojenie cez Satflux zapíše nový uzol. Uzol vám môže po overení potvrdiť aj podpora.
+Ak ste peňaženku úmyselne presunuli k inému poskytovateľovi, nové pripojenie cez Satflux zapíše nový uzol. Prijať uzol alebo ho znova naučiť môže po prešetrení incidentu s vami len administrátor Satfluxu.
 
 ## Čo Satflux nevidí
 
