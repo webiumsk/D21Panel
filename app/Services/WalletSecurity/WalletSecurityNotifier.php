@@ -68,8 +68,8 @@ class WalletSecurityNotifier
 
         $this->adminAlert(
             'Wallet config drift: '.$store->name,
-            'Store "'.$store->name.'" (owner '.($merchant instanceof User && $merchant->email ? $merchant->email : 'unknown').'): '.$summary
-            .'. Config on BTCPay differs from the wallet Satflux connected.',
+            'Store "'.$store->name.'" (owner '.($merchant instanceof User && $merchant->email ? $merchant->email : 'unknown').'): '
+            .self::describeForMerchant($connection, $diff).' Technical diff: '.$summary,
             16711680,
         );
     }
