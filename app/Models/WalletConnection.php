@@ -10,9 +10,10 @@ use Illuminate\Support\Facades\Crypt;
 
 /**
  * @property array<string, string>|null $config_fingerprint
+ * @property array<string, mixed>|null $config_snapshot
  * @property \Illuminate\Support\Carbon|null $config_verified_at
  * @property \Illuminate\Support\Carbon|null $drift_detected_at
- * @property array{changed: string[], added: string[], removed: string[]}|null $drift_details
+ * @property array{changed: string[], added: string[], removed: string[], details?: array<string, array{expected: string|null, actual: string|null}>}|null $drift_details
  */
 class WalletConnection extends Model
 {
@@ -37,6 +38,7 @@ class WalletConnection extends Model
         'revealed_last_at',
         'revealed_last_by',
         'config_fingerprint',
+        'config_snapshot',
         'config_verified_at',
         'drift_detected_at',
         'drift_details',
@@ -55,6 +57,7 @@ class WalletConnection extends Model
             'bot_failed_at' => 'datetime',
             'secret_updated_at' => 'datetime',
             'config_fingerprint' => 'array',
+            'config_snapshot' => 'encrypted:array',
             'config_verified_at' => 'datetime',
             'drift_detected_at' => 'datetime',
             'drift_details' => 'array',

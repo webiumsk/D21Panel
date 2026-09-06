@@ -32,9 +32,20 @@ class WalletConfigIntegrityService
     ) {}
 
     /**
-     * Live per-method fingerprint of the store's BTCPay payment methods.
+     * Payment methods that never decide where funds go (LNURL only shapes how
+     * Lightning invoices are presented and is toggled by Satflux's own store
+     * settings) - excluded so they cannot raise false drift.
+     */
+    public static function isIgnoredMethod(string $paymentMethodId): bool
+    {
+        return str_ends_with(strtoupper($paymentMethodId), '-LNURL');
+    }
+
+    /**
+     * Live per-method fingerprint of the store's BTCPay payment methods plus
+     * the canonical configs behind it.
      *
-     * @return array<string, string> paymentMethodId => sha256
+     * @return array{fingerprint: array<string, string>, configs: array<string, mixed>}
      *
      * @throws \Throwable when BTCPay or the merchant key is unavailable
      */
@@ -51,19 +62,23 @@ class WalletConfigIntegrityService
         );
 
         $fingerprint = [];
+        $configs = [];
         foreach ($methods as $method) {
             $id = isset($method['paymentMethodId']) ? (string) $method['paymentMethodId'] : '';
-            if ($id === '') {
+            if ($id === '' || self::isIgnoredMethod($id)) {
                 continue;
             }
-            $fingerprint[$id] = hash('sha256', json_encode([
+            $canonical = [
                 'enabled' => (bool) ($method['enabled'] ?? false),
                 'config' => self::canonical($method['config'] ?? null),
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            ];
+            $configs[$id] = $canonical;
+            $fingerprint[$id] = hash('sha256', json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         }
         ksort($fingerprint);
+        ksort($configs);
 
-        return $fingerprint;
+        return ['fingerprint' => $fingerprint, 'configs' => $configs];
     }
 
     /**
@@ -79,7 +94,7 @@ class WalletConfigIntegrityService
         }
 
         try {
-            $fingerprint = $this->snapshot($store);
+            $snapshot = $this->snapshot($store);
         } catch (\Throwable $e) {
             Log::warning('Wallet config baseline skipped', [
                 'connection_id' => $connection->id,
@@ -93,7 +108,8 @@ class WalletConfigIntegrityService
 
         $hadDrift = $connection->drift_detected_at !== null;
         $connection->forceFill([
-            'config_fingerprint' => $fingerprint,
+            'config_fingerprint' => $snapshot['fingerprint'],
+            'config_snapshot' => $snapshot['configs'],
             'config_verified_at' => now(),
             'drift_detected_at' => null,
             'drift_details' => null,
@@ -102,7 +118,7 @@ class WalletConfigIntegrityService
         AuditLog::log('wallet_connection.config_baselined', 'wallet_connection', $connection->id, [
             'store_id' => $store->id,
             'reason' => $reason,
-            'methods' => array_keys($fingerprint),
+            'methods' => array_keys($snapshot['fingerprint']),
             'cleared_drift' => $hadDrift,
         ], $by?->id);
 
@@ -112,7 +128,7 @@ class WalletConfigIntegrityService
     /**
      * Compare the live BTCPay config with the expected fingerprint.
      *
-     * @return array{status: 'ok'|'drift'|'baselined'|'skipped'|'error', diff?: array{changed: string[], added: string[], removed: string[]}}
+     * @return array{status: 'ok'|'drift'|'baselined'|'skipped'|'error', diff?: array{changed: string[], added: string[], removed: string[], details?: array<string, array{expected: string|null, actual: string|null}>}}
      */
     public function verify(WalletConnection $connection): array
     {
@@ -131,7 +147,7 @@ class WalletConfigIntegrityService
         }
 
         try {
-            $actual = $this->snapshot($store);
+            $snapshot = $this->snapshot($store);
         } catch (\Throwable $e) {
             Log::warning('Wallet config verification failed', [
                 'connection_id' => $connection->id,
@@ -142,7 +158,7 @@ class WalletConfigIntegrityService
             return ['status' => 'error'];
         }
 
-        $diff = self::diff($connection->config_fingerprint ?? [], $actual);
+        $diff = self::diff($connection->config_fingerprint ?? [], $snapshot['fingerprint']);
         $connection->config_verified_at = now();
 
         if ($diff['changed'] === [] && $diff['added'] === [] && $diff['removed'] === []) {
@@ -163,6 +179,7 @@ class WalletConfigIntegrityService
             return ['status' => 'ok', 'diff' => $diff];
         }
 
+        $diff['details'] = self::describe($connection->config_snapshot ?? [], $snapshot['configs'], $diff);
         $firstDetection = $connection->drift_detected_at === null;
         if ($firstDetection) {
             $connection->drift_detected_at = now();
@@ -184,6 +201,55 @@ class WalletConfigIntegrityService
         }
 
         return ['status' => 'drift', 'diff' => $diff];
+    }
+
+    /**
+     * Masked expected/actual per differing method - safe to store and show.
+     *
+     * @param  array<string, mixed>  $expectedConfigs
+     * @param  array<string, mixed>  $actualConfigs
+     * @param  array{changed: string[], added: string[], removed: string[]}  $diff
+     * @return array<string, array{expected: string|null, actual: string|null}>
+     */
+    public static function describe(array $expectedConfigs, array $actualConfigs, array $diff): array
+    {
+        $details = [];
+        foreach (array_merge($diff['changed'], $diff['added'], $diff['removed']) as $id) {
+            $details[$id] = [
+                'expected' => array_key_exists($id, $expectedConfigs) ? self::summarize($expectedConfigs[$id]) : null,
+                'actual' => array_key_exists($id, $actualConfigs) ? self::summarize($actualConfigs[$id]) : null,
+            ];
+        }
+
+        return $details;
+    }
+
+    /** One-line, credential-masked rendering of a canonical method config. */
+    public static function summarize(mixed $canonical): string
+    {
+        if (! is_array($canonical)) {
+            return WalletConnection::maskSecret((string) $canonical);
+        }
+        $enabled = ($canonical['enabled'] ?? true) ? 'enabled' : 'disabled';
+        $config = $canonical['config'] ?? null;
+        if (! is_array($config)) {
+            return $enabled;
+        }
+        $parts = [];
+        foreach ($config as $key => $value) {
+            if ($value === null || $value === '' || $value === []) {
+                continue;
+            }
+            if (is_string($value)) {
+                $parts[] = $key.'='.(strlen($value) > 24 || str_contains($value, '=') ? WalletConnection::maskSecret($value) : $value);
+            } elseif (is_scalar($value)) {
+                $parts[] = $key.'='.var_export($value, true);
+            } else {
+                $parts[] = $key.'='.WalletConnection::maskSecret(json_encode($value, JSON_UNESCAPED_SLASHES) ?: '');
+            }
+        }
+
+        return $enabled.($parts ? ' '.implode(' ', $parts) : '');
     }
 
     /**

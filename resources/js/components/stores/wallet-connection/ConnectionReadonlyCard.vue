@@ -67,6 +67,11 @@
         {{ t("stores.wallet_drift_changed") }}:
         {{ [...connection.drift_details.changed, ...connection.drift_details.added, ...connection.drift_details.removed].join(", ") }}
       </p>
+      <ul v-if="connection.drift_details?.details" class="mt-1 space-y-0.5 text-xs font-mono text-red-200/80 break-all">
+        <li v-for="(d, method) in connection.drift_details.details" :key="method">
+          {{ method }}: {{ t("stores.wallet_drift_expected") }} [{{ d.expected || "-" }}] {{ t("stores.wallet_drift_found") }} [{{ d.actual || "-" }}]
+        </li>
+      </ul>
       <p class="mt-2 text-sm text-red-100/90">{{ t("stores.wallet_drift_action") }}</p>
     </div>
     <div class="mt-6 pt-6 border-t border-gray-700">

@@ -135,7 +135,7 @@ class WalletSecurityNotifier
         }
     }
 
-    /** @param array{changed: string[], added: string[], removed: string[]} $diff */
+    /** @param array{changed: string[], added: string[], removed: string[], details?: array<string, array{expected: string|null, actual: string|null}>} $diff */
     public static function diffSummary(array $diff): string
     {
         $parts = [];
@@ -147,6 +147,9 @@ class WalletSecurityNotifier
         }
         if ($diff['removed'] !== []) {
             $parts[] = 'removed: '.implode(', ', $diff['removed']);
+        }
+        foreach ($diff['details'] ?? [] as $method => $detail) {
+            $parts[] = $method.' expected ['.($detail['expected'] ?? '-').'] found ['.($detail['actual'] ?? '-').']';
         }
 
         return $parts === [] ? 'no differences' : implode('; ', $parts);

@@ -187,6 +187,7 @@ interface DriftDiff {
   changed: string[];
   added: string[];
   removed: string[];
+  details?: Record<string, { expected: string | null; actual: string | null }>;
 }
 
 interface LogRow {
@@ -286,6 +287,9 @@ function diffSummary(diff: DriftDiff | null): string {
   if (diff.changed.length) parts.push(`${t("admin.wallet_changes.changed")}: ${diff.changed.join(", ")}`);
   if (diff.added.length) parts.push(`${t("admin.wallet_changes.added")}: ${diff.added.join(", ")}`);
   if (diff.removed.length) parts.push(`${t("admin.wallet_changes.removed")}: ${diff.removed.join(", ")}`);
+  for (const [method, d] of Object.entries(diff.details ?? {})) {
+    parts.push(`${method}: ${t("admin.wallet_changes.expected")} [${d.expected ?? "-"}] ${t("admin.wallet_changes.found")} [${d.actual ?? "-"}]`);
+  }
   return parts.join(" · ");
 }
 

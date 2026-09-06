@@ -36,6 +36,8 @@ class WalletConfigIntegrityTest extends TestCase
 
     private bool $btcpayDown = false;
 
+    private bool $lnurlEnabled = false;
+
     /**
      * Fake BTCPay once per test: payment-methods answers with the current
      * $lnConnectionString / $lnEnabled (later Http::fake() calls would not
@@ -55,10 +57,16 @@ class WalletConfigIntegrityTest extends TestCase
                 return Http::response(['message' => 'down'], 503);
             }
             if (str_contains($request->url(), '/payment-methods')) {
-                return Http::response([
+                $methods = [
                     ['paymentMethodId' => 'BTC-CHAIN', 'enabled' => true, 'config' => ['derivationScheme' => 'xpub...']],
                     ['paymentMethodId' => 'BTC-LN', 'enabled' => $this->lnEnabled, 'config' => ['connectionString' => $this->lnConnectionString, 'label' => 'x']],
-                ], 200);
+                ];
+                if ($this->lnurlEnabled) {
+                    // Toggled by Satflux's own store settings (lnurlEnabled) - must never count as drift.
+                    $methods[] = ['paymentMethodId' => 'BTC-LNURL', 'enabled' => true, 'config' => ['useBech32Scheme' => true]];
+                }
+
+                return Http::response($methods, 200);
             }
 
             return Http::response([], 200);
@@ -118,6 +126,11 @@ class WalletConfigIntegrityTest extends TestCase
         $this->assertSame('ok', $integrity->verify($connection->fresh())['status']);
         $this->assertNull($connection->fresh()->drift_detected_at);
 
+        // Store settings enable LNURL: presentation only, not a wallet change.
+        $this->lnurlEnabled = true;
+        $this->assertSame('ok', $integrity->verify($connection->fresh())['status']);
+        $this->assertArrayNotHasKey('BTC-LNURL', $connection->fresh()->config_snapshot);
+
         // Attacker swaps the receiving wallet directly on BTCPay.
         $this->fakeBtcPay(self::OTHER_SECRET);
         $result = $integrity->verify($connection->fresh());
@@ -127,6 +140,12 @@ class WalletConfigIntegrityTest extends TestCase
         $fresh = $connection->fresh();
         $this->assertNotNull($fresh->drift_detected_at);
         $this->assertSame(['BTC-LN'], $fresh->drift_details['changed']);
+        // Masked expected/actual: addresses readable, credentials never stored in clear.
+        $detail = $fresh->drift_details['details']['BTC-LN'];
+        $this->assertStringContainsString('api-key=****t123', $detail['expected']);
+        $this->assertStringContainsString('api-key=****CKER', $detail['actual']);
+        $this->assertStringNotContainsString('blink_test123', json_encode($fresh->drift_details));
+        $this->assertStringNotContainsString('blink_ATTACKER', json_encode($fresh->drift_details));
         $this->assertDatabaseHas('audit_logs', ['action' => 'wallet_connection.drift_detected', 'target_id' => $connection->id]);
 
         // Merchant: pinned security message + e-mail. Admin: security message.

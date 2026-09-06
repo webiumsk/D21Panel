@@ -243,7 +243,12 @@ export interface WalletConnectionDetails {
     config_verified_at?: string | null;
     /** Set while the BTCPay config differs from the wallet connected through Satflux. */
     drift_detected_at?: string | null;
-    drift_details?: { changed: string[]; added: string[]; removed: string[] } | null;
+    drift_details?: {
+        changed: string[];
+        added: string[];
+        removed: string[];
+        details?: Record<string, { expected: string | null; actual: string | null }>;
+    } | null;
 }
 
 export interface WalletChangeConfirmationState {
