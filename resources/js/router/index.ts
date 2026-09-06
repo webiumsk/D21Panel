@@ -357,6 +357,12 @@ const router = createRouter({
             meta: { requiresAuth: true, requiresAdmin: true },
         },
         {
+            path: '/admin/wallet-changes',
+            name: 'admin-wallet-changes',
+            component: () => import('../pages/admin/WalletChanges.vue'),
+            meta: { requiresAuth: true, requiresAdmin: true },
+        },
+        {
             path: '/admin/regwatch',
             name: 'admin-regwatch',
             component: () => import('../pages/admin/regwatch/Changes.vue'),

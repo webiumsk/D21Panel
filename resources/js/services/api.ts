@@ -239,6 +239,16 @@ export interface WalletConnectionDetails {
     bot_failure_message?: string | null;
     /** Replacing a connected wallet needs an email-code grant (WalletChangeConfirmationGuard). */
     change_confirmation?: WalletChangeConfirmationState | null;
+    /** Drift monitoring: when the BTCPay config was last compared with the Satflux baseline. */
+    config_verified_at?: string | null;
+    /** Set while the BTCPay config differs from the wallet connected through Satflux. */
+    drift_detected_at?: string | null;
+    drift_details?: {
+        changed: string[];
+        added: string[];
+        removed: string[];
+        details?: Record<string, { expected: string | null; actual: string | null }>;
+    } | null;
 }
 
 export interface WalletChangeConfirmationState {

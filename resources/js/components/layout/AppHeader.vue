@@ -618,6 +618,7 @@ import {
   shouldBlockLogout,
 } from "../../services/backupState";
 import api from "../../services/api";
+import { useMessageCounts } from "../../composables/useMessageCounts";
 import { getEcho } from "../../echo";
 
 const { t } = useI18n();
@@ -632,6 +633,7 @@ const showUserMenu = ref(false);
 const showMobileMenu = ref(false);
 const supportCount = ref(0);
 const messageCount = ref(0);
+const { unread: messageUnread, load: loadMessageCounts } = useMessageCounts();
 const supportToastMessage = ref("");
 const supportToastUrl = ref("/support/wallet-connections");
 const supportToastVisible = ref(false);
@@ -762,23 +764,8 @@ const loadSupportCount = async () => {
 };
 
 const loadMessageCount = async () => {
-  if (!authStore.user) {
-    messageCount.value = 0;
-    return;
-  }
-
-  try {
-    const response = await api.get("/messages/count");
-    messageCount.value = response.data.data?.unread ?? 0;
-  } catch (error: unknown) {
-    const status = (error as { response?: { status?: number } })?.response?.status;
-    if (status === 401 || status === 403) {
-      messageCount.value = 0;
-      return;
-    }
-    console.error("Failed to load message count:", error);
-    messageCount.value = 0;
-  }
+  await loadMessageCounts(authStore.user?.id);
+  messageCount.value = messageUnread.value;
 };
 
 function showSupportToast(message: string, url = "/support/wallet-connections") {

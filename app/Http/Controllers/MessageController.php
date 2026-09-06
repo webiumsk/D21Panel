@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Store;
+use App\Models\User;
+use App\Models\UserMessage;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\NotificationService;
+use App\Services\WalletSecurity\WalletSecurityNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,27 +20,32 @@ class MessageController extends Controller
     /**
      * List notifications from BTCPay for the authenticated user.
      */
+    /** Prefix that tells a Satflux-local message id apart from a BTCPay notification id. */
+    public const LOCAL_ID_PREFIX = 'sf_';
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
         $apiKey = $user->btcpay_api_key;
+        $page = max((int) $request->get('page', 1), 1);
+        // Satflux-local security messages ride on top of page 1 of the BTCPay feed.
+        $local = $page === 1 ? $this->localMessages($user) : [];
 
         if (! $apiKey) {
             return response()->json([
-                'data' => [],
+                'data' => $local,
                 'meta' => [
                     'current_page' => 1,
                     'last_page' => 1,
                     'per_page' => 20,
-                    'total' => 0,
+                    'total' => count($local),
                 ],
-                'available' => false,
+                'available' => $local !== [],
             ]);
         }
 
         try {
             $perPage = min(max((int) $request->get('per_page', 20), 1), 100);
-            $page = max((int) $request->get('page', 1), 1);
             $skip = ($page - 1) * $perPage;
 
             $result = $this->notificationService->listNotifications($apiKey, [
@@ -47,6 +55,7 @@ class MessageController extends Controller
 
             $raw = $result['data'] ?? [];
             $items = array_map([$this, 'mapBtcPayNotification'], is_array($raw) ? $raw : []);
+            $items = array_merge($local, $items);
 
             // BTCPay doesn't return total; we use a heuristic for pagination
             $hasMore = count($raw) >= $perPage;
@@ -65,14 +74,14 @@ class MessageController extends Controller
         } catch (BtcPayException $e) {
             if ($e->getStatusCode() === 403) {
                 return response()->json([
-                    'data' => [],
+                    'data' => $local,
                     'meta' => [
                         'current_page' => 1,
                         'last_page' => 1,
                         'per_page' => 20,
-                        'total' => 0,
+                        'total' => count($local),
                     ],
-                    'available' => false,
+                    'available' => $local !== [],
                 ]);
             }
             throw $e;
@@ -86,11 +95,16 @@ class MessageController extends Controller
     {
         $user = $request->user();
         $apiKey = $user->btcpay_api_key;
+        $securityUnread = UserMessage::query()
+            ->where('user_id', $user->id)
+            ->where('type', WalletSecurityNotifier::TYPE)
+            ->whereNull('read_at')
+            ->count();
 
         if (! $apiKey) {
             return response()->json([
-                'data' => ['unread' => 0],
-                'available' => false,
+                'data' => ['unread' => $securityUnread, 'security_unread' => $securityUnread],
+                'available' => $securityUnread > 0,
             ]);
         }
 
@@ -98,14 +112,14 @@ class MessageController extends Controller
             $unread = $this->notificationService->getUnreadCount($apiKey);
 
             return response()->json([
-                'data' => ['unread' => $unread],
+                'data' => ['unread' => $unread + $securityUnread, 'security_unread' => $securityUnread],
                 'available' => true,
             ]);
         } catch (BtcPayException $e) {
             if ($e->getStatusCode() === 403) {
                 return response()->json([
-                    'data' => ['unread' => 0],
-                    'available' => false,
+                    'data' => ['unread' => $securityUnread, 'security_unread' => $securityUnread],
+                    'available' => $securityUnread > 0,
                 ]);
             }
             throw $e;
@@ -118,6 +132,15 @@ class MessageController extends Controller
     public function markAsRead(Request $request, string $id): JsonResponse
     {
         $user = $request->user();
+        if (str_starts_with($id, self::LOCAL_ID_PREFIX)) {
+            $message = UserMessage::query()
+                ->where('user_id', $user->id)
+                ->whereKey((int) substr($id, strlen(self::LOCAL_ID_PREFIX)))
+                ->firstOrFail();
+            $message->markAsRead();
+
+            return response()->json(['data' => $this->mapLocalMessage($message)]);
+        }
         $apiKey = $user->btcpay_api_key;
 
         if (! $apiKey) {
@@ -144,6 +167,7 @@ class MessageController extends Controller
     public function markAllAsRead(Request $request): JsonResponse
     {
         $user = $request->user();
+        UserMessage::query()->where('user_id', $user->id)->whereNull('read_at')->update(['read_at' => now()]);
         $apiKey = $user->btcpay_api_key;
 
         if (! $apiKey) {
@@ -176,6 +200,53 @@ class MessageController extends Controller
             }
             throw $e;
         }
+    }
+
+    /**
+     * Satflux-local messages (security alerts): all unread ones, then read
+     * ones from the last 30 days (capped), newest first.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function localMessages(User $user): array
+    {
+        // Every unread one (an unread security alert must never be unreachable),
+        // then the recently read ones, capped.
+        $unread = UserMessage::query()
+            ->where('user_id', $user->id)
+            ->whereNull('read_at')
+            ->latest('created_at')
+            ->get();
+        $read = UserMessage::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('read_at')
+            ->where('created_at', '>=', now()->subDays(30))
+            ->latest('created_at')
+            ->limit(20)
+            ->get();
+        $rows = $unread->concat($read);
+
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = $this->mapLocalMessage($row);
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, mixed> */
+    protected function mapLocalMessage(UserMessage $message): array
+    {
+        return [
+            'id' => self::LOCAL_ID_PREFIX.$message->id,
+            'type' => $message->type,
+            'title' => $message->title,
+            'body' => $message->body,
+            'link' => $message->link,
+            'link_text' => $message->link_text,
+            'read_at' => $message->read_at?->toIso8601String(),
+            'created_at' => $message->created_at?->toIso8601String(),
+        ];
     }
 
     /**

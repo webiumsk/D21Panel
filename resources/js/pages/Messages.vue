@@ -81,9 +81,11 @@
           :key="msg.id"
           :class="[
             'rounded-xl border p-4 transition-colors cursor-pointer',
-            msg.read_at
-              ? 'bg-gray-800/50 border-gray-700 hover:border-gray-600'
-              : 'bg-gray-800 border-indigo-500/30 hover:border-indigo-500/50',
+            msg.type === 'security' && !msg.read_at
+              ? 'bg-red-500/10 border-red-500/60 hover:border-red-400 ring-1 ring-red-500/30'
+              : msg.read_at
+                ? 'bg-gray-800/50 border-gray-700 hover:border-gray-600'
+                : 'bg-gray-800 border-indigo-500/30 hover:border-indigo-500/50',
           ]"
           @click="openMessage(msg)"
         >
@@ -95,22 +97,35 @@
               ]"
             >
               <svg class="w-5 h-5" :class="getTypeIconColor(msg.type)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="getTypeIconPath()" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="getTypeIconPath(msg.type)" />
               </svg>
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
+                <span
+                  v-if="msg.type === 'security'"
+                  class="inline-flex items-center rounded-md bg-red-500/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-red-300"
+                  >{{ t("messages.security_label") }}</span
+                >
                 <h3 class="text-sm font-semibold text-white">{{ msg.title }}</h3>
-                <span v-if="!msg.read_at" class="inline-block w-2 h-2 rounded-full bg-indigo-500" />
+                <span
+                  v-if="!msg.read_at"
+                  class="inline-block w-2 h-2 rounded-full"
+                  :class="msg.type === 'security' ? 'bg-red-500' : 'bg-indigo-500'"
+                />
               </div>
-              <p v-if="msg.body" class="mt-1 text-sm text-gray-400 line-clamp-2">{{ msg.body }}</p>
+              <p
+                v-if="msg.body"
+                class="mt-1 text-sm"
+                :class="msg.type === 'security' ? 'text-red-100/90' : 'text-gray-400 line-clamp-2'"
+              >{{ msg.body }}</p>
               <div class="mt-2 flex items-center justify-between gap-2">
                 <span class="text-xs text-gray-500">{{ formatDate(msg.created_at) }}</span>
                 <a
                   v-if="msg.link"
                   :href="msg.link"
                   class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
-                  @click.stop
+                  @click.stop.prevent="openMessage(msg)"
                 >
                   {{ msg.link_text || t("messages.view") }}
                 </a>
@@ -148,9 +163,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import api from "../services/api";
 
 const { t } = useI18n();
+const router = useRouter();
 
 interface Message {
   id: string | number;
@@ -197,7 +214,13 @@ const loadMessageCount = async () => {
 
 const openMessage = async (msg: Message) => {
   if (msg.link) {
-    window.open(msg.link, "_blank", "noopener,noreferrer");
+    const sameOrigin = msg.link.startsWith(window.location.origin + "/");
+    if (sameOrigin) {
+      // Satflux-local messages (security alerts) point into this app: stay in the SPA.
+      void router.push(msg.link.slice(window.location.origin.length));
+    } else {
+      window.open(msg.link, "_blank", "noopener,noreferrer");
+    }
   }
   if (!msg.read_at) {
     try {
@@ -249,6 +272,7 @@ const getTypeIconBg = (type: string) => {
     invoice: "bg-orange-500/20",
     subscription: "bg-purple-500/20",
     support: "bg-blue-500/20",
+    security: "bg-red-500/20",
   };
   return map[type] ?? "bg-indigo-500/20";
 };
@@ -260,11 +284,16 @@ const getTypeIconColor = (type: string) => {
     invoice: "text-orange-400",
     subscription: "text-purple-400",
     support: "text-blue-400",
+    security: "text-red-400",
   };
   return map[type] ?? "text-indigo-400";
 };
 
-const getTypeIconPath = () => {
+const getTypeIconPath = (type?: string) => {
+  if (type === "security") {
+    // Shield with exclamation
+    return "M12 9v2m0 4h.01M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z";
+  }
   // Bell icon path
   return "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9";
 };

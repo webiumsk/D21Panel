@@ -54,6 +54,26 @@
         >
       </div>
     </div>
+    <div
+      v-if="connection.drift_detected_at"
+      class="mt-6 rounded-xl border border-red-500/60 bg-red-500/10 p-4"
+      role="alert"
+    >
+      <p class="text-sm font-semibold text-red-200">{{ t("stores.wallet_drift_title") }}</p>
+      <p class="mt-1 text-sm text-red-100/90">
+        {{ t("stores.wallet_drift_body", { date: new Date(connection.drift_detected_at).toLocaleString() }) }}
+      </p>
+      <p v-if="connection.drift_details" class="mt-1 text-xs font-mono text-red-200/80">
+        {{ t("stores.wallet_drift_changed") }}:
+        {{ [...connection.drift_details.changed, ...connection.drift_details.added, ...connection.drift_details.removed].join(", ") }}
+      </p>
+      <ul v-if="connection.drift_details?.details" class="mt-1 space-y-0.5 text-xs font-mono text-red-200/80 break-all">
+        <li v-for="(d, method) in connection.drift_details.details" :key="method">
+          {{ method }}: {{ t("stores.wallet_drift_expected") }} [{{ d.expected || "-" }}] {{ t("stores.wallet_drift_found") }} [{{ d.actual || "-" }}]
+        </li>
+      </ul>
+      <p class="mt-2 text-sm text-red-100/90">{{ t("stores.wallet_drift_action") }}</p>
+    </div>
     <div class="mt-6 pt-6 border-t border-gray-700">
       <span
         class="block text-gray-500 text-xs uppercase tracking-wider mb-2"

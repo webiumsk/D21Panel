@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\FaqCategoryController;
 use App\Http\Controllers\Admin\FaqItemController;
 use App\Http\Controllers\Admin\RegWatchController;
 use App\Http\Controllers\Admin\SystemHealthController;
+use App\Http\Controllers\Admin\WalletChangeLogController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AppController;
 use App\Http\Controllers\Auth\EmailVerificationController;
@@ -1068,6 +1069,11 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
 
     // Admin routes
     Route::middleware([EnsureAdminRole::class])->group(function () {
+        Route::get('/admin/wallet-changes', [WalletChangeLogController::class, 'index']);
+        Route::get('/admin/wallet-changes/drifts', [WalletChangeLogController::class, 'drifts']);
+        Route::post('/admin/wallet-connections/{connection}/verify-config', [WalletChangeLogController::class, 'verify']);
+        Route::post('/admin/wallet-connections/{connection}/rebaseline', [WalletChangeLogController::class, 'rebaseline'])
+            ->middleware(AuditLog::class.':wallet_connection.config_rebaselined_by_admin');
         Route::get('/admin/system-health', [SystemHealthController::class, 'show']);
         Route::get('/admin/system-health/history', [SystemHealthController::class, 'history']);
         Route::get('/admin/stats', [AdminController::class, 'stats']);

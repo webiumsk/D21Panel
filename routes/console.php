@@ -107,6 +107,12 @@ Schedule::command('efaktura:purge-inbound-inbox')
 
 // Finished email-code challenges (EmailVerificationChallenge::prunable) are
 // dropped a day after they expire/complete; nothing else schedules model:prune.
+// Wallet drift monitoring: BTCPay payment-method config vs. the Satflux baseline.
+Schedule::command('wallet-connections:verify-config')
+    ->everyTenMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();
+
 Schedule::command('model:prune', ['--model' => [EmailVerificationChallenge::class]])
     ->hourly()
     ->withoutOverlapping();

@@ -14,6 +14,8 @@ use App\Notifications\WalletConnectionReadyNotification;
 use App\Services\BtcPay\BoltzService;
 use App\Services\BtcPay\CashuService;
 use App\Services\BtcPay\LightningService;
+use App\Services\WalletSecurity\WalletConfigIntegrityService;
+use App\Services\WalletSecurity\WalletSecurityNotifier;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -261,6 +263,10 @@ class WalletConnectionService
 
         // Notify store owner: connection changed (masked secret + security warning) and, if pending, that it's being configured
         $merchant = $store->user;
+        if ($wasConnected) {
+            // A live receiving wallet was swapped: pinned in-app security message on top of the e-mail.
+            app(WalletSecurityNotifier::class)->walletReplaced($store, $connection, $user);
+        }
         if ($merchant && $merchant->email) {
             try {
                 $merchant->notify(new WalletConnectionChangedNotification($store, $connection));
@@ -291,6 +297,9 @@ class WalletConnectionService
             $fallbackLightningAddress
         );
         $connection->update(['configuration_source' => 'samrock']);
+        // Created directly as connected (no markConnected pass): record the
+        // BTCPay config SamRock just wrote as the drift-monitoring baseline.
+        app(WalletConfigIntegrityService::class)->baseline($connection->fresh() ?? $connection, $user, 'samrock');
 
         return $connection->fresh();
     }
@@ -509,6 +518,9 @@ class WalletConnectionService
         $connection->update([
             'status' => 'connected',
         ]);
+
+        // Record what BTCPay holds now as the expected config (drift monitoring).
+        app(WalletConfigIntegrityService::class)->baseline($connection, $markedBy, 'connected');
 
         // Audit log
         AuditLog::log(
