@@ -6,13 +6,14 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 
 /**
  * @property array<string, string>|null $config_fingerprint
  * @property array<string, mixed>|null $config_snapshot
- * @property \Illuminate\Support\Carbon|null $config_verified_at
- * @property \Illuminate\Support\Carbon|null $drift_detected_at
+ * @property Carbon|null $config_verified_at
+ * @property Carbon|null $drift_detected_at
  * @property array{changed: string[], added: string[], removed: string[], details?: array<string, array{expected: string|null, actual: string|null}>}|null $drift_details
  */
 class WalletConnection extends Model

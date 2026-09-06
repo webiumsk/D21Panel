@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\UserMessage;
-use App\Services\WalletSecurity\WalletSecurityNotifier;
 use App\Services\BtcPay\Exceptions\BtcPayException;
 use App\Services\BtcPay\NotificationService;
+use App\Services\WalletSecurity\WalletSecurityNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -203,22 +203,28 @@ class MessageController extends Controller
     }
 
     /**
-     * Satflux-local messages (security alerts): unread ones always, read ones
-     * from the last 30 days, newest first, capped so the page stays readable.
+     * Satflux-local messages (security alerts): all unread ones, then read
+     * ones from the last 30 days (capped), newest first.
      *
      * @return list<array<string, mixed>>
      */
     protected function localMessages(User $user): array
     {
-        $rows = UserMessage::query()
+        // Every unread one (an unread security alert must never be unreachable),
+        // then the recently read ones, capped.
+        $unread = UserMessage::query()
             ->where('user_id', $user->id)
-            ->where(function ($q) {
-                $q->whereNull('read_at')->orWhere('created_at', '>=', now()->subDays(30));
-            })
-            ->orderByRaw('CASE WHEN read_at IS NULL THEN 0 ELSE 1 END')
+            ->whereNull('read_at')
+            ->latest('created_at')
+            ->get();
+        $read = UserMessage::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('read_at')
+            ->where('created_at', '>=', now()->subDays(30))
             ->latest('created_at')
             ->limit(20)
             ->get();
+        $rows = $unread->concat($read);
 
         $out = [];
         foreach ($rows as $row) {

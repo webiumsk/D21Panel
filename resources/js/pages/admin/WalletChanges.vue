@@ -249,7 +249,11 @@ async function loadDrifts() {
 }
 
 async function reload() {
-  await Promise.all([loadPage(1), loadDrifts()]);
+  try {
+    await Promise.all([loadPage(1), loadDrifts()]);
+  } catch {
+    // The API interceptor already surfaced the failure as a flash.
+  }
 }
 
 function filterStore(storeId: string) {
@@ -263,6 +267,8 @@ async function verifyNow(id: string) {
     const { data } = await api.post(`/admin/wallet-connections/${id}/verify-config`);
     flash.success(t("admin.wallet_changes.verify_result", { status: data.data?.status ?? "?" }));
     await reload();
+  } catch {
+    // The API interceptor already surfaced the failure as a flash.
   } finally {
     busyId.value = null;
   }

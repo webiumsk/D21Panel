@@ -27,51 +27,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import api from "../../services/api";
-import { useAuthStore } from "../../store/auth";
+import { useMessageCounts } from "../../composables/useMessageCounts";
 
 /**
  * Red bar under the header while the user has unread security messages
  * (wallet replaced / secret revealed / config drift) so they never get lost
- * among payment notifications. Refreshes with the header badge.
+ * among payment notifications. Reads the counter the header already loads -
+ * no request of its own.
  */
 const { t } = useI18n();
-const authStore = useAuthStore();
-const securityUnread = ref(0);
-let timer: ReturnType<typeof setInterval> | null = null;
-
-async function load() {
-  if (!authStore.user) {
-    securityUnread.value = 0;
-    return;
-  }
-  try {
-    const { data } = await api.get("/messages/count");
-    securityUnread.value = Number(data?.data?.security_unread ?? 0);
-  } catch {
-    securityUnread.value = 0;
-  }
-}
-
-const onMessagesUpdated = () => {
-  void load();
-};
-
-onMounted(() => {
-  void load();
-  window.addEventListener("messages-updated", onMessagesUpdated);
-  timer = setInterval(() => void load(), 5 * 60 * 1000);
-});
-
-onUnmounted(() => {
-  window.removeEventListener("messages-updated", onMessagesUpdated);
-  if (timer) clearInterval(timer);
-});
-
-watch(
-  () => authStore.user?.id,
-  () => void load(),
-);
+const { securityUnread } = useMessageCounts();
 </script>

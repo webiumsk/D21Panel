@@ -125,7 +125,7 @@
                   v-if="msg.link"
                   :href="msg.link"
                   class="text-xs font-medium text-indigo-400 hover:text-indigo-300"
-                  @click.stop
+                  @click.stop.prevent="openMessage(msg)"
                 >
                   {{ msg.link_text || t("messages.view") }}
                 </a>

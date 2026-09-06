@@ -11,11 +11,11 @@ use App\Notifications\SupportNeededNotification;
 use App\Notifications\WalletConnectionChangedNotification;
 use App\Notifications\WalletConnectionNeedsSupportMerchantNotification;
 use App\Notifications\WalletConnectionReadyNotification;
-use App\Services\WalletSecurity\WalletConfigIntegrityService;
-use App\Services\WalletSecurity\WalletSecurityNotifier;
 use App\Services\BtcPay\BoltzService;
 use App\Services\BtcPay\CashuService;
 use App\Services\BtcPay\LightningService;
+use App\Services\WalletSecurity\WalletConfigIntegrityService;
+use App\Services\WalletSecurity\WalletSecurityNotifier;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -297,6 +297,9 @@ class WalletConnectionService
             $fallbackLightningAddress
         );
         $connection->update(['configuration_source' => 'samrock']);
+        // Created directly as connected (no markConnected pass): record the
+        // BTCPay config SamRock just wrote as the drift-monitoring baseline.
+        app(WalletConfigIntegrityService::class)->baseline($connection->fresh() ?? $connection, $user, 'samrock');
 
         return $connection->fresh();
     }

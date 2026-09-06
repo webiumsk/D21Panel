@@ -74,9 +74,13 @@ class WalletChangeLogController extends Controller
             $term = '%'.strtolower($validated['q']).'%';
             $storeIds = Store::query()->whereRaw('LOWER(name) LIKE ?', [$term])->pluck('id')->all();
             $userIds = User::query()->whereRaw('LOWER(email) LIKE ?', [$term])->pluck('id')->all();
+            $storeIds = $storeIds ?: ['00000000-0000-0000-0000-000000000000'];
             $query->where(function ($q) use ($storeIds, $userIds) {
                 $q->whereIn('user_id', $userIds ?: [-1])
-                    ->orWhereIn('metadata->store_id', $storeIds ?: ['00000000-0000-0000-0000-000000000000']);
+                    ->orWhereIn('metadata->store_id', $storeIds)
+                    ->orWhere(function ($q2) use ($storeIds) {
+                        $q2->where('target_type', 'store')->whereIn('target_id', $storeIds);
+                    });
             });
         }
 

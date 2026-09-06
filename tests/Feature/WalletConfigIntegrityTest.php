@@ -6,14 +6,16 @@ use App\Http\Controllers\MessageController;
 use App\Jobs\ProcessBtcPayWebhook;
 use App\Jobs\VerifyWalletConfig;
 use App\Models\AuditLog;
+use App\Models\EmailVerificationChallenge;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\UserMessage;
 use App\Models\WalletConnection;
 use App\Models\WebhookEvent;
 use App\Notifications\WalletConfigDriftNotification;
-use App\Services\WalletSecurity\WalletConfigIntegrityService;
 use App\Services\WalletConnectionService;
+use App\Services\WalletSecurity\WalletConfigIntegrityService;
+use App\Services\WalletSecurity\WalletSecurityNotifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Crypt;
@@ -38,6 +40,8 @@ class WalletConfigIntegrityTest extends TestCase
 
     private bool $lnurlEnabled = false;
 
+    private bool $noMethods = false;
+
     /**
      * Fake BTCPay once per test: payment-methods answers with the current
      * $lnConnectionString / $lnEnabled (later Http::fake() calls would not
@@ -57,6 +61,9 @@ class WalletConfigIntegrityTest extends TestCase
                 return Http::response(['message' => 'down'], 503);
             }
             if (str_contains($request->url(), '/payment-methods')) {
+                if ($this->noMethods) {
+                    return Http::response([], 200);
+                }
                 $methods = [
                     ['paymentMethodId' => 'BTC-CHAIN', 'enabled' => true, 'config' => ['derivationScheme' => 'xpub...']],
                     ['paymentMethodId' => 'BTC-LN', 'enabled' => $this->lnEnabled, 'config' => ['connectionString' => $this->lnConnectionString, 'label' => 'x']],
@@ -378,7 +385,7 @@ class WalletConfigIntegrityTest extends TestCase
     {
         $connection = new WalletConnection(['type' => 'lnaddress', 'encrypted_secret' => Crypt::encryptString('type=lnaddress;ln-address=shop@blink.sv;')]);
 
-        $text = \App\Services\WalletSecurity\WalletSecurityNotifier::describeForMerchant($connection, [
+        $text = WalletSecurityNotifier::describeForMerchant($connection, [
             'changed' => ['BTC-LN'], 'added' => [], 'removed' => [],
             'details' => ['BTC-LN' => [
                 'expected' => 'enabled connectionString=type=lnaddress;ln-address=shop@blink.sv;',
@@ -388,13 +395,13 @@ class WalletConfigIntegrityTest extends TestCase
         $this->assertSame('Your Lightning address was changed from shop@blink.sv to thief@coinos.io.', $text);
 
         // Baseline predates snapshots: the expected side comes from the stored secret.
-        $text = \App\Services\WalletSecurity\WalletSecurityNotifier::describeForMerchant($connection, [
+        $text = WalletSecurityNotifier::describeForMerchant($connection, [
             'changed' => ['BTC-LN'], 'added' => [], 'removed' => [],
             'details' => ['BTC-LN' => ['expected' => null, 'actual' => 'enabled connectionString=type=lnaddress;ln-address=thief@coinos.io;']],
         ]);
         $this->assertSame('Your Lightning address was changed from shop@blink.sv to thief@coinos.io.', $text);
 
-        $text = \App\Services\WalletSecurity\WalletSecurityNotifier::describeForMerchant($connection, [
+        $text = WalletSecurityNotifier::describeForMerchant($connection, [
             'changed' => ['BTC-LN'], 'added' => ['BTC-CHAIN'], 'removed' => [],
             'details' => [
                 'BTC-LN' => ['expected' => 'enabled connectionString=type=lnaddress;ln-address=shop@blink.sv;', 'actual' => 'disabled connectionString=type=lnaddress;ln-address=shop@blink.sv;'],
@@ -404,11 +411,45 @@ class WalletConfigIntegrityTest extends TestCase
         $this->assertSame('Payment method BTC-LN was disabled. Payment method BTC-CHAIN was added (enabled derivationScheme=xpub6****abcd).', $text);
     }
 
+    #[Test]
+    public function an_empty_baseline_is_still_a_baseline(): void
+    {
+        Notification::fake();
+        [$user, , $connection] = $this->connectedStore();
+        $integrity = app(WalletConfigIntegrityService::class);
+
+        // Store without any payment method yet: baseline is an empty map.
+        $this->fakeBtcPay();
+        $this->noMethods = true;
+        $this->assertTrue($integrity->baseline($connection, $user));
+        $this->assertSame([], $connection->fresh()->config_fingerprint);
+        $this->assertSame('ok', $integrity->verify($connection->fresh())['status']);
+
+        // A method appearing later is drift, not a late baseline.
+        $this->noMethods = false;
+        $result = $integrity->verify($connection->fresh());
+        $this->assertSame('drift', $result['status']);
+        $this->assertSame(['BTC-CHAIN', 'BTC-LN'], $result['diff']['added']);
+    }
+
+    #[Test]
+    public function samrock_completion_records_a_baseline(): void
+    {
+        $this->fakeBtcPay();
+        $user = User::factory()->create();
+        $store = Store::factory()->create(['user_id' => $user->id, 'wallet_type' => 'aqua_boltz']);
+
+        $connection = app(WalletConnectionService::class)->markSamRockConnected($store, $user, null);
+
+        $this->assertSame(['BTC-CHAIN', 'BTC-LN'], array_keys($connection->fresh()->config_fingerprint));
+        $this->assertDatabaseHas('audit_logs', ['action' => 'wallet_connection.config_baselined', 'target_id' => $connection->id]);
+    }
+
     private function seedGrant(User $user, Store $store): void
     {
-        \App\Models\EmailVerificationChallenge::create([
+        EmailVerificationChallenge::create([
             'user_id' => $user->id,
-            'purpose' => \App\Models\EmailVerificationChallenge::PURPOSE_WALLET_CONNECTION_CHANGE,
+            'purpose' => EmailVerificationChallenge::PURPOSE_WALLET_CONNECTION_CHANGE,
             'email' => (string) $user->email,
             'code_hash' => str_repeat('0', 64),
             'payload' => ['store_id' => $store->id],

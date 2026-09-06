@@ -140,9 +140,10 @@ class WalletConfigIntegrityService
             return ['status' => 'skipped'];
         }
 
-        if (empty($connection->config_fingerprint)) {
+        if ($connection->config_fingerprint === null) {
             // Connected before monitoring existed: the current config is the
             // best baseline we have - noted in the audit trail as "late".
+            // (An empty array IS a baseline: a store without payment methods.)
             return ['status' => $this->baseline($connection, null, 'late') ? 'baselined' : 'error'];
         }
 
@@ -180,12 +181,17 @@ class WalletConfigIntegrityService
         }
 
         $diff['details'] = self::describe($connection->config_snapshot ?? [], $snapshot['configs'], $diff);
-        $firstDetection = $connection->drift_detected_at === null;
-        if ($firstDetection) {
-            $connection->drift_detected_at = now();
-        }
         $connection->drift_details = $diff;
         $connection->save();
+
+        // The scheduler and a webhook job can verify the same row at once:
+        // only the invocation that flips drift_detected_at from null wins
+        // the right to raise the incident (conditional update, no double alert).
+        $firstDetection = WalletConnection::query()
+            ->whereKey($connection->id)
+            ->whereNull('drift_detected_at')
+            ->update(['drift_detected_at' => now()]) === 1;
+        $connection->refresh();
 
         if ($firstDetection) {
             AuditLog::log('wallet_connection.drift_detected', 'wallet_connection', $connection->id, [
