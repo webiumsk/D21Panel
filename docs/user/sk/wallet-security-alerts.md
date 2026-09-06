@@ -35,6 +35,14 @@ Keď sa zistí rozdiel:
 
 **Čo urobiť:** otvorte stránku Pripojenie peňaženky, potvrďte zmenu e-mailovým kódom a znova pripojte svoju peňaženku. Nové pripojenie uloží nový odtlačok a incident uzavrie. Potom kontaktujte podporu, aby sme prešetrili, ako bola konfigurácia zmenená.
 
+## Kto dostáva peniaze - overenie príjemcu
+
+Každú Lightning faktúru podpisuje uzol, ktorý platbu prijíma. Pri pripojení peňaženky si Satflux od platobného servera vypýta malú testovaciu faktúru (nikdy sa neplatí a hneď sa archivuje), prečíta z nej podpisujúci uzol a zapamätá si ho ako uzol vašej peňaženky. Ak sa testovacia faktúra nedá prečítať, zapamätá si uzol z prvej zaplatenej faktúry.
+
+Odvtedy sa kontroluje každá vysporiadaná Lightning platba: uzol, ktorý podpísal jej faktúru, musí byť uzol vašej peňaženky. Platba podpísaná iným uzlom vyvolá bezpečnostnú správu a e-mail s číslom faktúry a uzlom a na stránke Pripojenie peňaženky sa zobrazí červené varovanie. Táto kontrola nezávisí od toho, čo platobný server tvrdí o svojej konfigurácii - pozerá sa na faktúry, ktoré boli naozaj zaplatené. Ak sa faktúra nedá dekódovať alebo skontrolovať, zlyhanie sa zaloguje a platba sa aj tak zaznamená; také platby nie sú overené.
+
+Ak ste peňaženku úmyselne presunuli k inému poskytovateľovi, nové pripojenie cez Satflux zapíše nový uzol. Prijať uzol alebo ho znova naučiť môže po prešetrení incidentu s vami len administrátor Satfluxu.
+
 ## Čo Satflux nevidí
 
-Detekcia porovnáva, čo platobný server hlási, s tým, čo ste pripojili. Pokrýva zmeny urobené cez rozhranie alebo API platobného servera vrátane ukradnutého API kľúča. Nedokáže odhaliť úplne kompromitovaný platobný server, ktorý o svojej konfigurácii klame. Sledujte zostatok svojej peňaženky oproti platbám zobrazeným v Satfluxe; ak nesedia, kontaktujte podporu.
+Detekcia porovnáva, čo platobný server hlási, s tým, čo ste pripojili. Pokrýva zmeny urobené cez rozhranie alebo API platobného servera vrátane ukradnutého API kľúča. Úplne kompromitovaný platobný server by mohol o svojej konfigurácii klamať; preto sa overenie príjemcu vyššie pozerá priamo na zaplatené faktúry. Server, ktorý by sfalšoval aj údaje o faktúrach, by ukazoval platby, ktoré k vám nikdy nedošli, preto sledujte zostatok svojej peňaženky oproti platbám zobrazeným v Satfluxe a ak nesedia, kontaktujte podporu.

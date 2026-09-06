@@ -88,6 +88,10 @@ class WalletConnectionController extends Controller
                 'config_verified_at' => $connection->config_verified_at?->toIso8601String(),
                 'drift_detected_at' => $connection->drift_detected_at?->toIso8601String(),
                 'drift_details' => $connection->drift_details,
+                // Payee attestation (PayeeAttestationService): node ids allowed to sign this store's invoices.
+                'payee_learned_at' => $connection->payee_learned_at?->toIso8601String(),
+                'payee_mismatch_at' => $connection->payee_mismatch_at?->toIso8601String(),
+                'payee_mismatch_details' => $connection->payee_mismatch_details,
             ],
         ]);
     }

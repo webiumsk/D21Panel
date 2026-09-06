@@ -35,6 +35,14 @@ When a difference is detected:
 
 **What to do:** open the Wallet connection page, confirm the change with the email code and reconnect your wallet. Reconnecting records a new fingerprint and closes the incident. Then contact support so we can investigate how the configuration was changed.
 
+## Who receives the money - payee verification
+
+Every Lightning invoice is signed by the node that receives the payment. When Satflux connects your wallet it asks the payment server for a tiny test invoice (it is never paid and is archived immediately), reads the signing node from it and remembers it as the node of your wallet. If the test invoice cannot be read, the node behind the first paid invoice is remembered instead.
+
+From then on every settled Lightning payment is checked: the node that signed its invoice must be the node of your wallet. A payment signed by any other node raises a security message and an email that name the invoice and the node, and the Wallet connection page shows a red warning. This check does not depend on what the payment server reports about its configuration - it looks at the invoices that were actually paid. If an invoice cannot be decoded or checked, the failure is logged and the payment is still recorded; such payments are not verified.
+
+If you deliberately moved your wallet to another provider, reconnecting it through Satflux records the new node. Only a Satflux administrator can accept a node or relearn it after investigating the incident with you.
+
 ## What Satflux cannot see
 
-Detection compares what the payment server reports with what you connected. It covers changes made through the payment server's own interface or API, including a stolen API key. It cannot detect a fully compromised payment server that lies about its configuration. Keep an eye on your wallet balance against the payments shown in Satflux; if they do not match, contact support.
+Detection compares what the payment server reports with what you connected. It covers changes made through the payment server's own interface or API, including a stolen API key. A fully compromised payment server could lie about its configuration; that is why the payee verification above looks at the paid invoices themselves. A server that also forges invoice data would show payments that never reached you, so keep an eye on your wallet balance against the payments shown in Satflux and contact support if they do not match.

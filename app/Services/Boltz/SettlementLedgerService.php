@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Models\StoreSettlement;
 use App\Models\User;
 use App\Services\BtcPay\InvoiceService;
+use App\Services\WalletSecurity\PayeeAttestationService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -50,6 +51,14 @@ class SettlementLedgerService
 
         $invoice = $this->invoiceService->getInvoice($btcpayStoreId, $invoiceId, $userApiKey);
         $methods = $this->invoiceService->getInvoicePaymentMethods($btcpayStoreId, $invoiceId, $userApiKey);
+
+        // Security: who signed the Lightning invoices this store got paid on
+        // (PayeeAttestationService). Never lets a failure break the ledger.
+        try {
+            app(PayeeAttestationService::class)->attestInvoice($store, $invoiceId, $methods);
+        } catch (\Throwable $e) {
+            Log::error('Payee attestation failed', ['store_id' => $store->id, 'invoice_id' => $invoiceId, 'error' => $e->getMessage()]);
+        }
 
         $count = 0;
         foreach ($methods as $method) {

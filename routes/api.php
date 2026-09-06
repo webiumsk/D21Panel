@@ -1074,6 +1074,8 @@ Route::middleware(['auth:sanctum', RequireVerifiedEmail::class, 'throttle:api-us
         Route::post('/admin/wallet-connections/{connection}/verify-config', [WalletChangeLogController::class, 'verify']);
         Route::post('/admin/wallet-connections/{connection}/rebaseline', [WalletChangeLogController::class, 'rebaseline'])
             ->middleware(AuditLog::class.':wallet_connection.config_rebaselined_by_admin');
+        Route::post('/admin/wallet-connections/{connection}/accept-payee', [WalletChangeLogController::class, 'acceptPayee']);
+        Route::post('/admin/wallet-connections/{connection}/learn-payee', [WalletChangeLogController::class, 'learnPayee']);
         Route::get('/admin/system-health', [SystemHealthController::class, 'show']);
         Route::get('/admin/system-health/history', [SystemHealthController::class, 'history']);
         Route::get('/admin/stats', [AdminController::class, 'stats']);

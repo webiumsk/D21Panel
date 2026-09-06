@@ -46,6 +46,15 @@ class InvoiceService
         }
     }
 
+    /** Archive (soft-delete) a BTCPay invoice - used for the payee-attestation canary. */
+    public function archiveInvoice(string $storeId, string $invoiceId, ?string $userApiKey = null): void
+    {
+        $this->client->withUserKey(
+            $userApiKey,
+            fn () => $this->client->delete("/api/v1/stores/{$storeId}/invoices/{$invoiceId}")
+        );
+    }
+
     public function listInvoices(string $storeId, array $filters = [], ?int $skip = null, ?int $take = null, ?string $userApiKey = null): array
     {
         $query = $filters;
@@ -86,6 +95,9 @@ class InvoiceService
     {
         $apiKeyHash = $userApiKey ? hash('sha256', $userApiKey) : 'server';
         Cache::forget("btcpay:invoice:{$storeId}:{$invoiceId}:{$apiKeyHash}");
+        // The payment list changes with every settlement: drop it together
+        // with the invoice, otherwise a webhook-driven resync reads stale payments.
+        Cache::forget("btcpay:invoice:payment_methods:{$storeId}:{$invoiceId}:{$apiKeyHash}");
     }
 
     public function getInvoice(string $storeId, string $invoiceId, ?string $userApiKey = null): array

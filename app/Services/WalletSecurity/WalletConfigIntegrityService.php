@@ -29,6 +29,7 @@ class WalletConfigIntegrityService
     public function __construct(
         protected StoreService $stores,
         protected WalletSecurityNotifier $notifier,
+        protected PayeeAttestationService $payees,
     ) {}
 
     /**
@@ -121,6 +122,10 @@ class WalletConfigIntegrityService
             'methods' => array_keys($snapshot['fingerprint']),
             'cleared_drift' => $hadDrift,
         ], $by?->id);
+
+        // A new wallet also means a new payee node: relearn it from a canary
+        // invoice (best-effort; first settled payment is the fallback).
+        $this->payees->learn($connection, $by, $reason);
 
         return true;
     }

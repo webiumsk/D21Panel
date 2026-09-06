@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\WalletConnection;
+use App\Services\WalletSecurity\PayeeAttestationService;
 use App\Services\WalletSecurity\WalletConfigIntegrityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,6 +31,9 @@ class WalletChangeLogController extends Controller
         'wallet_connection.config_baselined',
         'wallet_connection.drift_detected',
         'wallet_connection.drift_resolved',
+        'wallet_connection.payee_learned',
+        'wallet_connection.payee_mismatch',
+        'wallet_connection.payee_accepted',
         'store.cashu_fallback_configured',
     ];
 
@@ -135,9 +139,11 @@ class WalletChangeLogController extends Controller
     public function drifts(): JsonResponse
     {
         $rows = WalletConnection::query()
-            ->whereNotNull('drift_detected_at')
+            ->where(function ($q) {
+                $q->whereNotNull('drift_detected_at')->orWhereNotNull('payee_mismatch_at');
+            })
             ->with(['store:id,name,user_id', 'store.user:id,email'])
-            ->orderByDesc('drift_detected_at')
+            ->orderByRaw('COALESCE(drift_detected_at, payee_mismatch_at) DESC')
             ->get();
 
         $data = [];
@@ -153,6 +159,10 @@ class WalletChangeLogController extends Controller
                 'drift_detected_at' => $c->drift_detected_at?->toIso8601String(),
                 'config_verified_at' => $c->config_verified_at?->toIso8601String(),
                 'drift_details' => $c->drift_details,
+                'payee_pubkeys' => $c->payee_pubkeys,
+                'payee_learn_source' => $c->payee_learn_source,
+                'payee_mismatch_at' => $c->payee_mismatch_at?->toIso8601String(),
+                'payee_mismatch_details' => $c->payee_mismatch_details,
             ];
         }
 
@@ -174,6 +184,23 @@ class WalletChangeLogController extends Controller
         $ok = $integrity->baseline($connection, $request->user(), 'admin_accepted');
 
         return response()->json(['data' => ['baselined' => $ok]], $ok ? 200 : 502);
+    }
+
+    /** Admin confirms the node that signed the mismatching invoice (e.g. the merchant changed provider). */
+    public function acceptPayee(Request $request, WalletConnection $connection, PayeeAttestationService $payees): JsonResponse
+    {
+        $validated = $request->validate(['pubkey' => ['required', 'string', 'regex:/^0[23][0-9a-fA-F]{64}$/']]);
+        $payees->accept($connection, $validated['pubkey'], $request->user());
+
+        return response()->json(['data' => ['payee_pubkeys' => $connection->fresh()?->payee_pubkeys]]);
+    }
+
+    /** Relearn the payee allow-list from a fresh canary invoice. */
+    public function learnPayee(Request $request, WalletConnection $connection, PayeeAttestationService $payees): JsonResponse
+    {
+        $ok = $payees->learn($connection, $request->user(), 'admin_relearn');
+
+        return response()->json(['data' => ['learned' => $ok, 'payee_pubkeys' => $connection->fresh()?->payee_pubkeys]], $ok ? 200 : 502);
     }
 
     /** Store the row is about: metadata.store_id, or the target itself for store-targeted rows. */
