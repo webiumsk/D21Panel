@@ -4096,6 +4096,7 @@
         "wallet_connection_payee_learned": "Payee node learned",
         "wallet_connection_payee_mismatch": "PAYEE mismatch",
         "wallet_connection_payee_accepted": "Payee node accepted by admin",
+        "wallet_connection_payee_incident_reset": "Payee incident reset",
         "store_cashu_fallback_configured": "Cashu fallback configured",
         "wallet_connection_config_rebaselined_by_admin": "Baseline accepted by admin"
       }

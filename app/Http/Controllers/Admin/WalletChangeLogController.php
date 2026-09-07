@@ -34,6 +34,7 @@ class WalletChangeLogController extends Controller
         'wallet_connection.payee_learned',
         'wallet_connection.payee_mismatch',
         'wallet_connection.payee_accepted',
+        'wallet_connection.payee_incident_reset',
         'store.cashu_fallback_configured',
     ];
 

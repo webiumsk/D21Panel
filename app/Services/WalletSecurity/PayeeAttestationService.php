@@ -7,6 +7,8 @@ use App\Models\Store;
 use App\Models\User;
 use App\Models\WalletConnection;
 use App\Services\BtcPay\InvoiceService;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -28,6 +30,9 @@ class PayeeAttestationService
 
     public const LIGHTNING_METHODS = ['BTC-LN', 'BTC-LNURL'];
 
+    /** Multi-node providers may answer from a different node per invoice. */
+    public const CANARY_RECONFIRM_ATTEMPTS = 3;
+
     public function __construct(
         protected InvoiceService $invoices,
         protected WalletSecurityNotifier $notifier,
@@ -41,9 +46,28 @@ class PayeeAttestationService
     public function learn(WalletConnection $connection, ?User $by = null, string $reason = 'connected'): bool
     {
         $store = $connection->store;
-        $owner = $store instanceof Store ? $store->user : null;
-        if (! $store instanceof Store || ! $owner instanceof User || ! filled($owner->btcpay_api_key)) {
+        if (! $store instanceof Store) {
             return false;
+        }
+        $payee = $this->canaryPayee($store, $reason);
+        if ($payee === null) {
+            return false;
+        }
+
+        $this->setAllowlist($connection, [$payee], 'canary', $by, $reason);
+
+        return true;
+    }
+
+    /**
+     * Node id that signs an invoice the store hands out RIGHT NOW: create a
+     * canary invoice, read its Lightning destination, archive it.
+     */
+    public function canaryPayee(Store $store, string $reason = 'probe'): ?string
+    {
+        $owner = $store->user;
+        if (! $owner instanceof User || ! filled($owner->btcpay_api_key)) {
+            return null;
         }
         $apiKey = (string) $owner->btcpay_api_key;
         $btcpayStoreId = (string) $store->btcpay_store_id;
@@ -64,14 +88,13 @@ class PayeeAttestationService
             $methods = $this->invoices->getInvoicePaymentMethods($btcpayStoreId, $invoiceId, $apiKey);
         } catch (\Throwable $e) {
             Log::warning('Payee canary skipped', [
-                'connection_id' => $connection->id,
                 'store_id' => $store->id,
                 'reason' => $reason,
                 'error' => $e->getMessage(),
             ]);
             $this->archiveQuietly($btcpayStoreId, $invoiceId, $apiKey);
 
-            return false;
+            return null;
         }
 
         $payee = null;
@@ -84,42 +107,72 @@ class PayeeAttestationService
         $this->archiveQuietly($btcpayStoreId, $invoiceId, $apiKey);
 
         if ($payee === null) {
-            Log::info('Payee canary produced no Lightning invoice', [
-                'connection_id' => $connection->id,
-                'store_id' => $store->id,
-            ]);
-
-            return false;
+            Log::info('Payee canary produced no Lightning invoice', ['store_id' => $store->id, 'reason' => $reason]);
         }
 
-        $this->setAllowlist($connection, [$payee], 'canary', $by, $reason);
-
-        return true;
+        return $payee;
     }
 
     /**
-     * Check every settled Lightning payment of an invoice (called from the
-     * settlement ledger sync with the payment methods it already fetched).
+     * Check every Lightning payment of an invoice payload (manual / admin use;
+     * the ledger calls attestPayment() per newly recorded payment instead).
      *
      * @param  list<mixed>  $methods  Greenfield invoice payment-methods payload
      * @return array<string, string> bolt11 => outcome
      */
     public function attestInvoice(Store $store, string $invoiceId, array $methods): array
     {
-        $connection = $store->walletConnection;
-        if (! $connection instanceof WalletConnection || $connection->status !== 'connected') {
-            return [];
-        }
-
         $results = [];
-        foreach (self::lightningDestinations($methods, requirePayments: true) as $method => $bolt11) {
-            $results[$bolt11] = $this->attestBolt11($connection, $bolt11, [
-                'invoice_id' => $invoiceId,
-                'method' => preg_replace('/#\d+$/', '', (string) $method),
-            ]);
+        foreach ($methods as $method) {
+            if (! is_array($method)) {
+                continue;
+            }
+            $id = strtoupper((string) ($method['paymentMethodId'] ?? $method['paymentMethod'] ?? ''));
+            if (! in_array($id, self::LIGHTNING_METHODS, true)) {
+                continue;
+            }
+            $payments = is_array($method['payments'] ?? null) ? $method['payments'] : [];
+            foreach ($payments as $payment) {
+                if (! is_array($payment)) {
+                    continue;
+                }
+                $bolt11 = $payment['destination'] ?? ($method['destination'] ?? null);
+                if (! is_string($bolt11)) {
+                    continue;
+                }
+                $paidAt = isset($payment['receivedDate']) ? Carbon::parse((string) $payment['receivedDate']) : null;
+                $results[$bolt11] = $this->attestPayment($store, $invoiceId, $id, $bolt11, $paidAt);
+            }
         }
 
         return $results;
+    }
+
+    /**
+     * One settled Lightning payment. Payments received before the wallet was
+     * (re)connected or before the allow-list was learned are history and are
+     * neither judged nor learned from.
+     *
+     * @return 'ok'|'learned'|'mismatch'|'unparsed'|'skipped'|'historical'
+     */
+    public function attestPayment(Store $store, string $invoiceId, string $methodId, ?string $bolt11, ?CarbonInterface $paidAt): string
+    {
+        $connection = $store->walletConnection;
+        if (! $connection instanceof WalletConnection || $connection->status !== 'connected') {
+            return 'skipped';
+        }
+        if ($bolt11 === null || ! str_starts_with(strtolower($bolt11), 'ln')) {
+            return 'skipped';
+        }
+        $since = $connection->secret_updated_at ?? $connection->created_at;
+        if ($connection->payee_learned_at && (! $since || $connection->payee_learned_at->gt($since))) {
+            $since = $connection->payee_learned_at;
+        }
+        if ($paidAt !== null && $since !== null && $paidAt->lt($since)) {
+            return 'historical';
+        }
+
+        return $this->attestBolt11($connection, $bolt11, ['invoice_id' => $invoiceId, 'method' => $methodId]);
     }
 
     /**
@@ -153,6 +206,20 @@ class PayeeAttestationService
         }
 
         $store = $connection->store;
+        if (! $store instanceof Store) {
+            return 'skipped';
+        }
+
+        // Providers run several nodes (Blink: lnd1/lnd2/..., Boltz: LND + CLN)
+        // and move between them. Before raising an incident, ask the connected
+        // wallet for fresh invoices: if it signs with this node right now, the
+        // payment is consistent with the wallet Satflux connected.
+        if ($this->canaryConfirms($store, $payee)) {
+            $this->setAllowlist($connection, [...$allowed, $payee], $connection->payee_learn_source ?? 'canary', null, 'canary_reconfirm', $context);
+
+            return 'learned';
+        }
+
         $details = [
             'pubkey' => $payee,
             'invoice_id' => $context['invoice_id'] ?? null,
@@ -170,7 +237,7 @@ class PayeeAttestationService
             ->update(['payee_mismatch_at' => now()]) === 1;
         $connection->refresh();
 
-        if ($first && $store instanceof Store) {
+        if ($first) {
             AuditLog::log('wallet_connection.payee_mismatch', 'wallet_connection', $connection->id, [
                 'store_id' => $store->id,
                 ...$details,
@@ -180,6 +247,22 @@ class PayeeAttestationService
         }
 
         return 'mismatch';
+    }
+
+    /** Up to CANARY_RECONFIRM_ATTEMPTS fresh invoices: does the wallet sign with $payee now? */
+    protected function canaryConfirms(Store $store, string $payee): bool
+    {
+        for ($i = 0; $i < self::CANARY_RECONFIRM_ATTEMPTS; $i++) {
+            $current = $this->canaryPayee($store, 'reconfirm');
+            if ($current === null) {
+                return false;
+            }
+            if ($current === $payee) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Admin accepts a node after investigating: add it to the allow-list and close the incident. */
@@ -212,6 +295,7 @@ class PayeeAttestationService
      */
     protected function setAllowlist(WalletConnection $connection, array $pubkeys, string $source, ?User $by, string $reason, array $context = []): void
     {
+        $pubkeys = array_values(array_unique($pubkeys));
         $connection->forceFill([
             'payee_pubkeys' => $pubkeys,
             'payee_learn_source' => $source,

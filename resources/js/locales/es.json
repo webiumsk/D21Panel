@@ -2108,6 +2108,7 @@
         "wallet_connection_payee_learned": "Nodo receptor aprendido",
         "wallet_connection_payee_mismatch": "DISCREPANCIA de receptor",
         "wallet_connection_payee_accepted": "Nodo receptor aceptado por el admin",
+        "wallet_connection_payee_incident_reset": "Incidente de receptor restablecido",
         "store_cashu_fallback_configured": "Respaldo Cashu configurado",
         "wallet_connection_config_rebaselined_by_admin": "Base aceptada por el admin"
       }

@@ -52,14 +52,6 @@ class SettlementLedgerService
         $invoice = $this->invoiceService->getInvoice($btcpayStoreId, $invoiceId, $userApiKey);
         $methods = $this->invoiceService->getInvoicePaymentMethods($btcpayStoreId, $invoiceId, $userApiKey);
 
-        // Security: who signed the Lightning invoices this store got paid on
-        // (PayeeAttestationService). Never lets a failure break the ledger.
-        try {
-            app(PayeeAttestationService::class)->attestInvoice($store, $invoiceId, $methods);
-        } catch (\Throwable $e) {
-            Log::error('Payee attestation failed', ['store_id' => $store->id, 'invoice_id' => $invoiceId, 'error' => $e->getMessage()]);
-        }
-
         $count = 0;
         foreach ($methods as $method) {
             if (! is_array($method)) {
@@ -144,7 +136,9 @@ class SettlementLedgerService
 
             $estimate = $this->estimateNetSettlement($category, $grossSats);
 
-            StoreSettlement::updateOrCreate(
+            $paidAt = isset($payment['receivedDate']) ? Carbon::parse($payment['receivedDate']) : null;
+            $destination = isset($payment['destination']) ? (string) $payment['destination'] : null;
+            $row = StoreSettlement::updateOrCreate(
                 [
                     'store_id' => $store->id,
                     'btcpay_invoice_id' => $invoiceId,
@@ -153,9 +147,9 @@ class SettlementLedgerService
                 ],
                 [
                     'category' => $category,
-                    'destination' => isset($payment['destination']) ? (string) $payment['destination'] : null,
+                    'destination' => $destination,
                     'payment_status' => isset($payment['status']) ? (string) $payment['status'] : null,
-                    'paid_at' => isset($payment['receivedDate']) ? Carbon::parse($payment['receivedDate']) : null,
+                    'paid_at' => $paidAt,
                     'gross_sats' => $grossSats,
                     'invoice_currency' => isset($invoice['currency']) ? strtoupper((string) $invoice['currency']) : null,
                     'invoice_amount' => isset($invoice['amount']) && is_numeric($invoice['amount']) ? (string) $invoice['amount'] : null,
@@ -165,6 +159,25 @@ class SettlementLedgerService
                 ]
             );
             $count++;
+
+            // Security: who signed the Lightning invoice this payment settled
+            // on (PayeeAttestationService). Only payments the ledger sees for
+            // the first time - the daily reconcile re-reads history and must
+            // not judge old invoices against today's wallet. Never lets a
+            // failure break the ledger.
+            if ($row->wasRecentlyCreated && in_array($methodId, PayeeAttestationService::LIGHTNING_METHODS, true)) {
+                try {
+                    app(PayeeAttestationService::class)->attestPayment(
+                        $store,
+                        $invoiceId,
+                        $methodId,
+                        $destination ?: (isset($method['destination']) ? (string) $method['destination'] : null),
+                        $paidAt,
+                    );
+                } catch (\Throwable $e) {
+                    Log::error('Payee attestation failed', ['store_id' => $store->id, 'invoice_id' => $invoiceId, 'error' => $e->getMessage()]);
+                }
+            }
         }
 
         return $count;
