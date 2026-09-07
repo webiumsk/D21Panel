@@ -18,6 +18,7 @@ class UserMessage extends Model
     protected $fillable = [
         'user_id',
         'type',
+        'wallet_connection_id',
         'title',
         'body',
         'link',
@@ -55,6 +56,7 @@ class UserMessage extends Model
      * @param  string  $type  info|success|warning|invoice|subscription|support
      * @param  string|null  $link  Optional URL
      * @param  string|null  $linkText  Optional link label
+     * @param  string|null  $walletConnectionId  Wallet connection a security message is about
      */
     public static function createForUser(
         int $userId,
@@ -62,11 +64,13 @@ class UserMessage extends Model
         ?string $body = null,
         string $type = 'info',
         ?string $link = null,
-        ?string $linkText = null
+        ?string $linkText = null,
+        ?string $walletConnectionId = null
     ): self {
         return self::create([
             'user_id' => $userId,
             'type' => $type,
+            'wallet_connection_id' => $walletConnectionId,
             'title' => $title,
             'body' => $body,
             'link' => $link,

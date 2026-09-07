@@ -30,6 +30,7 @@ class WalletSecurityNotifier
             .($actor ? ' by '.($actor->email ?: 'user #'.$actor->id) : '')
             .' ('.$this->typeLabel($connection).', '.($connection->masked_secret ?: '******').').'
             .' If this was not you, reconnect your wallet now and contact support.',
+            connection: $connection,
         );
     }
 
@@ -43,6 +44,7 @@ class WalletSecurityNotifier
             'Wallet secret revealed - '.$store->name,
             'The wallet connection secret of "'.$store->name.'" was revealed by '.$who
             .' ('.$context.'). If this was not you, rotate the credential in your wallet app and reconnect.',
+            connection: $connection,
         );
     }
 
@@ -56,6 +58,7 @@ class WalletSecurityNotifier
             'The payment configuration of "'.$store->name.'" on the payment server no longer matches the wallet you connected. '
             .self::describeForMerchant($connection, $diff)
             .' Payments may be routed elsewhere. Reconnect your wallet immediately and contact support.',
+            connection: $connection,
         );
 
         $merchant = $store->user;
@@ -72,6 +75,7 @@ class WalletSecurityNotifier
             'Store "'.$store->name.'" (owner '.($merchant instanceof User && $merchant->email ? $merchant->email : 'unknown').'): '
             .self::describeForMerchant($connection, $diff).' Technical diff: '.$summary,
             16711680,
+            $connection,
         );
     }
 
@@ -86,6 +90,7 @@ class WalletSecurityNotifier
             $store,
             'Payment received by an unknown wallet - '.$store->name,
             $what.' Money paid to "'.$store->name.'" may be going to someone else. Check your wallet balance, reconnect your wallet and contact support immediately.',
+            connection: $connection,
         );
 
         $merchant = $store->user;
@@ -102,6 +107,7 @@ class WalletSecurityNotifier
             'Store "'.$store->name.'" (owner '.($merchant instanceof User && $merchant->email ? $merchant->email : 'unknown').'): '.$what
             .' Full node id: '.$details['pubkey'],
             16711680,
+            $connection,
         );
     }
 
@@ -112,11 +118,12 @@ class WalletSecurityNotifier
             'Wallet configuration restored - '.$store->name,
             'The payment configuration of "'.$store->name.'" matches your connected wallet again.',
             'info',
+            connection: $connection,
         );
-        $this->adminAlert('Wallet config drift resolved: '.$store->name, 'Configuration matches the baseline again.', 3066993);
+        $this->adminAlert('Wallet config drift resolved: '.$store->name, 'Configuration matches the baseline again.', 3066993, $connection);
     }
 
-    private function merchantMessage(Store $store, string $title, string $body, string $type = self::TYPE): void
+    private function merchantMessage(Store $store, string $title, string $body, string $type = self::TYPE, ?WalletConnection $connection = null): void
     {
         $merchant = $store->user;
         if (! $merchant instanceof User) {
@@ -130,6 +137,7 @@ class WalletSecurityNotifier
                 $type,
                 rtrim((string) config('app.url'), '/').'/stores/'.$store->id.'/wallet-connection',
                 'Wallet connection',
+                $connection?->id,
             );
         } catch (\Throwable $e) {
             Log::error('Failed to create wallet security message', ['store_id' => $store->id, 'error' => $e->getMessage()]);
@@ -137,12 +145,12 @@ class WalletSecurityNotifier
     }
 
     /** In-app security message for every admin plus the support Discord webhook. */
-    public function adminAlert(string $title, string $body, int $color): void
+    public function adminAlert(string $title, string $body, int $color, ?WalletConnection $connection = null): void
     {
         $link = rtrim((string) config('app.url'), '/').'/admin/wallet-changes';
         try {
-            User::query()->where('role', 'admin')->each(function (User $admin) use ($title, $body, $link) {
-                UserMessage::createForUser($admin->id, $title, $body, self::TYPE, $link, 'Wallet change log');
+            User::query()->where('role', 'admin')->each(function (User $admin) use ($title, $body, $link, $connection) {
+                UserMessage::createForUser($admin->id, $title, $body, self::TYPE, $link, 'Wallet change log', $connection?->id);
             });
         } catch (\Throwable $e) {
             Log::error('Failed to create admin wallet security message', ['error' => $e->getMessage()]);

@@ -241,20 +241,28 @@ class PayeeAttestationTest extends TestCase
         $this->paidInvoices = [Bolt11Test::OTHER_INVOICE];
         app(SettlementLedgerService::class)->syncInvoice($store, 'paid-1');
         $this->assertNotNull($connection->fresh()->payee_mismatch_at);
+        $this->assertSame($connection->id, UserMessage::where('user_id', $user->id)->value('wallet_connection_id'));
         UserMessage::createForUser($admin->id, 'Wallet config drift: other', 'keep me', 'security');
+        // A genuine incident of another store, already resolved by the admin: its message must survive.
+        [$otherUser, , $otherConnection] = $this->connectedStore();
+        $kept = UserMessage::createForUser($otherUser->id, 'Payment received by an unknown wallet - Other', 'real', 'security', null, null, $otherConnection->id);
+        // A message from before the column existed (no id) inside the window is purged.
+        $legacy = UserMessage::createForUser($admin->id, 'Payee mismatch: Legacy', 'old', 'security');
 
         $this->artisan('wallet-connections:reset-payee-incidents', ['--dry-run' => true, '--purge-messages' => true])
-            ->expectsOutputToContain('Would reset 1 incident(s), 2 security message(s)')
+            ->expectsOutputToContain('Would reset 1 incident(s), 3 security message(s)')
             ->assertExitCode(0);
         $this->assertNotNull($connection->fresh()->payee_mismatch_at);
 
         $this->artisan('wallet-connections:reset-payee-incidents', ['--since' => now()->subMinute()->toDateTimeString(), '--purge-messages' => true])
-            ->expectsOutputToContain('Reset 1 incident(s), 2 security message(s)')
+            ->expectsOutputToContain('Reset 1 incident(s), 3 security message(s)')
             ->assertExitCode(0);
 
         $this->assertNull($connection->fresh()->payee_mismatch_at);
         $this->assertSame(0, UserMessage::where('user_id', $user->id)->count());
         $this->assertSame(1, UserMessage::where('user_id', $admin->id)->count(), 'unrelated security messages stay');
+        $this->assertNotNull($kept->fresh(), 'a resolved incident of another connection keeps its message');
+        $this->assertNull($legacy->fresh(), 'legacy messages without an id fall back to the time window');
         $this->assertDatabaseHas('audit_logs', ['action' => 'wallet_connection.payee_incident_reset', 'target_id' => $connection->id]);
     }
 

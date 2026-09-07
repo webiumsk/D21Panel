@@ -48,13 +48,23 @@ class ResetPayeeIncidents extends Command
 
         $deleted = 0;
         if ($this->option('purge-messages')) {
+            // Only the messages of the incidents reset above. Messages written
+            // before the wallet_connection_id column existed carry no id and are
+            // matched by the time window instead.
+            $connectionIds = $rows->pluck('id')->all();
             $messages = UserMessage::query()
                 ->where('type', 'security')
                 ->where(function ($q) {
                     $q->where('title', 'like', 'Payment received by an unknown wallet%')
                         ->orWhere('title', 'like', 'Payee mismatch:%');
                 })
-                ->when($since, fn ($q) => $q->where('created_at', '>=', $since));
+                ->where(function ($q) use ($connectionIds, $since) {
+                    $q->whereIn('wallet_connection_id', $connectionIds ?: ['00000000-0000-0000-0000-000000000000'])
+                        ->orWhere(function ($legacy) use ($since) {
+                            $legacy->whereNull('wallet_connection_id')
+                                ->when($since, fn ($qq) => $qq->where('created_at', '>=', $since));
+                        });
+                });
             $deleted = $dry ? $messages->count() : $messages->delete();
         }
 
