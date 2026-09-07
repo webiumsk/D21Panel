@@ -4096,6 +4096,7 @@
         "wallet_connection_payee_learned": "Empfänger-Node gelernt",
         "wallet_connection_payee_mismatch": "EMPFÄNGER-Abweichung",
         "wallet_connection_payee_accepted": "Empfänger-Node vom Admin akzeptiert",
+        "wallet_connection_payee_incident_reset": "Empfänger-Vorfall zurückgesetzt",
         "store_cashu_fallback_configured": "Cashu-Fallback konfiguriert",
         "wallet_connection_config_rebaselined_by_admin": "Basis vom Admin übernommen"
       }

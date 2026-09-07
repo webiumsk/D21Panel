@@ -32,6 +32,12 @@ class PayeeAttestationTest extends TestCase
     /** @var list<string> BOLT11s reported as settled payments on invoice "paid-1". */
     private array $paidInvoices = [Bolt11Test::SPEC_DONATION];
 
+    /** receivedDate of those payments (default: just now, i.e. after any baseline in the test). */
+    private ?string $paidAt = null;
+
+    /** Distinct payment ids per sync so the ledger sees each payment once per test step. */
+    private int $paymentSerial = 0;
+
     private bool $faked = false;
 
     /** @var list<string> */
@@ -65,7 +71,7 @@ class PayeeAttestationTest extends TestCase
                         'paymentMethodId' => 'BTC-LN',
                         'destination' => $this->paidInvoices[0],
                         'rate' => '60000',
-                        'payments' => array_map(fn ($b) => ['id' => 'p'.md5($b), 'destination' => $b, 'value' => '0.00001', 'status' => 'Settled', 'receivedDate' => now()->toIso8601String()], $this->paidInvoices),
+                        'payments' => array_map(fn ($b) => ['id' => 'p'.$this->paymentSerial.md5($b), 'destination' => $b, 'value' => '0.00001', 'status' => 'Settled', 'receivedDate' => $this->paidAt ?? now()->addSecond()->toIso8601String()], $this->paidInvoices),
                     ],
                 ], 200);
             }
@@ -159,10 +165,15 @@ class PayeeAttestationTest extends TestCase
         $this->assertDatabaseHas('user_messages', ['user_id' => $admin->id, 'type' => 'security']);
         Notification::assertSentTo($user, WalletPayeeMismatchNotification::class);
 
-        // Same invoice synced again (webhook retry): no second incident.
+        // Same invoice synced again (webhook retry, daily reconcile): the
+        // payment is already in the ledger, nothing is re-judged.
         app(SettlementLedgerService::class)->syncInvoice($store, 'paid-1');
         $this->assertSame(1, AuditLog::where('action', 'wallet_connection.payee_mismatch')->count());
         $this->assertSame(1, UserMessage::where('user_id', $user->id)->where('type', 'security')->count());
+        // A NEW payment to the foreign node while the incident is open: still one incident.
+        $this->paymentSerial++;
+        app(SettlementLedgerService::class)->syncInvoice($store, 'paid-1');
+        $this->assertSame(1, AuditLog::where('action', 'wallet_connection.payee_mismatch')->count());
 
         // Payments to the known node keep passing while the incident is open.
         $this->paidInvoices = [Bolt11Test::SPEC_DONATION];
@@ -171,6 +182,80 @@ class PayeeAttestationTest extends TestCase
         ]);
         $this->assertSame(['ok'], array_values($result));
         $this->assertNotNull($connection->fresh()->payee_mismatch_at);
+    }
+
+    #[Test]
+    public function historical_payments_are_neither_judged_nor_learned_from(): void
+    {
+        Notification::fake();
+        $this->fakeBtcPay();
+        [$user, $store, $connection] = $this->connectedStore();
+        app(WalletConfigIntegrityService::class)->baseline($connection, $user);
+
+        // The daily reconcile re-reads last week's invoices, paid when the store used another wallet.
+        $this->paidInvoices = [Bolt11Test::OTHER_INVOICE];
+        $this->paidAt = now()->subDays(7)->toIso8601String();
+        app(SettlementLedgerService::class)->syncInvoice($store, 'paid-1');
+
+        $this->assertNull($connection->fresh()->payee_mismatch_at);
+        $this->assertSame(0, AuditLog::where('action', 'wallet_connection.payee_mismatch')->count());
+        $this->assertDatabaseCount('store_settlements', 1);
+
+        // Without any allow-list an old payment must not become the trusted node either.
+        $connection->forceFill(['payee_pubkeys' => null, 'payee_learned_at' => null, 'payee_learn_source' => null])->save();
+        $this->paymentSerial++;
+        app(SettlementLedgerService::class)->syncInvoice($store, 'paid-1');
+        $this->assertNull($connection->fresh()->payee_pubkeys);
+    }
+
+    #[Test]
+    public function a_node_the_wallet_signs_with_right_now_is_learned_instead_of_flagged(): void
+    {
+        Notification::fake();
+        $this->fakeBtcPay();
+        [$user, $store, $connection] = $this->connectedStore();
+        app(WalletConfigIntegrityService::class)->baseline($connection, $user);
+        $this->assertSame([Bolt11Test::SPEC_PAYEE], $connection->fresh()->payee_pubkeys);
+
+        // Provider moved to another node (Blink lnd1 -> lnd2 style): fresh canaries come from it too.
+        $this->canaryInvoice = Bolt11Test::OTHER_INVOICE;
+        $this->paidInvoices = [Bolt11Test::OTHER_INVOICE];
+        app(SettlementLedgerService::class)->syncInvoice($store, 'paid-1');
+
+        $fresh = $connection->fresh();
+        $this->assertNull($fresh->payee_mismatch_at);
+        $this->assertSame([Bolt11Test::SPEC_PAYEE, Bolt11Test::OTHER_PAYEE], $fresh->payee_pubkeys);
+        $this->assertSame(0, UserMessage::where('user_id', $user->id)->where('type', 'security')->count());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'wallet_connection.payee_learned']);
+        $this->assertSame('canary_reconfirm', AuditLog::where('action', 'wallet_connection.payee_learned')->latest('id')->first()->metadata['reason']);
+    }
+
+    #[Test]
+    public function reset_command_closes_incidents_and_purges_their_messages(): void
+    {
+        Notification::fake();
+        $this->fakeBtcPay();
+        [$user, $store, $connection] = $this->connectedStore();
+        $admin = User::factory()->admin()->create();
+        app(WalletConfigIntegrityService::class)->baseline($connection, $user);
+        $this->paidInvoices = [Bolt11Test::OTHER_INVOICE];
+        app(SettlementLedgerService::class)->syncInvoice($store, 'paid-1');
+        $this->assertNotNull($connection->fresh()->payee_mismatch_at);
+        UserMessage::createForUser($admin->id, 'Wallet config drift: other', 'keep me', 'security');
+
+        $this->artisan('wallet-connections:reset-payee-incidents', ['--dry-run' => true, '--purge-messages' => true])
+            ->expectsOutputToContain('Would reset 1 incident(s), 2 security message(s)')
+            ->assertExitCode(0);
+        $this->assertNotNull($connection->fresh()->payee_mismatch_at);
+
+        $this->artisan('wallet-connections:reset-payee-incidents', ['--since' => now()->subMinute()->toDateTimeString(), '--purge-messages' => true])
+            ->expectsOutputToContain('Reset 1 incident(s), 2 security message(s)')
+            ->assertExitCode(0);
+
+        $this->assertNull($connection->fresh()->payee_mismatch_at);
+        $this->assertSame(0, UserMessage::where('user_id', $user->id)->count());
+        $this->assertSame(1, UserMessage::where('user_id', $admin->id)->count(), 'unrelated security messages stay');
+        $this->assertDatabaseHas('audit_logs', ['action' => 'wallet_connection.payee_incident_reset', 'target_id' => $connection->id]);
     }
 
     #[Test]

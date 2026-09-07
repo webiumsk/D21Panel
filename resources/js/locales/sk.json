@@ -4100,6 +4100,7 @@
         "wallet_connection_payee_learned": "Uzol príjemcu naučený",
         "wallet_connection_payee_mismatch": "NEZHODA príjemcu",
         "wallet_connection_payee_accepted": "Uzol príjemcu prijatý adminom",
+        "wallet_connection_payee_incident_reset": "Incident príjemcu zrušený",
         "store_cashu_fallback_configured": "Cashu fallback nastavený",
         "wallet_connection_config_rebaselined_by_admin": "Základ prijatý adminom"
       }
